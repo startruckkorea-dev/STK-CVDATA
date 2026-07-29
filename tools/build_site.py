@@ -246,7 +246,7 @@ def sync_translations(raw_root: Path) -> None:
     if not src.exists():
         print("[i18n] no SharePoint translations.json yet — keeping bundled seed")
         return
-    dst = Path("site/i18n/translations.json").resolve()
+    dst = Path("docs/i18n/translations.json").resolve()
     dst.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(src, dst)
     print(f"[i18n] {src.name} -> {dst}")
@@ -272,7 +272,7 @@ def build_cv_data(raw_root: Path, out_dir: Path) -> list[int]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw", default="raw_data", help="raw Excel directory")
-    parser.add_argument("--out", default="site/data", help="JSON output directory")
+    parser.add_argument("--out", default="docs/data", help="JSON output directory")
     args = parser.parse_args()
 
     raw_root = Path(args.raw).resolve()

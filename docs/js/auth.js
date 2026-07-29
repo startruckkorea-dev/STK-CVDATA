@@ -14,6 +14,15 @@ const TENANT_ID = "19cab1f5-21f4-44df-8ac6-96d6ca595203";
 const ALLOWED_DOMAINS = ["hyosung.com", "startruckkorea.com"];
 const ALLOWED_USERS = []; // leave empty to allow anyone in the domains
 
+// The login gate is only enforced on the production domain(s). On localhost or
+// a personal *.github.io preview the dashboard loads without sign-in (the data
+// JSON is a committed static file). Add every production host here. Mirrors the
+// SAM_AFAB PROTECTED_HOSTS gate.
+const PROTECTED_HOSTS = ["mbtruck-cvdata.startruckkorea.com"];
+function _loginRequired() {
+  return PROTECTED_HOSTS.includes(window.location.hostname);
+}
+
 const msalConfig = {
   auth: {
     clientId: CLIENT_ID,
@@ -48,9 +57,14 @@ function _isStaleAuthError(e) {
   return !!e && STALE_AUTH_ERRORS.has(e.errorCode);
 }
 
+// Only User.Read is needed to sign in (identity). The SharePoint scopes are
+// requested incrementally by getAccessToken() when a page actually calls Graph
+// — asking for them at login can trigger admin-consent failures that block
+// sign-in entirely. Mirrors the SAM_AFAB gate.
 const LOGIN_REQUEST = {
-  scopes: ["User.Read", "Sites.ReadWrite.All", "Files.ReadWrite.All"],
+  scopes: ["User.Read"],
 };
+const GRAPH_SCOPES = ["User.Read", "Sites.ReadWrite.All", "Files.ReadWrite.All"];
 
 let _pca = null;
 let _account = null;
@@ -105,13 +119,17 @@ export async function requireLogin() {
 
   const accounts = pca.getAllAccounts();
   if (accounts.length === 0) {
+    // Non-production host (localhost / *.github.io): skip the gate and let the
+    // page render. Return a truthy stub so `if (!(await requireLogin())) return`
+    // callers proceed.
+    if (!_loginRequired()) return { username: "", name: "" };
     _renderLoginScreen();
     return null;
   }
   const account = accounts[0];
   pca.setActiveAccount(account);
 
-  if (!_isAllowed(account)) {
+  if (_loginRequired() && !_isAllowed(account)) {
     _renderForbidden(account);
     return null;
   }
@@ -160,7 +178,7 @@ export async function signOut() {
  * the default architecture has GitHub Actions pre-build JSON, so most
  * pages won't call this.
  */
-export async function getAccessToken(scopes = LOGIN_REQUEST.scopes) {
+export async function getAccessToken(scopes = GRAPH_SCOPES) {
   const pca = _client();
   const account = _account || pca.getAllAccounts()[0];
   if (!account) throw new Error("not signed in");
