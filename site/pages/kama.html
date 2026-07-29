@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_kama">KAMA 국내 상용 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_kama">KAMA 국내 상용</h1>
+    <div class="page-sub">현대 · 타타대우 월별 등록 + SoM</div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <div id="kpi-row" class="kpi-row"></div>
+
+    <section class="section">
+      <h2>브랜드 비교</h2>
+      <div id="chart-brand" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>현대 SoM 추이</h2>
+      <div id="chart-som" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>월별 데이터</h2>
+      <div id="monthly-table"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions, monthOptions, segmentOptions } from "../js/filters.js";
+  import { loadManifest, loadKama } from "../js/data.js";
+  import { groupedBar, lineChart } from "../js/charts.js";
+  import { fmtNum, fmtPct } from "../js/format.js";
+  import { getState, subscribe } from "../js/state.js";
+
+  const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
+  const MONTHS_KR = MONTHS.map((_, i) => `${i+1}월`);
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    try {
+      const manifest = await loadManifest();
+      const years = manifest.kama_years || [];
+      if (!years.length) {
+        document.querySelector(".main").insertAdjacentHTML("afterbegin",
+          `<div class="banner warn">${t("no_data")} (KAMA)</div>`); return;
+      }
+      renderFilters(document.getElementById("filters"), [
+        { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+        { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
+        { key: "segment", label: "filter_segment",
+          options: segmentOptions(["Cargo","Tractor","Dump"]), default: "ALL" },
+      ], render);
+      subscribe(render);
+      document.addEventListener("langchange", render);
+      render();
+    } catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${e.message}</div>`);
+    }
+  })();
+
+  async function render() {
+    const s = { ...getState() };
+    const manifest = await loadManifest();
+    const year = parseInt(s.year, 10) || manifest.kama_years[0];
+    const data = await loadKama(year);
+
+    const brands = ["Hyundai", "Tata Daewoo"];
+    const seg = s.segment && s.segment !== "ALL" ? s.segment : null;
+
+    const ytd = (b) => seg
+      ? (data.by_brand_seg[b]?.[seg]?.YTD ?? 0)
+      : (data.by_brand[b]?.YTD ?? 0);
+    const total = ytd("Hyundai") + ytd("Tata Daewoo");
+    const hyundaiShare = total ? (ytd("Hyundai") / total) * 100 : 0;
+
+    document.getElementById("kpi-row").innerHTML = [
+      kpi("YTD", fmtNum(total)),
+      kpi("Hyundai", fmtNum(ytd("Hyundai"))),
+      kpi("Hyundai Share", fmtPct(hyundaiShare)),
+    ].join("");
+
+    groupedBar(document.getElementById("chart-brand"), {
+      categories: brands,
+      series: [{ name: `${year} YTD`, values: brands.map(b => ytd(b)) }],
+    });
+
+    const monthlyVals = (b) => MONTHS.map(m => seg
+      ? (data.by_brand_seg[b]?.[seg]?.[m] ?? 0)
+      : (data.by_brand[b]?.[m] ?? 0));
+    const hyVals = monthlyVals("Hyundai");
+    const totalMonthly = MONTHS.map((_, i) =>
+      brands.reduce((acc, b) => acc + monthlyVals(b)[i], 0));
+    const somMonthly = hyVals.map((v, i) => totalMonthly[i] ? (v / totalMonthly[i]) * 100 : 0);
+    lineChart(document.getElementById("chart-som"), {
+      x: MONTHS_KR,
+      series: [{ name: "Hyundai SoM", values: somMonthly, color: "#1a56db" }],
+      yLabel: "%",
+    });
+
+    const rows = brands.map(b => {
+      const vals = monthlyVals(b);
+      return `<tr><td class="label">${b}</td>${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join("")}<td class="num"><strong>${fmtNum(vals.reduce((a,b)=>a+b,0))}</strong></td></tr>`;
+    }).join("");
+    document.getElementById("monthly-table").innerHTML = `
+      <table class="data">
+        <thead><tr><th class="label">Brand</th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th>YTD</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+  }
+
+  function kpi(title, value) {
+    return `<div class="kpi-card"><div class="title">${title}</div><div class="value">${value}</div></div>`;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_cargo">카고차량 분석 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_cargo">카고차량 분석</h1>
+    <div class="page-sub">트럭(상용) · 용도 트리맵 · 축형 분석</div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <section class="section">
+      <h2>용도 트리맵</h2>
+      <div id="chart-treemap" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>용도 Sunburst</h2>
+      <div id="chart-sunburst" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>Top 20 용도상세</h2>
+      <div id="chart-top-purpose" class="chart"></div>
+    </section>
+
+    <div class="banner info" data-t="todo_note"></div>
+    <details class="todo-list" open>
+      <summary>구현 항목</summary>
+      <ul>
+        <li>축거형식 × 크기 스택드 바</li>
+        <li>축거형식 × 제작사 (top 6) 그룹드 바</li>
+        <li>축거형식 × 용도 스택드 바</li>
+        <li>사이드바: 용도 필터 (전체 / 개별 용도)</li>
+      </ul>
+    </details>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions } from "../js/filters.js";
+  import { loadManifest, loadCvData } from "../js/data.js";
+  import { treemap, sunburst, horizontalBar } from "../js/charts.js";
+  import { getState, subscribe } from "../js/state.js";
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    try {
+      const manifest = await loadManifest();
+      const years = manifest.cv_years || [];
+      if (!years.length) {
+        document.querySelector(".main").insertAdjacentHTML("afterbegin",
+          `<div class="banner warn">${t("no_data")} (CV_DATA)</div>`); return;
+      }
+      renderFilters(document.getElementById("filters"), [
+        { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+      ], render);
+      subscribe(render); render();
+    } catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${e.message}</div>`);
+    }
+  })();
+
+  async function render() {
+    const s = getState();
+    const manifest = await loadManifest();
+    const year = parseInt(s.year, 10) || manifest.cv_years[0];
+    const data = await loadCvData(year);
+    const cargo = data.cargo;
+    if (!cargo || !cargo.total) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner warn">${t("no_data")} (cargo)</div>`); return;
+    }
+
+    // Build treemap labels/parents/values
+    const labels = ["전체"];
+    const parents = [""];
+    const values = [cargo.total];
+    const purposeTotals = {};
+    for (const r of cargo.purpose_hierarchy) {
+      purposeTotals[r.용도] = (purposeTotals[r.용도] || 0) + r.count;
+    }
+    for (const [p, v] of Object.entries(purposeTotals)) {
+      labels.push(p); parents.push("전체"); values.push(v);
+    }
+    for (const r of cargo.purpose_hierarchy) {
+      labels.push(`${r.용도}/${r.용도상세}`); parents.push(r.용도); values.push(r.count);
+    }
+    treemap(document.getElementById("chart-treemap"), { labels, parents, values });
+    sunburst(document.getElementById("chart-sunburst"), { labels, parents, values });
+
+    const top = (cargo.purpose_detail_top || []).slice(0, 20);
+    horizontalBar(document.getElementById("chart-top-purpose"), {
+      categories: top.map(r => r.label),
+      values: top.map(r => r.count),
+    });
+  }
+</script>
+</body>
+</html>

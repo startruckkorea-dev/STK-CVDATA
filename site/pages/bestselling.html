@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_bestselling">베스트셀링 모델 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_bestselling">베스트셀링 모델</h1>
+    <div class="page-sub">Top 모델 등록 대수 · 평균 취득가</div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <section class="section">
+      <h2>Top 15 모델</h2>
+      <div id="chart-top-models" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>Top 15 모델 — 평균 취득가</h2>
+      <div id="chart-avg-price" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>상세 데이터</h2>
+      <div id="model-table"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions } from "../js/filters.js";
+  import { loadManifest, loadCvData } from "../js/data.js";
+  import { horizontalBar } from "../js/charts.js";
+  import { fmtNum } from "../js/format.js";
+  import { getState, subscribe } from "../js/state.js";
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    try {
+      const manifest = await loadManifest();
+      const years = manifest.cv_years || [];
+      if (!years.length) {
+        document.querySelector(".main").insertAdjacentHTML("afterbegin",
+          `<div class="banner warn">${t("no_data")} (CV_DATA)</div>`); return;
+      }
+      renderFilters(document.getElementById("filters"), [
+        { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+      ], render);
+      subscribe(render); render();
+    } catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${e.message}</div>`);
+    }
+  })();
+
+  async function render() {
+    const s = getState();
+    const manifest = await loadManifest();
+    const year = parseInt(s.year, 10) || manifest.cv_years[0];
+    const data = await loadCvData(year);
+    const rows = (data.bestselling || []).slice(0, 15);
+
+    horizontalBar(document.getElementById("chart-top-models"), {
+      categories: rows.map(r => `${r.제작사} ${r.모델상세}`),
+      values: rows.map(r => r.count),
+    });
+
+    const priced = rows.filter(r => r.avg_price > 0)
+      .sort((a, b) => b.avg_price - a.avg_price);
+    horizontalBar(document.getElementById("chart-avg-price"), {
+      categories: priced.map(r => `${r.제작사} ${r.모델상세}`),
+      values: priced.map(r => r.avg_price),
+    });
+
+    const tbl = `
+      <table class="data">
+        <thead><tr><th class="label">제작사</th><th class="label">모델</th><th>등록</th><th>평균 취득가(만원)</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr><td class="label">${r.제작사}</td><td class="label">${r.모델상세}</td>
+                <td class="num">${fmtNum(r.count)}</td>
+                <td class="num">${fmtNum(r.avg_price)}</td></tr>`).join("")}
+        </tbody>
+      </table>`;
+    document.getElementById("model-table").innerHTML = tbl;
+  }
+</script>
+</body>
+</html>

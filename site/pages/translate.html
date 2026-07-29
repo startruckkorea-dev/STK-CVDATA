@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_translate">번역 편집 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+  <style>
+    table.editable input {
+      width: 100%; border: 1px solid transparent; background: transparent;
+      padding: 4px 6px; font-size: 0.88rem; font-family: inherit;
+    }
+    table.editable input:hover { border-color: #d0d7de; background: #f6f8fa; }
+    table.editable input:focus {
+      border-color: #1a56db; background: white; outline: none;
+    }
+    table.editable td { padding: 2px 4px; text-align: left; }
+    table.editable th { text-align: left; }
+    table.editable td.del-cell { width: 60px; text-align: center; }
+    table.editable button.del {
+      padding: 2px 8px; font-size: 0.78rem;
+      background: transparent; border: 1px solid #d0d7de;
+      border-radius: 4px; color: #6e7781; cursor: pointer;
+    }
+    table.editable button.del:hover { color: #d4122a; border-color: #d4122a; }
+    .actions { margin: 18px 0; display: flex; gap: 10px; }
+    .actions button { padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .actions button.primary { background: #1a56db; color: white; border: none; }
+    .actions button:not(.primary) { background: white; border: 1px solid #d0d7de; }
+    .toolbar { margin: 8px 0; }
+    .toolbar input { padding: 6px 10px; border: 1px solid #d0d7de; border-radius: 6px; font-size: 0.9rem; width: 280px; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_translate">번역 편집</h1>
+    <div class="page-sub">UI 문자열 / enum 매핑 · SharePoint <code>translations.json</code>에 저장</div>
+
+    <div id="status"></div>
+
+    <div class="tabs" id="tabs">
+      <button class="active" data-tab="ui">UI 문자열</button>
+      <button data-tab="enum">Enum 값</button>
+    </div>
+
+    <div class="tab-panel active" id="panel-ui">
+      <div class="toolbar">
+        <input type="search" id="search-ui" placeholder="키 또는 값으로 검색..." />
+      </div>
+      <table class="data editable" id="ui-table">
+        <thead>
+          <tr><th>Key</th><th>한국어</th><th>English</th><th>Context</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="toolbar">
+        <button type="button" id="add-ui">+ UI 행 추가</button>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panel-enum">
+      <div class="toolbar">
+        <input type="search" id="search-enum" placeholder="검색..." />
+      </div>
+      <table class="data editable" id="enum-table">
+        <thead>
+          <tr><th>Kind</th><th>Value</th><th>한국어</th><th>English</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="toolbar">
+        <button type="button" id="add-enum">+ Enum 행 추가</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="save-btn" type="button" class="primary">변경사항 저장</button>
+      <button id="reload-btn" type="button">SharePoint에서 다시 불러오기</button>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin, currentAccount } from "../js/auth.js";
+  import { loadTranslations, applyT } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { readJsonFile, writeJsonFile } from "../js/graph.js";
+
+  const TRANSLATIONS_FILE = "translations.json";
+
+  let _data = null;
+  let _loadedFromSp = false;
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+
+    document.querySelectorAll("#tabs button").forEach(btn => {
+      btn.addEventListener("click", () => switchTab(btn.dataset.tab));
+    });
+    document.getElementById("save-btn").addEventListener("click", save);
+    document.getElementById("reload-btn").addEventListener("click", load);
+    document.getElementById("add-ui").addEventListener("click", () => {
+      document.querySelector("#ui-table tbody").appendChild(uiRow("", "", "", ""));
+    });
+    document.getElementById("add-enum").addEventListener("click", () => {
+      document.querySelector("#enum-table tbody").appendChild(enumRow("", "", "", ""));
+    });
+    document.getElementById("search-ui").addEventListener("input", e =>
+      filterRows("#ui-table tbody", e.target.value));
+    document.getElementById("search-enum").addEventListener("input", e =>
+      filterRows("#enum-table tbody", e.target.value));
+
+    await load();
+  })();
+
+  async function load() {
+    setStatus("SharePoint에서 불러오는 중...", "info");
+    try {
+      _data = await readJsonFile(TRANSLATIONS_FILE);
+      if (_data) {
+        _loadedFromSp = true;
+        setStatus(`SharePoint에서 불러왔습니다 (v${_data._meta?.version ?? 1}).`, "info");
+      } else {
+        // First-time setup: fall back to bundled seed.
+        _loadedFromSp = false;
+        const res = await fetch("../i18n/translations.json");
+        _data = await res.json();
+        setStatus("SharePoint에 파일이 없습니다. 저장 시 새로 생성됩니다.", "warn");
+      }
+      renderTable();
+    } catch (e) {
+      console.error(e);
+      setStatus(`불러오기 실패: ${e.message}`, "error");
+    }
+  }
+
+  function renderTable() {
+    const uiBody = document.querySelector("#ui-table tbody");
+    const enumBody = document.querySelector("#enum-table tbody");
+    uiBody.innerHTML = "";
+    enumBody.innerHTML = "";
+
+    const ui = _data.ui || {};
+    for (const key of Object.keys(ui).sort()) {
+      const v = ui[key] || {};
+      uiBody.appendChild(uiRow(key, v.ko ?? "", v.en ?? "", v.ctx ?? ""));
+    }
+    const en = _data.enum || {};
+    for (const kind of Object.keys(en).sort()) {
+      for (const value of Object.keys(en[kind] || {}).sort()) {
+        const v = en[kind][value] || {};
+        enumBody.appendChild(enumRow(kind, value, v.ko ?? "", v.en ?? ""));
+      }
+    }
+  }
+
+  function uiRow(key, ko, en, ctx) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="text" value="${esc(key)}" data-field="key"></td>
+      <td><input type="text" value="${esc(ko)}" data-field="ko"></td>
+      <td><input type="text" value="${esc(en)}" data-field="en"></td>
+      <td><input type="text" value="${esc(ctx)}" data-field="ctx"></td>
+      <td class="del-cell"><button class="del" type="button">×</button></td>
+    `;
+    tr.querySelector(".del").addEventListener("click", () => tr.remove());
+    return tr;
+  }
+
+  function enumRow(kind, value, ko, en) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input type="text" value="${esc(kind)}" data-field="kind"></td>
+      <td><input type="text" value="${esc(value)}" data-field="value"></td>
+      <td><input type="text" value="${esc(ko)}" data-field="ko"></td>
+      <td><input type="text" value="${esc(en)}" data-field="en"></td>
+      <td class="del-cell"><button class="del" type="button">×</button></td>
+    `;
+    tr.querySelector(".del").addEventListener("click", () => tr.remove());
+    return tr;
+  }
+
+  function filterRows(selector, query) {
+    const q = (query || "").toLowerCase();
+    document.querySelectorAll(`${selector} tr`).forEach(tr => {
+      const inputs = tr.querySelectorAll("input");
+      const text = Array.from(inputs).map(i => i.value.toLowerCase()).join(" ");
+      tr.style.display = (!q || text.includes(q)) ? "" : "none";
+    });
+  }
+
+  async function save() {
+    setStatus("저장 중...", "info");
+    try {
+      const ui = {};
+      document.querySelectorAll("#ui-table tbody tr").forEach(tr => {
+        const get = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
+        const key = get("key");
+        if (!key) return;
+        const entry = { ko: get("ko"), en: get("en") };
+        const ctx = get("ctx");
+        if (ctx) entry.ctx = ctx;
+        ui[key] = entry;
+      });
+      const enumMap = {};
+      document.querySelectorAll("#enum-table tbody tr").forEach(tr => {
+        const get = f => tr.querySelector(`[data-field="${f}"]`).value.trim();
+        const kind = get("kind"), value = get("value");
+        if (!kind || !value) return;
+        if (!enumMap[kind]) enumMap[kind] = {};
+        enumMap[kind][value] = { ko: get("ko"), en: get("en") };
+      });
+
+      const next = {
+        _meta: {
+          version: (_data._meta?.version ?? 0) + 1,
+          updated: new Date().toISOString(),
+          updated_by: currentAccount()?.username || "",
+        },
+        ui,
+        enum: enumMap,
+      };
+      await writeJsonFile(TRANSLATIONS_FILE, next);
+      _data = next;
+      _loadedFromSp = true;
+      setStatus(`저장 완료 (v${next._meta.version}). 다른 페이지는 다음 GitHub Actions 빌드 후 반영됩니다.`, "info");
+    } catch (e) {
+      console.error(e);
+      setStatus(`저장 실패: ${e.message}`, "error");
+    }
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll("#tabs button").forEach(b =>
+      b.classList.toggle("active", b.dataset.tab === tab));
+    document.querySelectorAll(".tab-panel").forEach(p =>
+      p.classList.toggle("active", p.id === `panel-${tab}`));
+  }
+
+  function setStatus(msg, kind = "info") {
+    document.getElementById("status").innerHTML =
+      `<div class="banner ${kind}">${esc(msg)}</div>`;
+  }
+
+  function esc(s) {
+    return String(s ?? "").replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+</script>
+</body>
+</html>

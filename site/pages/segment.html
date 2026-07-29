@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_segment">KAIDA 세그먼트 분석 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_segment">KAIDA 세그먼트 분석</h1>
+    <div class="page-sub">월별 Mix · 세그먼트별 브랜드 · MB SoM</div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <section class="section">
+      <h2>세그먼트 요약</h2>
+      <div id="segment-summary"></div>
+    </section>
+
+    <section class="section">
+      <h2>월별 세그먼트 Mix</h2>
+      <div class="chart-row">
+        <div id="chart-monthly-mix" class="chart"></div>
+        <div id="chart-ytd-mix" class="chart"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>세그먼트별 상세</h2>
+      <div class="tabs" id="segment-tabs"></div>
+      <div id="segment-panels"></div>
+    </section>
+
+    <div class="banner info" data-t="todo_note">이 페이지는 스켈레톤입니다.</div>
+    <details class="todo-list" open>
+      <summary>구현 항목 (원본 <code>pages/1_KAIDA_세그먼트분석.py</code> 기준)</summary>
+      <ul>
+        <li>요약 테이블: 세그먼트 × (당월 vol/share, 전월 vol/share, MoM%, PY vol/share, YoY%, YTD CY/PY, YoY%)</li>
+        <li>스택드 바: 월별 세그먼트 Mix (%)</li>
+        <li>YTD 컬러 박스: 세그먼트 볼륨</li>
+        <li>세그먼트 탭 × 3:
+          <ul>
+            <li>그룹드 바: 브랜드 CY vs PY</li>
+            <li>Top-3 podium + MB SoM YTD</li>
+            <li>라인: MB SoM 누적</li>
+            <li>그룹드 바 + 라인 오버레이: 월별 + MB SoM%</li>
+            <li>브랜드 상세 테이블</li>
+          </ul>
+        </li>
+      </ul>
+      <p>모든 차트 헬퍼는 <code>js/charts.js</code>에 있으며 <code>kaida_{year}.json</code> 의 <code>by_brand</code>, <code>by_brand_seg</code>, <code>by_segment</code>를 그대로 사용할 수 있습니다. <code>index.html</code>의 <code>render*()</code> 함수들을 참고.</p>
+    </details>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions, monthOptions, brandOptions, segmentOptions } from "../js/filters.js";
+  import { loadManifest } from "../js/data.js";
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    try {
+      const manifest = await loadManifest();
+      renderFilters(document.getElementById("filters"), [
+        { key: "year", label: "filter_year", options: yearOptions(manifest.kaida_years || []) },
+        { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
+        { key: "brand", label: "filter_brand", options: brandOptions(["MB","Volvo","Scania","MAN","IVECO"]), default: "ALL" },
+        { key: "segment", label: "filter_segment", options: segmentOptions(["Tractor","Cargo","Tipper"]), default: "ALL" },
+      ], () => {});
+    } catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${e.message}</div>`);
+    }
+  })();
+</script>
+</body>
+</html>

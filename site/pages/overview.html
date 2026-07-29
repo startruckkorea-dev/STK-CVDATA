@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_overview">시장 개요 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+
+<div class="app">
+  <aside class="sidebar"></aside>
+
+  <main class="main">
+    <h1 class="page-title" data-t="nav_overview">시장 개요</h1>
+    <div class="page-sub" id="page-sub"></div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <div id="kpi-row" class="kpi-row"></div>
+
+    <section class="section">
+      <h2 data-t="section_brand_compare">브랜드별 점유</h2>
+      <div class="chart-row">
+        <div id="chart-brand" class="chart"></div>
+        <div id="chart-domestic" class="chart"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>월별 추이</h2>
+      <div id="chart-monthly" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>크기 · 지역</h2>
+      <div class="chart-row">
+        <div id="chart-size" class="chart"></div>
+        <div id="chart-region" class="chart"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>소유자 구분 · 변속기</h2>
+      <div class="chart-row">
+        <div id="chart-owner" class="chart"></div>
+        <div id="chart-trans" class="chart"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions } from "../js/filters.js";
+  import { loadManifest, loadCvData } from "../js/data.js";
+  import { horizontalBar, donutChart, pieChart, lineChart, areaChart } from "../js/charts.js";
+  import { fmtNum, fmtKoreanScale, fmtPct } from "../js/format.js";
+  import { getState, subscribe } from "../js/state.js";
+
+  async function bootstrap() {
+    const account = await requireLogin();
+    if (!account) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+
+    let manifest;
+    try { manifest = await loadManifest(); }
+    catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${t("no_data")} (manifest.json missing)</div>`); return;
+    }
+    const years = manifest.cv_years || [];
+    if (!years.length) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner warn">${t("no_data")} (CV_DATA)</div>`); return;
+    }
+    renderFilters(document.getElementById("filters"), [
+      { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+    ], render);
+    subscribe(render);
+    document.addEventListener("langchange", render);
+    render();
+  }
+
+  async function render() {
+    const s = { year: null, ...getState() };
+    const year = parseInt(s.year, 10) || (await loadManifest()).cv_years[0];
+    const data = await loadCvData(year);
+    const ov = data.overview;
+    document.getElementById("page-sub").textContent = `${year}년 · CV_DATA`;
+
+    // KPI row
+    const domesticRow = ov.by_domestic.find(r => r.label === "국산");
+    const domesticCount = domesticRow ? domesticRow.count : 0;
+    const total = ov.total;
+    const monthly = ov.by_month.length
+      ? Math.round(total / Math.max(1, ov.by_month.length))
+      : 0;
+    document.getElementById("kpi-row").innerHTML = [
+      kpi(t("kpi_total"), fmtNum(total)),
+      kpi(t("kpi_monthly_avg"), fmtNum(monthly)),
+      kpi(t("kpi_domestic_ratio"), fmtPct(total ? (domesticCount / total) * 100 : 0)),
+    ].join("");
+
+    // Brand bar (group small ones)
+    const major = ov.by_manufacturer.filter(r => r.count >= 50);
+    const other = ov.by_manufacturer.filter(r => r.count < 50);
+    const otherTotal = other.reduce((a, b) => a + b.count, 0);
+    const brandRows = [...major];
+    if (otherTotal) brandRows.push({ label: "기타", count: otherTotal });
+    horizontalBar(document.getElementById("chart-brand"), {
+      categories: brandRows.map(r => r.label),
+      values: brandRows.map(r => r.count),
+    });
+
+    // Domestic vs Import donut
+    donutChart(document.getElementById("chart-domestic"), {
+      labels: ov.by_domestic.map(r => r.label),
+      values: ov.by_domestic.map(r => r.count),
+    });
+
+    // Monthly trend per brand (top 6)
+    const monthlyByBrand = ov.monthly_by_brand;
+    const brands = [...new Set(monthlyByBrand.map(r => r.제작사))].slice(0, 6);
+    const months = [...Array(12).keys()].map(i => i + 1);
+    const series = brands.map(b => ({
+      name: b,
+      values: months.map(m => {
+        const hit = monthlyByBrand.find(r => r.제작사 === b && r.등록월 === m);
+        return hit ? hit.count : 0;
+      }),
+    }));
+    lineChart(document.getElementById("chart-monthly"), {
+      x: months.map(m => `${m}월`), series,
+    });
+
+    // Size donut
+    donutChart(document.getElementById("chart-size"), {
+      labels: ov.by_size.map(r => r.label),
+      values: ov.by_size.map(r => r.count),
+    });
+
+    // Owner region top 10
+    const reg = ov.by_owner_region.slice(0, 10);
+    horizontalBar(document.getElementById("chart-region"), {
+      categories: reg.map(r => r.label),
+      values: reg.map(r => r.count),
+    });
+
+    // Owner type pie
+    pieChart(document.getElementById("chart-owner"), {
+      labels: ov.by_owner_type.map(r => r.label),
+      values: ov.by_owner_type.map(r => r.count),
+    });
+
+    // Transmission pie
+    pieChart(document.getElementById("chart-trans"), {
+      labels: ov.by_transmission.map(r => r.label),
+      values: ov.by_transmission.map(r => r.count),
+    });
+  }
+
+  function kpi(title, value, delta = "", deltaLabel = "") {
+    return `<div class="kpi-card"><div class="title">${title}</div><div class="value">${value}</div><div class="delta">${delta} <small>${deltaLabel}</small></div></div>`;
+  }
+
+  bootstrap().catch(e => {
+    console.error(e);
+    document.querySelector(".main").insertAdjacentHTML("afterbegin",
+      `<div class="banner error">${e.message}</div>`);
+  });
+</script>
+
+</body>
+</html>

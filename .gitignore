@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+
+# Raw data (mirrored from SharePoint at build time, not committed)
+raw_data/
+
+# Build artifacts — uncomment to gitignore if you only use GitHub Actions
+# site/data/*.json
+# !site/data/.gitkeep
+
+# Secrets
+.env.local
+*.secrets
+.msal_cache.json
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Original snapshot (kept locally as reference, not committed)
+code_snapshot.html

@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_price">가격 분석 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_price">가격 분석</h1>
+    <div class="page-sub">모델 Min-Max · 연형 · 크기별 박스플롯</div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <section class="section">
+      <h2>모델별 가격 범위 (Top 30)</h2>
+      <div id="chart-minmax" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>크기별 가격 분포</h2>
+      <div id="size-table"></div>
+    </section>
+
+    <section class="section">
+      <h2>연형별 가격</h2>
+      <div id="yeartype-table"></div>
+    </section>
+
+    <div class="banner info" data-t="todo_note"></div>
+    <details class="todo-list" open>
+      <summary>추가 구현 항목 (원본 477줄 — 가장 무거운 페이지)</summary>
+      <ul>
+        <li>크기별 박스플롯 (raw 분포 데이터 필요 — <code>build_site.py</code>에서 quartile + outlier 샘플 export 추가)</li>
+        <li>YoY 가격 추이 라인 차트 (envelope: min/max/median/avg)</li>
+        <li>브랜드 포지셔닝 scatter (avg price × 대수, 색=국산/외산)</li>
+        <li>월별 평균가 라인 (전체 + top 5 브랜드)</li>
+        <li>가격 히스토그램 (bin size 슬라이더)</li>
+        <li>모델 선택 dropdown → 해당 모델만 detail view</li>
+      </ul>
+    </details>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions } from "../js/filters.js";
+  import { loadManifest, loadCvData } from "../js/data.js";
+  import { minMaxChart } from "../js/charts.js";
+  import { fmtNum } from "../js/format.js";
+  import { getState, subscribe } from "../js/state.js";
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    try {
+      const manifest = await loadManifest();
+      const years = manifest.cv_years || [];
+      if (!years.length) {
+        document.querySelector(".main").insertAdjacentHTML("afterbegin",
+          `<div class="banner warn">${t("no_data")} (CV_DATA)</div>`); return;
+      }
+      renderFilters(document.getElementById("filters"), [
+        { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+      ], render);
+      subscribe(render); render();
+    } catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${e.message}</div>`);
+    }
+  })();
+
+  async function render() {
+    const s = getState();
+    const manifest = await loadManifest();
+    const year = parseInt(s.year, 10) || manifest.cv_years[0];
+    const data = await loadCvData(year);
+    const p = data.price;
+    if (!p || !p.per_model) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner warn">${t("no_data")} (price)</div>`); return;
+    }
+
+    const rows = p.per_model.slice(0, 30);
+    minMaxChart(document.getElementById("chart-minmax"), {
+      labels: rows.map(r => `${r.제작사} ${r.모델상세}`),
+      mins: rows.map(r => r.min),
+      maxs: rows.map(r => r.max),
+      means: rows.map(r => r.mean),
+      medians: rows.map(r => r.median),
+    });
+
+    document.getElementById("size-table").innerHTML = tableSize(p.by_size_quartiles || []);
+    document.getElementById("yeartype-table").innerHTML = tableYear(p.by_year_type || []);
+  }
+
+  function tableSize(rows) {
+    return `<table class="data">
+      <thead><tr><th class="label">크기</th><th>대수</th><th>Min</th><th>Q25</th><th>Median</th><th>Avg</th><th>Q75</th><th>Max</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr><td class="label">${r.크기}</td>
+          <td class="num">${fmtNum(r.count)}</td>
+          <td class="num">${fmtNum(r.min)}</td>
+          <td class="num">${fmtNum(r.q25)}</td>
+          <td class="num">${fmtNum(r.median)}</td>
+          <td class="num">${fmtNum(r.mean)}</td>
+          <td class="num">${fmtNum(r.q75)}</td>
+          <td class="num">${fmtNum(r.max)}</td></tr>`).join("")}</tbody></table>`;
+  }
+
+  function tableYear(rows) {
+    return `<table class="data">
+      <thead><tr><th class="label">연형</th><th>대수</th><th>Min</th><th>Median</th><th>Avg</th><th>Max</th></tr></thead>
+      <tbody>${rows.map(r => `
+        <tr><td class="label">${r.연형}</td>
+          <td class="num">${fmtNum(r.count)}</td>
+          <td class="num">${fmtNum(r.min)}</td>
+          <td class="num">${fmtNum(r.median)}</td>
+          <td class="num">${fmtNum(r.mean)}</td>
+          <td class="num">${fmtNum(r.max)}</td></tr>`).join("")}</tbody></table>`;
+  }
+</script>
+</body>
+</html>

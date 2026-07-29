@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_body">특장업체 분석 · CV Data Dashboard</title>
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <h1 class="page-title" data-t="nav_body">특장업체 분석</h1>
+    <div class="page-sub">Top 20 특장업체 · 용도/섀시 매트릭스</div>
+
+    <section class="filter-bar" id="filters"></section>
+
+    <section class="section">
+      <h2>Top 20 특장업체</h2>
+      <div id="chart-top-makers" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>특장업체 × 용도상세 (Top 15 × 10)</h2>
+      <div id="chart-heatmap-purpose" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>특장업체 × 섀시 브랜드 (Top 15)</h2>
+      <div id="chart-heatmap-chassis" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>특장업체별 평균 취득가 (Top 15)</h2>
+      <div id="chart-avg-price" class="chart"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, yearOptions } from "../js/filters.js";
+  import { loadManifest, loadCvData } from "../js/data.js";
+  import { horizontalBar, heatmap } from "../js/charts.js";
+  import { getState, subscribe } from "../js/state.js";
+
+  (async () => {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    try {
+      const manifest = await loadManifest();
+      const years = manifest.cv_years || [];
+      if (!years.length) {
+        document.querySelector(".main").insertAdjacentHTML("afterbegin",
+          `<div class="banner warn">${t("no_data")} (CV_DATA)</div>`); return;
+      }
+      renderFilters(document.getElementById("filters"), [
+        { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+      ], render);
+      subscribe(render); render();
+    } catch (e) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner error">${e.message}</div>`);
+    }
+  })();
+
+  async function render() {
+    const s = getState();
+    const manifest = await loadManifest();
+    const year = parseInt(s.year, 10) || manifest.cv_years[0];
+    const data = await loadCvData(year);
+    const body = data.body;
+    if (!body || !body.top_makers) {
+      document.querySelector(".main").insertAdjacentHTML("afterbegin",
+        `<div class="banner warn">${t("no_data")} (body)</div>`); return;
+    }
+
+    horizontalBar(document.getElementById("chart-top-makers"), {
+      categories: body.top_makers.slice(0, 20).map(r => r.label),
+      values: body.top_makers.slice(0, 20).map(r => r.count),
+    });
+
+    renderHeatmap("chart-heatmap-purpose", body.maker_by_purpose, "특장업체", "용도상세", 15, 10);
+    renderHeatmap("chart-heatmap-chassis", body.maker_by_chassis, "특장업체", "제작사", 15, 8);
+
+    if (body.maker_avg_price) {
+      horizontalBar(document.getElementById("chart-avg-price"), {
+        categories: body.maker_avg_price.map(r => r.특장업체),
+        values: body.maker_avg_price.map(r => Math.round(r.mean)),
+      });
+    }
+  }
+
+  function renderHeatmap(elId, rows, rowCol, colCol, topRows, topCols) {
+    const rowTotals = {};
+    const colTotals = {};
+    for (const r of rows) {
+      rowTotals[r[rowCol]] = (rowTotals[r[rowCol]] || 0) + r.count;
+      colTotals[r[colCol]] = (colTotals[r[colCol]] || 0) + r.count;
+    }
+    const topR = Object.entries(rowTotals).sort((a, b) => b[1] - a[1]).slice(0, topRows).map(e => e[0]);
+    const topC = Object.entries(colTotals).sort((a, b) => b[1] - a[1]).slice(0, topCols).map(e => e[0]);
+    const z = topR.map(r => topC.map(c => {
+      const hit = rows.find(x => x[rowCol] === r && x[colCol] === c);
+      return hit ? hit.count : 0;
+    }));
+    heatmap(document.getElementById(elId), { x: topC, y: topR, z });
+  }
+</script>
+</body>
+</html>
