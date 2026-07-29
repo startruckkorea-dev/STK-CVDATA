@@ -17,16 +17,36 @@ const ALLOWED_USERS = []; // leave empty to allow anyone in the domains
 const msalConfig = {
   auth: {
     clientId: CLIENT_ID,
+    // Popup flow → redirectUri is only where MSAL posts the auth response.
+    // Use the origin (NO pathname) so a SINGLE Azure SPA redirect URI
+    // (e.g. https://mbtruck-cvdata.startruckkorea.com) covers every page of
+    // this multi-page static site instead of registering each .html URL.
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-    redirectUri: window.location.origin + window.location.pathname,
+    redirectUri: window.location.origin,
     postLogoutRedirectUri: window.location.origin,
-    navigateToLoginRequestUrl: true,
   },
   cache: {
-    cacheLocation: "sessionStorage",
+    // localStorage so the sign-in persists across pages and tabs — the site is
+    // multi-page (index.html + pages/*.html each boot MSAL independently), and
+    // sessionStorage would force a fresh login on every navigation.
+    cacheLocation: "localStorage",
     storeAuthStateInCookie: false,
   },
 };
+
+// A stale/aborted interaction (popup closed, refresh mid-login, tab race) can
+// leave `msal.interaction.status` in storage; the next login then throws one of
+// these. Clearing the cache and retrying once recovers cleanly. Mirrors the
+// proven pattern from the mb-truck-spec app.
+const STALE_AUTH_ERRORS = new Set([
+  "hash_empty_error",
+  "interaction_in_progress",
+  "no_token_request_cache_error",
+  "no_cached_authority_error",
+]);
+function _isStaleAuthError(e) {
+  return !!e && STALE_AUTH_ERRORS.has(e.errorCode);
+}
 
 const LOGIN_REQUEST = {
   scopes: ["User.Read", "Sites.ReadWrite.All", "Files.ReadWrite.All"],
@@ -103,12 +123,35 @@ export async function requireLogin() {
 export function currentAccount() { return _account; }
 
 export async function signIn() {
-  await _client().loginRedirect(LOGIN_REQUEST);
+  const pca = _client();
+  await pca.initialize?.();
+  try {
+    const result = await pca.loginPopup(LOGIN_REQUEST);
+    pca.setActiveAccount(result.account);
+  } catch (e) {
+    if (!_isStaleAuthError(e)) {
+      _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e));
+      return;
+    }
+    // stale interaction state left in storage → clear and retry once
+    try { await pca.clearCache(); } catch { /* ignore */ }
+    const result = await pca.loginPopup(LOGIN_REQUEST);
+    pca.setActiveAccount(result.account);
+  }
+  // Re-run the page's auth gate now that an account exists in localStorage.
+  window.location.reload();
 }
 
 export async function signOut() {
-  const account = _account || _client().getAllAccounts()[0];
-  await _client().logoutRedirect({ account });
+  const pca = _client();
+  const account = _account || pca.getAllAccounts()[0];
+  try {
+    await pca.logoutPopup({ account });
+  } catch {
+    // popup blocked/closed — drop local state so the gate falls back to login
+    try { await pca.clearCache(); } catch { /* ignore */ }
+    window.location.reload();
+  }
 }
 
 /**
@@ -126,7 +169,8 @@ export async function getAccessToken(scopes = LOGIN_REQUEST.scopes) {
     return result.accessToken;
   } catch (e) {
     if (e instanceof msal.InteractionRequiredAuthError) {
-      await pca.acquireTokenRedirect({ scopes, account });
+      const result = await pca.acquireTokenPopup({ scopes, account });
+      return result.accessToken;
     }
     throw e;
   }

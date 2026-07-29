@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pandas as pd
 
-COL_DOMESTIC = "국산_외산"
+COL_DOMESTIC = "국산/외산"
 COL_MANUFACTURER = "제작사"
 COL_MODEL_CATEGORY = "모델구분"
 COL_MODEL_DETAIL = "모델상세"
@@ -42,6 +42,36 @@ BRAND_COLORS = {
 }
 
 
+# The raw CV_DATA export (국토부 등록원본) uses different column headers than
+# the canonical schema this project's build_site.py + front-end expect. Rename
+# the raw columns to the canonical names so downstream code (and the JSON keys
+# the front-end reads) line up. Keys = raw header, values = canonical constant.
+_COLUMN_RENAME = {
+    "대표모델명(국문)": COL_MODEL_CATEGORY,
+    "상세모델명(국문)": COL_MODEL_DETAIL,
+    "외형": COL_SHAPE,
+    "최종제작축": COL_FINAL_AXLE,
+    "상세용도": COL_PURPOSE_DETAIL,
+    "특장업체명": COL_BODY_MAKER,
+    "현소유자 유형": COL_OWNER_TYPE,
+    "변속기타입": COL_TRANSMISSION,
+    "현소유자 사용본거지(시/도)": COL_OWNER_REGION,
+    "최초등록연월": COL_FIRST_REG_YEARMONTH,
+}
+
+
+def _rename_columns(df: pd.DataFrame) -> pd.DataFrame:
+    return df.rename(columns={k: v for k, v in _COLUMN_RENAME.items() if k in df.columns})
+
+
+def _pick_sheet(sheet_names: list[str], keyword: str) -> str | None:
+    """Match sheets like '상용' or the numbered '1. 상용' variant."""
+    for name in sheet_names:
+        if keyword in str(name):
+            return name
+    return None
+
+
 def _normalize_strings(df: pd.DataFrame) -> pd.DataFrame:
     for col in df.select_dtypes(include="object").columns:
         df[col] = df[col].astype(str).str.strip()
@@ -69,14 +99,14 @@ def _add_price_만원(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _find_cv_data_file(root: Path, year: int) -> Path | None:
-    for p in root.glob(f"{year}_CV_DATA*.xlsx"):
-        if not p.name.startswith("~$"):
-            return p
-    # Older naming variant
-    for p in root.glob(f"*{year}*CV_DATA*.xlsx"):
-        if not p.name.startswith("~$"):
-            return p
-    return None
+    # Match both "2024_CV_DATA.xlsx" and "2025_CV DATA_STK.xlsx" (space variant).
+    # Sort for determinism so the plain "{year}_CV_DATA.xlsx" wins over suffixed
+    # variants (e.g. _DTK) when several exist.
+    candidates = [
+        p for p in root.glob(f"*{year}*CV*DATA*.xlsx")
+        if not p.name.startswith("~$")
+    ]
+    return sorted(candidates, key=lambda p: (len(p.name), p.name))[0] if candidates else None
 
 
 def load_data(root: Path, year: int) -> pd.DataFrame:
@@ -85,6 +115,7 @@ def load_data(root: Path, year: int) -> pd.DataFrame:
     if not path:
         return pd.DataFrame()
     df = pd.read_excel(path, sheet_name="상용", engine="openpyxl")
+    df = _rename_columns(df)
     df = _normalize_strings(df)
     df = _add_registration_month(df)
     df = _add_price_만원(df)
@@ -108,13 +139,17 @@ def load_data_combined(root: Path, year: int) -> pd.DataFrame:
         return pd.DataFrame()
     xls = pd.ExcelFile(path, engine="openpyxl")
     frames = []
-    if "상용" in xls.sheet_names:
-        df1 = pd.read_excel(path, sheet_name="상용", engine="openpyxl")
+    sheet_상용 = _pick_sheet(xls.sheet_names, "상용")
+    sheet_건설 = _pick_sheet(xls.sheet_names, "건설기계")
+    if sheet_상용:
+        df1 = pd.read_excel(path, sheet_name=sheet_상용, engine="openpyxl")
+        df1 = _rename_columns(df1)
         df1 = _normalize_strings(df1)
         df1["세그먼트"] = df1[COL_MODEL_CATEGORY].apply(_classify_segment_상용)
         frames.append(df1)
-    if "건설기계" in xls.sheet_names:
-        df2 = pd.read_excel(path, sheet_name="건설기계", engine="openpyxl")
+    if sheet_건설:
+        df2 = pd.read_excel(path, sheet_name=sheet_건설, engine="openpyxl")
+        df2 = _rename_columns(df2)
         df2 = _normalize_strings(df2)
         df2["세그먼트"] = "덤프(건설기계)"
         if COL_SIZE in df2.columns:
@@ -130,7 +165,9 @@ def load_data_combined(root: Path, year: int) -> pd.DataFrame:
 
 def list_available_years(root: Path) -> list[int]:
     years = set()
-    for p in root.glob("*CV_DATA*.xlsx"):
+    for p in root.glob("*CV*DATA*.xlsx"):
+        if p.name.startswith("~$"):
+            continue
         m = re.search(r"(\d{4})", p.name)
         if m:
             years.add(int(m.group(1)))

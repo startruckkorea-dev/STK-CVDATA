@@ -121,7 +121,7 @@ def _parse_kaida_excel(filepath: Path) -> pd.DataFrame:
     # KAIDA reports vary slightly — find header row by looking for "Importer"
     header_row = None
     for i in range(min(10, len(raw))):
-        row = raw.iloc[i].astype(str).str.lower().tolist()
+        row = [str(c).lower() for c in raw.iloc[i].tolist()]
         if any("importer" in c for c in row):
             header_row = i
             break

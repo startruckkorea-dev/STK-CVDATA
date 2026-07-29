@@ -69,17 +69,25 @@ def _read_one_monthly(path: Path) -> pd.DataFrame:
 
     out_rows = []
     current_company: str | None = None
+    current_block: str | None = None
     for _, row in raw.iterrows():
         company_cell = row.iloc[_COL_COMPANY] if _COL_COMPANY < len(row) else None
         normalized = _normalize_company(company_cell) if isinstance(company_cell, str) else None
-        if normalized:
+        if normalized and normalized != current_company:
             current_company = normalized
+            current_block = None  # reset 차종 tracking at each company boundary
+
+        # 차종 (block) is labeled once per group then left blank — forward-fill it
+        # so every model row inherits its group's 차종 (트럭 / 트럭특장 / 승용 / ...).
+        block_cell = row.iloc[_COL_BLOCK] if _COL_BLOCK < len(row) else None
+        if isinstance(block_cell, str) and block_cell.strip() and block_cell.strip() != "nan":
+            current_block = block_cell.strip()
+
+        if normalized:
             continue
         if current_company is None:
             continue
-
-        block = str(row.iloc[_COL_BLOCK]).strip() if _COL_BLOCK < len(row) else ""
-        if block and block not in _BLOCK_KEEP:
+        if not current_block or current_block not in _BLOCK_KEEP:
             continue
         model = row.iloc[_COL_MODEL] if _COL_MODEL < len(row) else None
         if not isinstance(model, str) or not model.strip():
