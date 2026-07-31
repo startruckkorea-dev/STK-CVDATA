@@ -63,8 +63,25 @@ export function renderSidebar(activeHref = null) {
       <button data-lang="ko" class="${getLang() === "ko" ? "active" : ""}">한국어</button>
       <button data-lang="en" class="${getLang() === "en" ? "active" : ""}">English</button>
     </div>
+    <div class="data-source" id="data-source"></div>
   `;
   sidebar.innerHTML = html;
+
+  // Filled in when data.js has decided where the numbers came from.
+  document.addEventListener("datasource", (ev) => {
+    const el = sidebar.querySelector("#data-source");
+    if (!el) return;
+    const { source, error } = ev.detail;
+    if (source === "sharepoint") {
+      el.className = "data-source live";
+      el.textContent = "SharePoint 실시간";
+      el.title = "Shared Documents/mbtruck-cvdata/site_data";
+    } else {
+      el.className = "data-source bundled";
+      el.textContent = "저장본 데이터";
+      el.title = error ? `SharePoint 미사용: ${error}` : "";
+    }
+  });
 
   sidebar.querySelectorAll("button[data-lang]").forEach(btn => {
     btn.addEventListener("click", () => {

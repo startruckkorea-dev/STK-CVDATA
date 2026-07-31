@@ -27,12 +27,14 @@ const msalConfig = {
   auth: {
     clientId: CLIENT_ID,
     // Popup flow → redirectUri is only where MSAL posts the auth response.
-    // Use the origin (NO pathname) so a SINGLE Azure SPA redirect URI
-    // (e.g. https://mbtruck-cvdata.startruckkorea.com) covers every page of
-    // this multi-page static site instead of registering each .html URL.
+    // Use the origin + "/" (NO page path) so a SINGLE Entra SPA redirect URI
+    // covers every page of this multi-page static site instead of registering
+    // each .html URL. Entra matches redirect URIs as an EXACT string, so the
+    // trailing slash here must match what is registered:
+    //   https://mbtruck-cvdata.startruckkorea.com/
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-    redirectUri: window.location.origin,
-    postLogoutRedirectUri: window.location.origin,
+    redirectUri: window.location.origin + "/",
+    postLogoutRedirectUri: window.location.origin + "/",
   },
   cache: {
     // localStorage so the sign-in persists across pages and tabs — the site is
@@ -148,6 +150,13 @@ export async function requireLogin() {
 }
 
 export function currentAccount() { return _account; }
+
+/** True once requireLogin() has resolved a real (non-stub) account. Lets the
+ *  data layer decide whether a Graph call is even worth attempting — on
+ *  localhost / *.github.io the gate returns a stub with an empty username. */
+export function isSignedIn() {
+  return !!(_account && _account.username);
+}
 
 export async function signIn() {
   const pca = _client();

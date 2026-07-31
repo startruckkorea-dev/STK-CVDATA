@@ -818,6 +818,28 @@ table.data .down { color: var(--danger); font-weight: 600; }
 }
 .user-chip button.signout:hover { color: var(--danger); border-color: var(--danger); }
 
+/* Where the numbers on screen came from — SharePoint live vs. the JSON
+   committed in the repo. Empty until data.js resolves the source. */
+.data-source {
+  margin-top: 10px;
+  font-size: 0.7rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+}
+.data-source:empty { display: none; }
+.data-source::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+  background: currentColor;
+}
+.data-source.live { color: var(--accent); }
+.data-source.bundled { color: var(--muted); cursor: help; }
+
 /* Responsive sidebar collapse on narrow screens */
 @media (max-width: 880px) {
   .app { grid-template-columns: 1fr; }
