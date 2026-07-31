@@ -2,6 +2,8 @@
 // Each function takes data + options and renders into the given DOM element.
 // Assumes Plotly is loaded globally (from CDN <script> tag in HTML).
 
+import { onColor } from "./format.js";
+
 const BASE_LAYOUT = {
   template: "plotly_white",
   font: { family: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans KR, Roboto, sans-serif", size: 13 },
@@ -13,6 +15,29 @@ const BASE_LAYOUT = {
 
 const CONFIG = { responsive: true, displaylogo: false, displayModeBar: false };
 
+/**
+ * Dashboard colour tokens. Every non-brand series on the KAIDA / KAMA charts
+ * draws from this set so the deck reads as one system. Brand marks (MB, Volvo,
+ * Scania, MAN, IVECO, Hyundai, Tata) keep their own identity colours below.
+ */
+export const TOKEN = {
+  deepTeal: "#065A66",
+  teal: "#0E96A0",
+  mint: "#9BD4C4",
+  amber: "#F0A500",
+  burntOrange: "#C86A15",
+  rust: "#B23A10",
+};
+/** Hover / border shades for the tokens above. */
+export const TOKEN_DARK = {
+  deepTeal: "#04434D",
+  teal: "#0A7079",
+  mint: "#63B89F",
+  amber: "#B87E00",
+  burntOrange: "#8F4C0F",
+  rust: "#7E2A0B",
+};
+
 const BRAND_COLORS = {
   MB: "#231F20", Volvo: "#1A3A82", Scania: "#D4122A", MAN: "#F7B731", IVECO: "#0097E6",
   Hyundai: "#1a56db", "Tata Daewoo": "#e04f2e",
@@ -22,16 +47,45 @@ const BRAND_COLORS = {
 };
 
 const SEGMENT_COLORS = {
-  Tractor: "#808080", Cargo: "#1a56db", Tipper: "#e04f2e", Dump: "#e04f2e",
-  트랙터: "#808080", 카고: "#1a56db", "덤프(건설기계)": "#e04f2e", 기타: "#c0c0c0",
+  Tractor: TOKEN.mint, Rigid: TOKEN.teal, Tipper: TOKEN.amber,
+  Cargo: TOKEN.teal, Dump: TOKEN.amber,   // legacy keys, kept for old JSON
+  트랙터: TOKEN.mint, 카고: TOKEN.teal, "덤프(건설기계)": TOKEN.amber, 기타: "#c0c0c0",
 };
 
 function colorFor(label) {
   return BRAND_COLORS[label] || SEGMENT_COLORS[label] || null;
 }
 
+// Filter-tile palettes. The chart greys are too pale to read as a selected
+// state, so tiles carry the real brand / segment marks instead.
+export const BRAND_TILE_COLORS = {
+  ALL: TOKEN.deepTeal, MB: "#231F20", Volvo: "#1A3A82",
+  Scania: "#D4122A", MAN: "#F7B731", IVECO: "#0097E6",
+};
+export const SEGMENT_TILE_COLORS = {
+  ALL: TOKEN.deepTeal, Tractor: TOKEN.mint, Rigid: TOKEN.teal, Tipper: TOKEN.amber,
+};
+
+
 function mergeLayout(extra = {}) {
   return { ...BASE_LAYOUT, ...extra };
+}
+
+// Every chart prints its values on the marks — the reports these pages replace
+// are read on screen and in print, where hovering is not an option.
+const LABEL_FONT = { size: 10 };
+
+/** Format a value for an on-chart label. kind: "int" | "pct" | "pct1" */
+export function labelText(v, kind = "int") {
+  if (v === null || v === undefined || Number.isNaN(v)) return "";
+  if (kind === "pct") return `${Math.round(v)}%`;
+  if (kind === "pct1") return `${(Math.round(v * 10) / 10).toFixed(1)}%`;
+  return Number(v).toLocaleString("en-US");
+}
+
+/** Zero-valued labels are noise on a dense chart — drop them. */
+function labelsFor(values, kind, hideZero = true) {
+  return values.map(v => (hideZero && !v ? "" : labelText(v, kind)));
 }
 
 export function horizontalBar(el, { categories, values, color, title, valueFormat = "," }) {
@@ -51,7 +105,7 @@ export function horizontalBar(el, { categories, values, color, title, valueForma
   }), CONFIG);
 }
 
-export function verticalBar(el, { categories, values, color, title, valueFormat = "," }) {
+export function verticalBar(el, { categories, values, color, title, valueFormat = ",", height }) {
   const trace = {
     type: "bar",
     x: categories,
@@ -59,39 +113,187 @@ export function verticalBar(el, { categories, values, color, title, valueFormat 
     marker: { color: color || categories.map(colorFor) },
     text: values.map(v => v.toLocaleString()),
     textposition: "outside",
+    textfont: LABEL_FONT,
     cliponaxis: false,
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title, yaxis: { tickformat: valueFormat } }), CONFIG);
+  Plotly.newPlot(el, [trace], mergeLayout({
+    title, height, showlegend: false, yaxis: { tickformat: valueFormat },
+  }), CONFIG);
 }
 
-export function groupedBar(el, { categories, series, title, barmode = "group" }) {
+export function groupedBar(el, {
+  categories, series, title, barmode = "group", valueKind = "int",
+  showlegend = true, height, yaxis, shapes, labelSize,
+}) {
+  const inside = barmode === "stack";
   const traces = series.map(s => ({
     type: "bar",
     name: s.name,
     x: categories,
     y: s.values,
     marker: { color: s.color || colorFor(s.name) },
+    text: labelsFor(s.values, s.valueKind || valueKind),
+    textposition: inside ? "inside" : "outside",
+    textfont: labelSize ? { size: labelSize } : LABEL_FONT,
+    insidetextanchor: inside ? "middle" : undefined,
+    cliponaxis: false,
   }));
-  Plotly.newPlot(el, traces, mergeLayout({ title, barmode }), CONFIG);
+  Plotly.newPlot(el, traces, mergeLayout({
+    title, barmode, showlegend, height,
+    uniformtext: { mode: "hide", minsize: 8 },
+    ...(yaxis ? { yaxis } : {}),
+    ...(shapes ? { shapes } : {}),
+  }), CONFIG);
 }
 
-export function stackedBar(el, { categories, series, title }) {
-  return groupedBar(el, { categories, series, title, barmode: "stack" });
+/** Grouped bars laid out horizontally — compact for narrow report columns. */
+export function groupedBarH(el, {
+  categories, series, valueKind = "int", showlegend = false, height, leftMargin = 74,
+}) {
+  const traces = series.map(s => ({
+    type: "bar",
+    orientation: "h",
+    name: s.name,
+    y: categories,
+    x: s.values,
+    marker: { color: s.color || colorFor(s.name) },
+    text: labelsFor(s.values, s.valueKind || valueKind, false),
+    textposition: "outside",
+    textfont: LABEL_FONT,
+    cliponaxis: false,
+  }));
+  const max = Math.max(1, ...series.flatMap(s => s.values.map(v => v || 0)));
+  Plotly.newPlot(el, traces, mergeLayout({
+    height, showlegend,
+    margin: { l: leftMargin, r: 46, t: 6, b: 20 },
+    barmode: "group",
+    xaxis: { range: [0, max * 1.25], showticklabels: false, showgrid: false, zeroline: false },
+    yaxis: { autorange: "reversed", tickfont: { size: 10 } },
+    uniformtext: { mode: "hide", minsize: 8 },
+  }), CONFIG);
 }
 
-export function lineChart(el, { x, series, title, yLabel }) {
+export function stackedBar(el, {
+  categories, series, title, valueKind = "int", height, yaxis, shapes, labelSize,
+}) {
+  return groupedBar(el, {
+    categories, series, title, barmode: "stack", valueKind, height, yaxis, shapes, labelSize,
+  });
+}
+
+export function lineChart(el, { x, series, title, yLabel, valueKind = "int" }) {
   const traces = series.map(s => ({
     type: "scatter",
-    mode: "lines+markers",
+    mode: "lines+markers+text",
     name: s.name,
     x,
     y: s.values,
     line: { color: s.color || colorFor(s.name), width: 2 },
     marker: { size: 6 },
+    text: labelsFor(s.values, s.valueKind || valueKind),
+    textposition: "top center",
+    textfont: LABEL_FONT,
+    cliponaxis: false,
   }));
   Plotly.newPlot(el, traces, mergeLayout({
     title,
     yaxis: { title: yLabel, tickformat: "," },
+  }), CONFIG);
+}
+
+/**
+ * Horizontal 100% stacked bar — one row per period, one segment per brand,
+ * each labelled with its volume and share. This is the "Total Market" band at
+ * the top of the printed market report.
+ */
+export function shareBandH(el, {
+  rows, keys, values, colors, height = 150, showRowTotals = false,
+}) {
+  // rows: ["Y2025","Y2024"]; values: {key: [rowValues...]}
+  const totals = rows.map((_, i) => keys.reduce((a, k) => a + (values[k][i] || 0), 0));
+  const traces = keys.map(k => {
+    const fill = (colors && colors[k]) || colorFor(k);
+    return {
+      type: "bar",
+      orientation: "h",
+      name: k,
+      y: rows,
+      x: values[k].map((v, i) => (totals[i] ? (v / totals[i]) * 100 : 0)),
+      marker: { color: fill },
+      text: values[k].map((v, i) =>
+        totals[i] && v ? `${labelText(v)}<br>(${labelText((v / totals[i]) * 100, "pct1")})` : ""),
+      textposition: "inside",
+      insidetextanchor: "middle",
+      // White on the pale competitor greys is unreadable — pick per-bar contrast.
+      textfont: { size: 15, color: onColor(fill) },
+      hovertemplate: `%{y} · ${k}: %{text}<extra></extra>`,
+    };
+  });
+  // Row totals sit just past the end of each band rather than in a caption line.
+  const annotations = showRowTotals ? rows.map((r, i) => ({
+    x: 100, y: r, xref: "x", yref: "y",
+    text: `<b>${labelText(totals[i])}</b>`,
+    showarrow: false, xanchor: "left", xshift: 8,
+    font: { size: 16, color: "#1f2328" },
+  })) : [];
+  Plotly.newPlot(el, traces, mergeLayout({
+    barmode: "stack",
+    height,
+    showlegend: false,          // the page renders its own compact brand legend
+    margin: { l: 66, r: showRowTotals ? 76 : 16, t: 8, b: 20 },
+    xaxis: { range: [0, 100], showticklabels: false, showgrid: false, zeroline: false },
+    yaxis: { autorange: "reversed", tickfont: { size: 15 } },
+    // No uniformtext: it would shrink every label to fit the narrowest slice.
+    // Per-bar autoshrink keeps the big segments at full size.
+    annotations,
+  }), CONFIG);
+}
+
+/**
+ * Bars on the left axis with one or more lines on a right percentage axis —
+ * the "SoM glide path" shape: monthly volume vs. share trend.
+ */
+export function comboBarLine(el, {
+  x, bars, lines, height, yLabel, y2Label = "%", title, labelSize,
+}) {
+  const font = labelSize ? { size: labelSize } : LABEL_FONT;
+  const barTraces = bars.map(b => ({
+    type: "bar",
+    name: b.name,
+    x,
+    y: b.values,
+    marker: { color: b.color || colorFor(b.name) },
+    text: labelsFor(b.values, b.valueKind || "int"),
+    textposition: "outside",
+    textfont: font,
+    cliponaxis: false,
+  }));
+  // A line with `axis: "y"` shares the bars' unit axis — totals overlaid on the
+  // brand bars. Anything else rides the right-hand percentage axis.
+  const lineTraces = lines.map(l => ({
+    type: "scatter",
+    mode: "lines+markers+text",
+    name: l.name,
+    x,
+    y: l.values,
+    yaxis: l.axis === "y" ? "y" : "y2",
+    line: { color: l.color || "#231F20", width: l.width || 2, dash: l.dash },
+    marker: { size: l.markerSize || 6, symbol: l.symbol },
+    text: labelsFor(l.values, l.valueKind || "pct1"),
+    textposition: l.textposition || "top center",
+    textfont: { size: labelSize || 10, color: l.color || "#231F20" },
+    cliponaxis: false,
+  }));
+  const useY2 = lines.some(l => l.axis !== "y");
+  Plotly.newPlot(el, [...barTraces, ...lineTraces], mergeLayout({
+    title,
+    height,
+    barmode: "group",
+    yaxis: { title: yLabel, tickformat: "," },
+    ...(useY2 ? {
+      yaxis2: { title: y2Label, overlaying: "y", side: "right", ticksuffix: "%", showgrid: false, rangemode: "tozero" },
+    } : {}),
+    margin: { l: 52, r: useY2 ? 56 : 24, t: title ? 40 : 16, b: 36 },
   }), CONFIG);
 }
 
@@ -118,7 +320,8 @@ export function pieChart(el, { labels, values, title, hole = 0 }) {
     marker: { colors: colors.every(c => c) ? colors : undefined },
     hole,
     textposition: "outside",
-    textinfo: "label+percent",
+    textinfo: "label+value+percent",
+    texttemplate: "%{label}<br>%{value:,} (%{percent})",
   };
   Plotly.newPlot(el, [trace], mergeLayout({ title }), CONFIG);
 }

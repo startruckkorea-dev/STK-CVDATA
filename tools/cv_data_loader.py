@@ -100,10 +100,11 @@ def _add_price_만원(df: pd.DataFrame) -> pd.DataFrame:
 
 def _find_cv_data_file(root: Path, year: int) -> Path | None:
     # Match both "2024_CV_DATA.xlsx" and "2025_CV DATA_STK.xlsx" (space variant).
-    # Sort for determinism so the plain "{year}_CV_DATA.xlsx" wins over suffixed
-    # variants (e.g. _DTK) when several exist.
+    # rglob so the files are found whether they sit at the raw_data root or in
+    # the CV_Data/ subfolder. Sort for determinism so the plain
+    # "{year}_CV_DATA.xlsx" wins over suffixed variants (e.g. _DTK).
     candidates = [
-        p for p in root.glob(f"*{year}*CV*DATA*.xlsx")
+        p for p in root.rglob(f"*{year}*CV*DATA*.xlsx")
         if not p.name.startswith("~$")
     ]
     return sorted(candidates, key=lambda p: (len(p.name), p.name))[0] if candidates else None
@@ -165,7 +166,7 @@ def load_data_combined(root: Path, year: int) -> pd.DataFrame:
 
 def list_available_years(root: Path) -> list[int]:
     years = set()
-    for p in root.glob("*CV*DATA*.xlsx"):
+    for p in root.rglob("*CV*DATA*.xlsx"):
         if p.name.startswith("~$"):
             continue
         m = re.search(r"(\d{4})", p.name)

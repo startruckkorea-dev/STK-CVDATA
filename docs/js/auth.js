@@ -102,6 +102,15 @@ function _isAllowed(account) {
  * (in which case a login screen is rendered).
  */
 export async function requireLogin() {
+  // The MSAL library may be unavailable (blocked CDN / offline). Resolve the
+  // gate WITHOUT it: on a non-production host just render the page; on a
+  // protected host we cannot authenticate, so surface a clear error.
+  if (typeof msal === "undefined") {
+    if (!_loginRequired()) return { username: "", name: "" };
+    _renderError("Microsoft 로그인 라이브러리를 불러오지 못했습니다 (네트워크/CDN 차단). 관리자에게 문의하세요.");
+    return null;
+  }
+
   const pca = _client();
   await pca.initialize?.();
 
@@ -217,10 +226,14 @@ function escapeHtml(s) {
 }
 
 function _renderLoginScreen() {
+  // Rendered before i18n loads, so the name is hardcoded here.
+  const root = document.documentElement.dataset.siteRoot || ".";
   document.body.innerHTML = `
     <div class="auth-gate">
       <div class="auth-card">
-        <h1>CV Data Dashboard</h1>
+        <img class="auth-logo" src="${root}/assets/mb-logo.svg"
+             alt="Mercedes-Benz Trucks" width="114" height="31" />
+        <h1>한국 상용차 시장 리포트</h1>
         <p>상용차 등록·시장 분석 통합 리포트</p>
         <p class="muted">사내 Microsoft 계정으로 로그인이 필요합니다.</p>
         <button id="signin-btn" type="button">Microsoft 계정으로 로그인</button>

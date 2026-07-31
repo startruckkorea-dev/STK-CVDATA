@@ -12,7 +12,8 @@ from pathlib import Path
 import pandas as pd
 
 KAMA_BRAND_ORDER = ["Hyundai", "Tata Daewoo"]
-KAMA_SEGMENT_ORDER = ["Cargo", "Tractor", "Dump"]
+# Same terminology as KAIDA: cargo bodies are Rigid, dumpers are Tipper.
+KAMA_SEGMENT_ORDER = ["Rigid", "Tractor", "Tipper"]
 KAMA_BRAND_COLORS = {"Hyundai": "#1a56db", "Tata Daewoo": "#e04f2e"}
 
 MONTHS_MM = [f"{i:02d}" for i in range(1, 13)]
@@ -37,7 +38,7 @@ def _normalize_company(label: str) -> str | None:
 
 
 def classify_kama_model(model_name: str) -> str | None:
-    """Classify a KAMA model row into Cargo / Tractor / Dump or None to skip."""
+    """Classify a KAMA model row into Rigid / Tractor / Tipper or None to skip."""
     if not model_name:
         return None
     name = str(model_name).upper()
@@ -52,12 +53,12 @@ def classify_kama_model(model_name: str) -> str | None:
         m = re.search(r"^(\d+(?:\.\d+)?)\s*T", name)
         if m and float(m.group(1)) < 5:
             return None
-        return "Dump"
+        return "Tipper"
     m = re.search(r"^(\d+(?:\.\d+)?)\s*T", name)
     if m and float(m.group(1)) >= 5:
-        return "Cargo"
+        return "Rigid"
     if "CARGO" in name:
-        return "Cargo"
+        return "Rigid"
     return None
 
 
@@ -110,7 +111,13 @@ def _read_one_monthly(path: Path) -> pd.DataFrame:
 
 
 def _month_from_filename(path: Path) -> int:
-    m = re.search(r"-(\d{2})\.xlsx$", path.name)
+    """Month index from "Monthly{YYYY}-{MM}".
+
+    Revised files keep a suffix after the month ("Monthly2026-04_수정.xlsx",
+    "Monthly2026-05_V.2.xlsx"), so the month is matched in place rather than at
+    the end of the name — anchoring on ".xlsx" silently dropped those months.
+    """
+    m = re.search(r"Monthly\d{4}-(\d{2})", path.name)
     return int(m.group(1)) if m else 0
 
 

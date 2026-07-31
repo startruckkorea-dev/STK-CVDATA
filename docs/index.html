@@ -3,10 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title data-t="nav_market_insight">시장 인사이트 · CV Data Dashboard</title>
+  <title data-t="nav_market_insight">시장 인사이트 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="assets/favicon-180.png" />
   <link rel="stylesheet" href="css/style.css" />
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+  <script src="vendor/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="vendor/msal-browser.min.js"></script>
 </head>
 <body>
 
@@ -14,12 +17,39 @@
   <aside class="sidebar"></aside>
 
   <main class="main">
-    <h1 class="page-title" data-t="nav_market_insight">시장 인사이트</h1>
-    <div class="page-sub" id="page-sub"></div>
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_market_insight">시장 인사이트</h1>
+      <div class="page-sub" id="page-sub"></div>
 
-    <section class="filter-bar" id="filters"></section>
+      <section class="filter-bar" id="filters"></section>
 
-    <div id="kpi-row" class="kpi-row"></div>
+      <div id="kpi-row" class="kpi-row"></div>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title" id="total-title">Total Market</div>
+      <div class="panel-sub" id="total-yoy"></div>
+      <div class="total-market">
+        <div class="tm-main">
+          <div class="tm-head" data-t="col_ytd">YTD</div>
+          <div id="chart-total-band" class="chart flat"></div>
+          <div id="total-legend" class="brand-legend"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Segment scorecards sit *under* the total-market band, not beside it:
+         the band is the market, the cards read as its breakdown. -->
+    <section class="panel">
+      <div class="panel-title" data-t="filter_segment">Segment</div>
+      <div class="scorecards" id="segment-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title" id="glide-title">MB SoM Glide path</div>
+      <div id="chart-glide" class="chart"></div>
+      <div class="table-scroll" id="glide-table"></div>
+    </section>
 
     <section class="section">
       <h2 data-t="section_brand_compare">브랜드별 YTD 비교</h2>
@@ -32,11 +62,6 @@
     <section class="section">
       <h2 data-t="section_segment_compare">세그먼트별 YTD</h2>
       <div id="chart-segment-bar" class="chart"></div>
-    </section>
-
-    <section class="section">
-      <h2 data-t="section_mb_som">MB 점유율 추이</h2>
-      <div id="chart-mb-som" class="chart"></div>
     </section>
 
     <section class="section">
@@ -55,18 +80,25 @@
   import { requireLogin } from "./js/auth.js";
   import { loadTranslations, applyT, t, tdata } from "./js/i18n.js";
   import { renderSidebar } from "./js/sidebar.js";
-  import { renderFilters, yearOptions, monthOptions, brandOptions, segmentOptions } from "./js/filters.js";
-  import { loadManifest, loadKaida, loadKaidaPair } from "./js/data.js";
-  import { horizontalBar, groupedBar, stackedBar, lineChart, pieChart } from "./js/charts.js";
+  import { renderFilters, syncFilters, yearOptions, monthOptions, segmentOptions } from "./js/filters.js";
+  import { loadManifest, loadKaidaPair, loadKama } from "./js/data.js";
+  import { shareBandH, comboBarLine, groupedBar, pieChart, lineChart,
+           SEGMENT_TILE_COLORS, TOKEN } from "./js/charts.js";
   import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "./js/format.js";
   import { getState, subscribe } from "./js/state.js";
 
   const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
-  const SEGMENT_ORDER = ["Tractor", "Cargo", "Tipper"];
+  const SEGMENT_ORDER = ["Tractor", "Rigid", "Tipper"];
+  // Report-deck palette: MB in the corporate teal, competitors in greys.
+  const BRAND_SHADE = {
+    MB: "#136f7b", Volvo: "#6b7075", Scania: "#c3c8cd", MAN: "#dfe3e7", IVECO: "#9aa1a8",
+  };
+
+  let _years = [];
 
   async function bootstrap() {
     const account = await requireLogin();
-    if (!account) return;             // login screen rendered
+    if (!account) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
     applyT();
@@ -75,118 +107,93 @@
     try {
       manifest = await loadManifest();
     } catch (e) {
-      document.querySelector(".main").insertAdjacentHTML("afterbegin",
-        `<div class="banner error">${t("no_data")} (manifest.json missing — run <code>tools/build_site.py</code>)</div>`);
-      return;
+      return banner("error", `${t("no_data")} (manifest.json — run tools/build_site.py)`);
     }
+    _years = manifest.kaida_years || [];
+    if (!_years.length) return banner("warn", `${t("no_data")} (KAIDA)`);
 
-    const years = manifest.kaida_years || [];
-    if (!years.length) {
-      document.querySelector(".main").insertAdjacentHTML("afterbegin",
-        `<div class="banner warn">${t("no_data")} (KAIDA)</div>`);
-      return;
-    }
-
-    const fields = [
-      { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
+    renderFilters(document.getElementById("filters"), [
+      { key: "year", label: "filter_year", options: yearOptions(_years), default: _years[0] },
       { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
-      { key: "brand", label: "filter_brand", options: brandOptions(BRAND_ORDER, true), default: "ALL" },
-      { key: "segment", label: "filter_segment", options: segmentOptions(SEGMENT_ORDER, true), default: "ALL" },
-    ];
-    renderFilters(document.getElementById("filters"), fields, render);
+      { key: "segment", label: "filter_segment", tkind: "segment", as: "tiles",
+        colors: SEGMENT_TILE_COLORS, options: segmentOptions(SEGMENT_ORDER, true), default: "ALL" },
+    ], render);
 
     document.addEventListener("langchange", render);
     subscribe(render);
     render();
   }
 
+  function banner(kind, msg) {
+    document.querySelector(".main").insertAdjacentHTML("afterbegin",
+      `<div class="banner ${kind}">${msg}</div>`);
+  }
+
+  // ---- accessors ------------------------------------------------------------
+
+  function zeros() { const o = {}; for (const m of MONTHS) o[m] = 0; o.Total = 0; return o; }
+  const sumThrough = (row, last) => {
+    let n = 0; for (let i = 0; i < last; i++) n += row[MONTHS[i]] || 0; return n;
+  };
+  const monthVal = (row, idx) => row[MONTHS[idx - 1]] || 0;
+  const brandRow = (d, b) => (d && d.by_brand[b]) || zeros();
+  const segRow = (d, s) => (d && d.by_segment[s]) || zeros();
+  const brandSegRow = (d, b, s) =>
+    (d && d.by_brand_seg[b] && d.by_brand_seg[b][s]) || zeros();
+  const trim = (vals, last) => vals.map((v, i) => (i < last ? v : null));
+
+  /** Brand row honouring the segment filter ("ALL" = every segment). */
+  const brandSeg = (d, brand, segment) =>
+    segment === "ALL" ? brandRow(d, brand) : brandSegRow(d, brand, segment);
+  /** Market row honouring the segment filter. */
+  const totalSeg = (d, segment) =>
+    segment === "ALL" ? ((d && d.monthly_totals) || zeros()) : segRow(d, segment);
+
+  function defaultState() {
+    return { year: null, month: "YTD", brand: "ALL", segment: "ALL" };
+  }
+
+  // ---- render ---------------------------------------------------------------
+
   async function render() {
     const s = { ...defaultState(), ...getState() };
-    const { cur, prev } = await loadKaidaPair(parseInt(s.year, 10));
+    syncFilters();
+    const year = parseInt(s.year, 10) || _years[0];
+
+    let cur = null, prev = null;
+    try {
+      ({ cur, prev } = await loadKaidaPair(year));
+    } catch (e) { console.error(e); }
     if (!cur) {
       document.getElementById("kpi-row").innerHTML =
         `<div class="banner warn">${t("no_data")}</div>`;
       return;
     }
 
-    const monthIdx = resolveMonthIdx(cur, s.month);
-    document.getElementById("page-sub").textContent =
-      `${s.year} · ${s.month === "YTD" ? "YTD" : MONTHS_KR[monthIdx - 1]}`;
+    const monthIdx = s.month === "YTD" ? (cur.last_data_month || 12) : parseInt(s.month, 10);
 
+    document.getElementById("page-sub").textContent =
+      `${year} · ${s.month === "YTD" ? `YTD (~${MONTHS_KR[monthIdx - 1]})` : MONTHS_KR[monthIdx - 1]}`;
+    document.getElementById("total-title").textContent =
+      `Total Market ${String(monthIdx).padStart(2, "0")}/${year}`;
+    document.getElementById("glide-title").textContent = `MB – ${year} SoM Glide path`;
+
+    // Tiles and the lower charts follow the brand / segment filters.
     renderKpis(cur, prev, s, monthIdx);
     renderBrandBar(cur, prev, s, monthIdx);
     renderBrandShare(cur, s, monthIdx);
-    renderSegmentBar(cur, prev, s, monthIdx);
-    renderMbSom(cur, prev, s);
+    renderSegmentBar(cur, prev, monthIdx);
     renderBrandTrend(cur, s);
     renderBrandTable(cur, prev, s, monthIdx);
+
+    // The report panels always show the whole market — they carry their own
+    // segment breakdown, so the filter would only double-count.
+    renderTotalMarket(cur, prev, monthIdx);
+    renderSegmentBand(cur, prev, monthIdx);
+    await renderGlidePath(cur, prev, year);
   }
 
-  function defaultState() {
-    return { year: null, month: "YTD", brand: "ALL", segment: "ALL" };
-  }
-
-  function resolveMonthIdx(cur, selMonth) {
-    if (selMonth === "YTD") return cur.last_data_month || 12;
-    return parseInt(selMonth, 10);
-  }
-
-  function sumThrough(monthly, lastIdx) {
-    let total = 0;
-    for (let i = 0; i < lastIdx; i++) total += monthly[MONTHS[i]] || 0;
-    return total;
-  }
-
-  function brandSeg(cur, brand, segment) {
-    if (segment === "ALL") {
-      return cur.by_brand[brand] || zeros();
-    }
-    return (cur.by_brand_seg[brand] && cur.by_brand_seg[brand][segment]) || zeros();
-  }
-
-  function totalSeg(cur, segment) {
-    if (segment === "ALL") return cur.monthly_totals || zeros();
-    return cur.by_segment[segment] || zeros();
-  }
-
-  function zeros() { const o = {}; for (const m of MONTHS) o[m] = 0; o.Total = 0; return o; }
-
-  function renderKpis(cur, prev, s, monthIdx) {
-    const totalRow = totalSeg(cur, s.segment);
-    const totalRowPrev = prev ? totalSeg(prev, s.segment) : null;
-
-    const ytdCur = sumThrough(totalRow, monthIdx);
-    const monthCur = totalRow[MONTHS[monthIdx - 1]] || 0;
-    const ytdPrev = totalRowPrev ? sumThrough(totalRowPrev, monthIdx) : 0;
-    const monthPrev = totalRowPrev ? (totalRowPrev[MONTHS[monthIdx - 1]] || 0) : 0;
-
-    const mbRow = brandSeg(cur, "MB", s.segment);
-    const mbYtd = sumThrough(mbRow, monthIdx);
-    const mbShare = ytdCur ? (mbYtd / ytdCur) * 100 : 0;
-    const mbRowPrev = prev ? brandSeg(prev, "MB", s.segment) : null;
-    const mbYtdPrev = mbRowPrev ? sumThrough(mbRowPrev, monthIdx) : 0;
-    const mbSharePrev = ytdPrev ? (mbYtdPrev / ytdPrev) * 100 : 0;
-
-    const ranked = BRAND_ORDER.map(b => ({
-      brand: b, ytd: sumThrough(brandSeg(cur, b, s.segment), monthIdx),
-      ytdPrev: prev ? sumThrough(brandSeg(prev, b, s.segment), monthIdx) : 0,
-    })).sort((a, b) => b.ytd - a.ytd);
-    const leader = ranked[0];
-    const withYoY = ranked.filter(r => r.ytdPrev > 0)
-      .map(r => ({ ...r, yoy: calcYoY(r.ytd, r.ytdPrev) }));
-    const gainer = withYoY.length ? withYoY.reduce((a, b) => a.yoy > b.yoy ? a : b) : null;
-    const loser  = withYoY.length ? withYoY.reduce((a, b) => a.yoy < b.yoy ? a : b) : null;
-
-    const cards = [
-      kpi(t("kpi_ytd"), fmtNum(ytdCur), deltaSpan(calcYoY(ytdCur, ytdPrev), { suffix: "%" }), "YoY"),
-      kpi(t("kpi_month"), fmtNum(monthCur), deltaSpan(calcYoY(monthCur, monthPrev), { suffix: "%" }), "YoY"),
-      kpi(t("kpi_mb_share"), fmtPct(mbShare), deltaSpan(mbShare - mbSharePrev, { suffix: "pp" }), "YoY"),
-      kpi(t("kpi_leader"), leader ? leader.brand : "-", `${fmtNum(leader && leader.ytd)} ${t("kpi_ytd")}`, ""),
-      gainer ? kpi(t("kpi_gainer"), gainer.brand, deltaSpan(gainer.yoy, { suffix: "%" }), "YoY") : null,
-      loser  ? kpi(t("kpi_loser"),  loser.brand,  deltaSpan(loser.yoy,  { suffix: "%" }), "YoY") : null,
-    ].filter(Boolean);
-    document.getElementById("kpi-row").innerHTML = cards.join("");
-  }
+  // ---- KPI tiles ------------------------------------------------------------
 
   function kpi(title, value, delta, deltaLabel) {
     return `
@@ -196,6 +203,236 @@
         <div class="delta">${delta} <small>${deltaLabel}</small></div>
       </div>`;
   }
+
+  function renderKpis(cur, prev, s, monthIdx) {
+    const totalRow = totalSeg(cur, s.segment);
+    const totalRowPrev = prev ? totalSeg(prev, s.segment) : null;
+
+    const ytdCur = sumThrough(totalRow, monthIdx);
+    const monthCur = monthVal(totalRow, monthIdx);
+    const ytdPrev = totalRowPrev ? sumThrough(totalRowPrev, monthIdx) : 0;
+    const monthPrev = totalRowPrev ? monthVal(totalRowPrev, monthIdx) : 0;
+
+    const mbYtd = sumThrough(brandSeg(cur, "MB", s.segment), monthIdx);
+    const mbShare = ytdCur ? (mbYtd / ytdCur) * 100 : 0;
+    const mbYtdPrev = prev ? sumThrough(brandSeg(prev, "MB", s.segment), monthIdx) : 0;
+    const mbSharePrev = ytdPrev ? (mbYtdPrev / ytdPrev) * 100 : 0;
+
+    const ranked = BRAND_ORDER.map(b => ({
+      brand: b,
+      ytd: sumThrough(brandSeg(cur, b, s.segment), monthIdx),
+      ytdPrev: prev ? sumThrough(brandSeg(prev, b, s.segment), monthIdx) : 0,
+    })).sort((a, b) => b.ytd - a.ytd);
+    const leader = ranked[0];
+    const withYoY = ranked.filter(r => r.ytdPrev > 0)
+      .map(r => ({ ...r, yoy: calcYoY(r.ytd, r.ytdPrev) }));
+    const gainer = withYoY.length ? withYoY.reduce((a, b) => (a.yoy > b.yoy ? a : b)) : null;
+    const loser = withYoY.length ? withYoY.reduce((a, b) => (a.yoy < b.yoy ? a : b)) : null;
+
+    document.getElementById("kpi-row").innerHTML = [
+      kpi(t("kpi_ytd"), fmtNum(ytdCur), deltaSpan(calcYoY(ytdCur, ytdPrev)), "YoY"),
+      kpi(t("kpi_month"), fmtNum(monthCur), deltaSpan(calcYoY(monthCur, monthPrev)), "YoY"),
+      kpi(t("kpi_mb_share"), fmtPct(mbShare), deltaSpan(mbShare - mbSharePrev, { suffix: "pp" }), "YoY"),
+      kpi(t("kpi_leader"), leader ? leader.brand : "-", `${fmtNum(leader && leader.ytd)} ${t("kpi_ytd")}`, ""),
+      gainer ? kpi(t("kpi_gainer"), gainer.brand, deltaSpan(gainer.yoy), "YoY") : null,
+      loser ? kpi(t("kpi_loser"), loser.brand, deltaSpan(loser.yoy), "YoY") : null,
+    ].filter(Boolean).join("");
+  }
+
+  // ---- report panels --------------------------------------------------------
+
+  function renderTotalMarket(cur, prev, monthIdx) {
+    const rows = [`Y${cur.year}`];
+    const values = {};
+    for (const b of BRAND_ORDER) values[b] = [sumThrough(brandRow(cur, b), monthIdx)];
+    if (prev) {
+      rows.push(`Y${prev.year}`);
+      for (const b of BRAND_ORDER) values[b].push(sumThrough(brandRow(prev, b), monthIdx));
+    }
+    const height = rows.length > 1 ? 200 : 130;
+    shareBandH(document.getElementById("chart-total-band"), {
+      rows, keys: BRAND_ORDER, values, colors: BRAND_SHADE, height, showRowTotals: true,
+    });
+
+    document.getElementById("total-legend").innerHTML = BRAND_ORDER.map(b =>
+      `<span class="lg"><i style="background:${BRAND_SHADE[b]}"></i>${b}</span>`).join("");
+
+    // YoY rides under the panel header; the yearly totals are printed on the bars.
+    const ytdCur = sumThrough(cur.monthly_totals || zeros(), monthIdx);
+    const ytdPrev = prev ? sumThrough(prev.monthly_totals, monthIdx) : 0;
+    document.getElementById("total-yoy").innerHTML = prev
+      ? `${deltaSpan(calcYoY(ytdCur, ytdPrev))} <small>YTD Y${cur.year} vs Y${prev.year}</small>`
+      : "";
+  }
+
+  /** Arrow delta for the scorecards — same numbers as deltaSpan(), but with the
+   *  up/down mark the printed scorecard uses. */
+  function arrowDelta(v, suffix = "pp") {
+    if (v === null || v === undefined || Number.isNaN(v)) return `<span class="sdelta">-</span>`;
+    const cls = v > 0 ? "up" : v < 0 ? "down" : "flat";
+    const mark = v > 0 ? "▲" : v < 0 ? "▼" : "·";
+    return `<span class="sdelta ${cls}">${mark}${(Math.abs(Math.round(v * 10) / 10)).toFixed(1)}${suffix}</span>`;
+  }
+
+  /** Verdict for one segment, read off the two facts the card shows:
+   *  did MB gain share, and was the market itself growing? */
+  function segVerdict(somDelta, mktGrowth) {
+    if (somDelta > 0) return { cls: "good", key: "badge_share_gain" };
+    if (mktGrowth !== null && mktGrowth > 0) return { cls: "warn", key: "badge_missed" };
+    return { cls: "bad", key: "badge_squeezed" };
+  }
+
+  /** Diverging bar around a shared zero line; `max` scales both rows of a card. */
+  function divBar(v, max, color) {
+    if (v === null || v === undefined || Number.isNaN(v) || !max) return `<div class="dv"></div>`;
+    const w = Math.min(50, (Math.abs(v) / max) * 50);
+    const side = v >= 0 ? `left:50%` : `right:50%`;
+    return `<div class="dv"><i style="${side};width:${w}%;background:${color}"></i></div>`;
+  }
+
+  /** Segment scorecards: one card per segment, read top-down as
+   *  결론(SoM) → 원인(성장률 격차) → 모멘텀(MTD). */
+  function renderSegmentBand(cur, prev, monthIdx) {
+    const share = (a, b) => (b ? (a / b) * 100 : 0);
+
+    document.getElementById("segment-grid").innerHTML = SEGMENT_ORDER.map(seg => {
+      const mktCur = sumThrough(segRow(cur, seg), monthIdx);
+      const mktPrev = prev ? sumThrough(segRow(prev, seg), monthIdx) : 0;
+      const mbCur = sumThrough(brandSegRow(cur, "MB", seg), monthIdx);
+      const mbPrev = prev ? sumThrough(brandSegRow(prev, "MB", seg), monthIdx) : 0;
+      const mbMtd = monthVal(brandSegRow(cur, "MB", seg), monthIdx);
+      const mbMtdPrev = prev ? monthVal(brandSegRow(prev, "MB", seg), monthIdx) : 0;
+      const mktMtd = monthVal(segRow(cur, seg), monthIdx);
+      const mktMtdPrev = prev ? monthVal(segRow(prev, seg), monthIdx) : 0;
+
+      const somYtd = share(mbCur, mktCur);
+      const somDelta = somYtd - share(mbPrev, mktPrev);
+      const somMtd = share(mbMtd, mktMtd);
+      const somMtdDelta = somMtd - share(mbMtdPrev, mktMtdPrev);
+
+      const mktGrowth = calcYoY(mktCur, mktPrev);
+      const mbGrowth = calcYoY(mbCur, mbPrev);
+      // The gap is the whole story of the card: share only moves when MB grows
+      // at a different rate than the market it sits in.
+      const gap = (mktGrowth === null || mbGrowth === null) ? null : mbGrowth - mktGrowth;
+      const scale = Math.max(Math.abs(mktGrowth || 0), Math.abs(mbGrowth || 0));
+
+      const verdict = segVerdict(somDelta, mktGrowth);
+      const growthColor = v => (v >= 0 ? TOKEN.teal : "#B23A10");
+
+      return `
+        <div class="scard">
+          <div class="scard-head">
+            <div class="scard-name">${tdata(seg, "segment")}</div>
+            <div class="scard-badge ${verdict.cls}">${t(verdict.key)}</div>
+          </div>
+
+          <div class="scard-hero">
+            <div class="v">${fmtPct(somYtd)}</div>
+            ${arrowDelta(somDelta)}
+          </div>
+          <div class="scard-cap">${t("label_mb_som_ytd")}</div>
+
+          <div class="scard-rule"></div>
+
+          <div class="scard-growth">
+            <span class="k">${t("label_market_growth")}</span>
+            <span class="n">${mktGrowth === null ? "-" : fmtPct(mktGrowth, true)}</span>
+            ${divBar(mktGrowth, scale, "#6b7075")}
+            <span class="k">${t("label_mb_growth")}</span>
+            <span class="n">${mbGrowth === null ? "-" : fmtPct(mbGrowth, true)}</span>
+            ${divBar(mbGrowth, scale, growthColor(mbGrowth))}
+          </div>
+          <div class="scard-gap ${gap === null ? "" : gap >= 0 ? "up" : "down"}">
+            ${t("label_vs_market")} ${gap === null ? "-" : `${gap > 0 ? "+" : "-"}${Math.abs(Math.round(gap))}pp`}
+          </div>
+
+          <div class="scard-rule"></div>
+
+          <div class="scard-foot">
+            <span>${t("label_mtd_som")} <b>${fmtPct(somMtd)}</b></span>
+            ${arrowDelta(somMtdDelta)}
+          </div>
+          <div class="scard-vol">${t("label_volume")} MB ${fmtNum(mbCur)} / ${t("label_market")} ${fmtNum(mktCur)}</div>
+          <div class="scard-meter"><i style="width:${Math.min(100, somYtd).toFixed(1)}%"></i></div>
+        </div>`;
+    }).join("");
+  }
+
+  async function renderGlidePath(cur, prev, year) {
+    const last = cur.last_data_month || 12;
+    const mbCur = MONTHS.map(m => brandRow(cur, "MB")[m] || 0);
+    const mbPrev = prev ? MONTHS.map(m => brandRow(prev, "MB")[m] || 0) : MONTHS.map(() => 0);
+    const totCur = MONTHS.map(m => (cur.monthly_totals || {})[m] || 0);
+    const totPrev = prev ? MONTHS.map(m => prev.monthly_totals[m] || 0) : MONTHS.map(() => 0);
+
+    const somMtd = mbCur.map((v, i) => (totCur[i] ? (v / totCur[i]) * 100 : 0));
+    // YTD SoM is cumulative — the share of everything registered so far.
+    let cm = 0, ct = 0;
+    const somYtd = mbCur.map((v, i) => {
+      cm += v; ct += totCur[i];
+      return ct ? (cm / ct) * 100 : 0;
+    });
+
+    comboBarLine(document.getElementById("chart-glide"), {
+      x: MONTHS_KR,
+      bars: [
+        { name: `MB ${year}`, values: trim(mbCur, last), color: TOKEN.teal },
+        { name: prev ? `MB ${prev.year}` : "PY", values: mbPrev, color: TOKEN.mint },
+      ],
+      lines: [
+        { name: "MTD SoM", values: trim(somMtd, last), color: TOKEN.amber, dash: "dot" },
+        { name: "YTD SoM", values: trim(somYtd, last), color: TOKEN.deepTeal, width: 3 },
+      ],
+      height: 420,
+      yLabel: "units",
+    });
+
+    let kamaCur = null, kamaPrev = null;
+    try { kamaCur = await loadKama(year); } catch (e) { /* year may be absent */ }
+    try { kamaPrev = await loadKama(year - 1); } catch (e) { /* optional */ }
+    const kamaMonths = (d) => d
+      ? [...Array(12).keys()].map(i => (d.monthly_totals || {})[`M${String(i + 1).padStart(2, "0")}`] || 0)
+      : null;
+    const kCur = kamaMonths(kamaCur);
+    const kPrev = kamaMonths(kamaPrev);
+
+    // Every YTD figure is summed over the same window as the current year, so
+    // current and prior year stay comparable; the window is spelled out.
+    const window = `${last}M`;
+    const row = (label, vals, cls = "") => `
+      <tr class="${cls}">
+        <td class="label">${label}</td>
+        ${vals.map((v, i) => `<td class="num${i >= last ? " dim" : ""}">${v === null ? "-" : fmtNum(v)}</td>`).join("")}
+        <td class="num"><strong>${fmtNum(vals.slice(0, last).reduce((a, b) => a + (b || 0), 0))}</strong>
+          <small>(${window})</small></td>
+      </tr>`;
+    const yoyRow = (a, b) => `
+      <tr class="sub">
+        <td class="label">${year}/${year - 1}</td>
+        ${a.map((v, i) => `<td class="num">${i < last && b[i] ? deltaSpan(calcYoY(v, b[i])) : "-"}</td>`).join("")}
+        <td class="num">${deltaSpan(calcYoY(
+          a.slice(0, last).reduce((x, y) => x + y, 0),
+          b.slice(0, last).reduce((x, y) => x + y, 0)))}</td>
+      </tr>`;
+
+    document.getElementById("glide-table").innerHTML = `
+      <table class="data compact">
+        <thead>
+          <tr><th class="label"></th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr>
+        </thead>
+        <tbody>
+          ${row(`MB ${year}`, trim(mbCur, last), "highlight")}
+          ${row(`KAIDA ${year}`, trim(totCur, last))}
+          ${prev ? row(`KAIDA ${prev.year}`, totPrev) : ""}
+          ${kCur ? row(`KAMA ${year}`, kCur.map((v, i) => (i < last ? v : null))) : ""}
+          ${kPrev ? row(`KAMA ${year - 1}`, kPrev) : ""}
+          ${kCur && kPrev ? yoyRow(kCur, kPrev) : ""}
+        </tbody>
+      </table>`;
+  }
+
+  // ---- filtered charts ------------------------------------------------------
 
   function renderBrandBar(cur, prev, s, monthIdx) {
     const rows = BRAND_ORDER.map(b => ({
@@ -207,109 +444,89 @@
     groupedBar(document.getElementById("chart-brand-bar"), {
       categories: rows.map(r => r.brand),
       series: [
-        { name: `${cur.year} YTD`, values: rows.map(r => r.cy), color: "#1a56db" },
-        { name: prev ? `${prev.year} YTD` : "PY", values: rows.map(r => r.py), color: "#9aa1a8" },
+        { name: `${cur.year} YTD`, values: rows.map(r => r.cy), color: TOKEN.teal },
+        { name: prev ? `${prev.year} YTD` : "PY", values: rows.map(r => r.py), color: TOKEN.mint },
       ],
     });
   }
 
   function renderBrandShare(cur, s, monthIdx) {
-    const labels = [];
-    const values = [];
+    const labels = [], values = [];
     for (const b of BRAND_ORDER) {
       const v = sumThrough(brandSeg(cur, b, s.segment), monthIdx);
       if (v > 0) { labels.push(b); values.push(v); }
     }
-    pieChart(document.getElementById("chart-brand-share"), {
-      labels, values, title: "", hole: 0.4,
-    });
+    pieChart(document.getElementById("chart-brand-share"), { labels, values, hole: 0.4 });
   }
 
-  function renderSegmentBar(cur, prev, s, monthIdx) {
-    const segs = SEGMENT_ORDER;
-    const cy = segs.map(seg => sumThrough(cur.by_segment[seg] || zeros(), monthIdx));
-    const py = prev ? segs.map(seg => sumThrough(prev.by_segment[seg] || zeros(), monthIdx)) : segs.map(() => 0);
+  function renderSegmentBar(cur, prev, monthIdx) {
+    const cy = SEGMENT_ORDER.map(seg => sumThrough(segRow(cur, seg), monthIdx));
+    const py = prev ? SEGMENT_ORDER.map(seg => sumThrough(segRow(prev, seg), monthIdx))
+                    : SEGMENT_ORDER.map(() => 0);
     groupedBar(document.getElementById("chart-segment-bar"), {
-      categories: segs.map(s => tdata(s, "segment")),
+      categories: SEGMENT_ORDER.map(seg => tdata(seg, "segment")),
       series: [
-        { name: `${cur.year}`, values: cy, color: "#1a56db" },
-        { name: prev ? `${prev.year}` : "PY", values: py, color: "#c8d0d8" },
+        { name: `${cur.year}`, values: cy, color: TOKEN.teal },
+        { name: prev ? `${prev.year}` : "PY", values: py, color: TOKEN.mint },
       ],
     });
   }
 
-  function renderMbSom(cur, prev, s) {
-    const x = MONTHS_KR;
-    const mbCur = MONTHS.map(m => (brandSeg(cur, "MB", s.segment)[m] || 0));
-    const totCur = MONTHS.map(m => (totalSeg(cur, s.segment)[m] || 0));
-    const somCur = mbCur.map((v, i) => totCur[i] ? (v / totCur[i]) * 100 : 0);
-    const series = [{ name: `${cur.year} MB SoM`, values: somCur, color: "#231F20" }];
-    if (prev) {
-      const mbPrev = MONTHS.map(m => (brandSeg(prev, "MB", s.segment)[m] || 0));
-      const totPrev = MONTHS.map(m => (totalSeg(prev, s.segment)[m] || 0));
-      const somPrev = mbPrev.map((v, i) => totPrev[i] ? (v / totPrev[i]) * 100 : 0);
-      series.push({ name: `${prev.year} MB SoM`, values: somPrev, color: "#9aa1a8" });
-    }
-    lineChart(document.getElementById("chart-mb-som"), { x, series, yLabel: "%" });
-  }
-
   function renderBrandTrend(cur, s) {
-    const series = BRAND_ORDER.map(b => ({
-      name: b,
-      values: MONTHS.map(m => (brandSeg(cur, b, s.segment)[m] || 0)),
-    }));
-    lineChart(document.getElementById("chart-brand-trend"), { x: MONTHS_KR, series });
+    const last = cur.last_data_month || 12;
+    lineChart(document.getElementById("chart-brand-trend"), {
+      x: MONTHS_KR,
+      series: BRAND_ORDER.map(b => ({
+        name: b,
+        values: trim(MONTHS.map(m => brandSeg(cur, b, s.segment)[m] || 0), last),
+      })),
+    });
   }
 
   function renderBrandTable(cur, prev, s, monthIdx) {
+    const totCy = sumThrough(totalSeg(cur, s.segment), monthIdx);
+    const totPy = prev ? sumThrough(totalSeg(prev, s.segment), monthIdx) : 0;
     const rows = BRAND_ORDER.map(b => {
       const cy = sumThrough(brandSeg(cur, b, s.segment), monthIdx);
       const py = prev ? sumThrough(brandSeg(prev, b, s.segment), monthIdx) : 0;
-      const totCy = sumThrough(totalSeg(cur, s.segment), monthIdx);
-      const totPy = prev ? sumThrough(totalSeg(prev, s.segment), monthIdx) : 0;
       return {
-        brand: b,
-        cy, py,
+        brand: b, cy, py,
         yoy: calcYoY(cy, py),
         share: totCy ? (cy / totCy) * 100 : 0,
         sharePy: totPy ? (py / totPy) * 100 : 0,
       };
     }).sort((a, b) => b.cy - a.cy);
 
-    const html = `
+    document.getElementById("brand-table").innerHTML = `
       <table class="data">
         <thead>
           <tr>
             <th class="label" data-t="filter_brand">Brand</th>
-            <th>${cur.year} YTD</th>
-            <th>${prev ? prev.year + " YTD" : "PY"}</th>
-            <th>YoY</th>
-            <th>Share</th>
-            <th>Δpp</th>
+            <th tabindex="0" data-hint="${t("hint_ytd")}">${cur.year} YTD</th>
+            <th tabindex="0" data-hint="${t("hint_ytd_py")}">${prev ? prev.year + " YTD" : "PY"}</th>
+            <th tabindex="0" data-hint="${t("hint_yoy_ytd")}">YoY</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_ytd_share")}">Share</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_dpp")}">Δpp</th>
           </tr>
         </thead>
         <tbody>
           ${rows.map((r, i) => `
-            <tr>
+            <tr${r.brand === s.brand || (s.brand === "ALL" && r.brand === "MB") ? ' class="highlight"' : ""}>
               <td class="label">${i + 1}. ${r.brand}</td>
               <td class="num">${fmtNum(r.cy)}</td>
               <td class="num">${fmtNum(r.py)}</td>
               <td class="num">${deltaSpan(r.yoy)}</td>
               <td class="num">${fmtPct(r.share)}</td>
               <td class="num">${deltaSpan(r.share - r.sharePy, { suffix: "pp" })}</td>
-            </tr>
-          `).join("")}
+            </tr>`).join("")}
         </tbody>
-      </table>
-    `;
-    document.getElementById("brand-table").innerHTML = html;
+      </table>`;
     applyT(document.getElementById("brand-table"));
   }
 
   bootstrap().catch(e => {
     console.error(e);
-    document.querySelector(".main").insertAdjacentHTML("afterbegin",
-      `<div class="banner error">${e.message}</div>`);
+    banner("error", e.message);
   });
 </script>
 

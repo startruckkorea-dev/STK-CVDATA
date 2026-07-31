@@ -40,8 +40,12 @@ export function renderSidebar(activeHref = null) {
   };
 
   const html = `
-    <h1 data-t="app_title">CV Data Dashboard</h1>
-    <div class="subtitle" data-t="app_subtitle">상용차 등록·시장 분석</div>
+    <a class="brand" href="${root}/">
+      <img class="brand-logo" src="${root}/assets/mb-logo.svg"
+           alt="Mercedes-Benz Trucks" width="114" height="31" />
+      <h1 data-t="app_title">한국 상용차 시장 리포트</h1>
+      <div class="subtitle" data-t="app_subtitle">상용차 등록·시장 분석</div>
+    </a>
     ${NAV.map(grp => `
       <details class="nav-group" open>
         <summary data-t="group_${grp.group}">${grp.group}</summary>

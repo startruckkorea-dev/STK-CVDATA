@@ -13,7 +13,8 @@ import pandas as pd
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"]
-SEGMENT_ORDER = ["Tractor", "Cargo", "Tipper"]
+# "Cargo" in the source reports is reported as Rigid; "Dump" as Tipper.
+SEGMENT_ORDER = ["Tractor", "Rigid", "Tipper"]
 
 BRAND_COLORS = {
     "MB": "#231F20",
@@ -24,11 +25,39 @@ BRAND_COLORS = {
 }
 SEGMENT_COLORS = {
     "Tractor": "#808080",
-    "Cargo": "#1a56db",
+    "Rigid": "#1a56db",
     "Tipper": "#e04f2e",
 }
 
+# Tractor power classes. The imported tractor market clusters around the
+# 500 / 540 / 560 ratings, so the bands are cut between those clusters rather
+# than on round 100hp steps — a 100hp grid would bury the whole volume core in
+# one bucket.
+HP_BAND_ORDER = ["<500", "500-549", "550-599", "600-699", "700+"]
+HP_BAND_EDGES = [(500, "<500"), (550, "500-549"), (600, "550-599"), (700, "600-699")]
+
+
+def hp_band(hp: float | None) -> str | None:
+    """Horsepower -> band label, or None when the row carries no rating."""
+    try:
+        v = float(hp)
+    except (TypeError, ValueError):
+        return None
+    if v <= 0:
+        return None
+    for edge, label in HP_BAND_EDGES:
+        if v < edge:
+            return label
+    return "700+"
+
 _MONTH_TOKEN_RE = re.compile(r"(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)", re.I)
+
+# The van-only importer. Its van and bodybuilder volumes are out of scope for
+# this report (Sprinter class), so the whole block is dropped.
+EXCLUDED_IMPORTERS = {"mercedes-benz korea"}
+
+# IVECO's light van chassis — excluded wherever it appears (Van *and* Cargo).
+EXCLUDED_MODEL_RE = re.compile(r"new\s*daily", re.I)
 
 
 def map_brand_kaida(importer: str, brand: str, model: str) -> str:
@@ -62,16 +91,18 @@ def map_brand_kaida(importer: str, brand: str, model: str) -> str:
 
 
 def map_segment_kaida(segment: str, hp_num: float | None = None) -> str | None:
-    """KAIDA Segment label -> normalized segment, or None to skip."""
+    """KAIDA Segment label -> normalized segment, or None to skip.
+
+    Terminology is unified here: the reports' "Cargo" becomes Rigid and their
+    "Dump" becomes Tipper. Van and Bus rows are out of scope.
+    """
     s = (segment or "").strip().lower()
     if "tractor" in s:
         return "Tractor"
-    if "dump" in s:
+    if "dump" in s or "tipper" in s:
         return "Tipper"
-    if "cargo" in s:
-        return "Cargo"
-    if "van" in s:
-        return None
+    if "cargo" in s or "rigid" in s:
+        return "Rigid"
     return None
 
 
@@ -83,13 +114,24 @@ def _file_month_index(path: Path) -> int:
     return MONTHS.index(m.group(1).title()) + 1
 
 
+def _kaida_folder(root: Path, year: int) -> Path | None:
+    """Year folder, supporting both the current and the legacy layout."""
+    for candidate in (root / "KAIDA" / str(year), root / f"KAIDA {year}"):
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
 def find_kaida_files(root: Path, year: int) -> tuple[Path | None, Path | None]:
-    """Locate the latest CV + Dump reports under root/KAIDA {year}/.
+    """Locate the latest CV + Dump reports for one year.
+
+    From 2026 the importers ship a single unified file that already contains
+    Tractor / Cargo / Dump rows, so dump_path is often None.
 
     Returns (cv_path, dump_path). Either may be None if missing.
     """
-    folder = root / f"KAIDA {year}"
-    if not folder.exists():
+    folder = _kaida_folder(root, year)
+    if folder is None:
         return None, None
     cv_candidates = []
     dump_candidates = []
@@ -130,6 +172,24 @@ def _parse_kaida_excel(filepath: Path) -> pd.DataFrame:
     df = pd.read_excel(filepath, header=header_row, engine="openpyxl")
     df.columns = [str(c).strip() for c in df.columns]
 
+    # KAIDA uses a TWO-ROW header: the monthly columns (Jan./Feb./…/Dec.) are
+    # sub-headers of "Registration" on the row *below* the Importer/…/Total row.
+    # read_excel only consumed the first header row, so those months arrived as
+    # generic column names ("Registration", "Unnamed: N", …) and the first data
+    # row is actually the month-name row. Promote it: rename the month columns
+    # from that row, then drop it. Without this, no monthly data survives and the
+    # front-end (which sums Jan..Dec) renders empty charts.
+    if len(df) > 0:
+        subhdr = df.iloc[0]
+        month_rename = {}
+        for col in df.columns:
+            m = _MONTH_TOKEN_RE.search(str(subhdr[col]))
+            if m:
+                month_rename[col] = m.group(1).title()
+        if month_rename:
+            df = df.rename(columns=month_rename)
+            df = df.iloc[1:].reset_index(drop=True)
+
     # Normalize column names
     rename = {}
     for c in df.columns:
@@ -147,45 +207,111 @@ def _parse_kaida_excel(filepath: Path) -> pd.DataFrame:
         elif _MONTH_TOKEN_RE.fullmatch(c.strip()): rename[c] = c.strip().title()
     df = df.rename(columns=rename)
 
-    # Forward-fill Importer + Brand
-    for col in ("Importer", "Brand"):
-        if col in df.columns:
-            df[col] = df[col].ffill()
+    for col in ("Importer", "Brand", "Model", "Segment"):
+        if col not in df.columns:
+            df[col] = None
 
-    # Drop subtotal / grand-total / blank-model rows
-    if "Model" in df.columns:
-        df = df[df["Model"].notna()]
-        df = df[~df["Model"].astype(str).str.strip().str.endswith("Total")]
-        df = df[~df["Model"].astype(str).str.strip().str.lower().eq("grand-total")]
+    # Group rows into importer blocks and drop the subtotal rows that close them
+    df["ImporterBlock"] = _assign_importer_blocks(df["Importer"])
+    df = df[df["ImporterBlock"].notna()]
 
     # Coerce numeric
     num_cols = [c for c in MONTHS + ["Total", "HP"] if c in df.columns]
     for c in num_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce").fillna(0)
 
-    # Derived columns
-    df["BrandNorm"] = df.apply(
-        lambda r: map_brand_kaida(r.get("Importer", ""), r.get("Brand", ""), r.get("Model", "")),
-        axis=1,
-    )
-    df["SegmentNorm"] = df.apply(
-        lambda r: map_segment_kaida(r.get("Segment", ""), r.get("HP")),
-        axis=1,
-    )
+    # Rule 1 — the van-only importer contributes neither vans nor bodybuilder.
+    df = df[~df["ImporterBlock"].str.lower().isin(EXCLUDED_IMPORTERS)]
+    # Rule 2 — IVECO New Daily is excluded regardless of its segment label.
+    df = df[~df["Model"].fillna("").astype(str).str.contains(EXCLUDED_MODEL_RE)]
+
+    # A block's brand is spread over several cells (KAIDA wraps long names over
+    # two rows, e.g. "Mercedes" / "-Benz"), so join the block's brand cells and
+    # match against that blob rather than any single row.
+    brand_blob = _block_brand_blobs(df)
+    df["BrandNorm"] = [
+        map_brand_kaida(imp, brand_blob.get(imp, ""), model)
+        for imp, model in zip(df["ImporterBlock"], df["Model"].fillna(""))
+    ]
+
+    # Rule 3 — bodybuilder volumes count as Rigid. In the 2026 layout these rows
+    # carry no Segment at all; before that they were labelled Cargo (or Van for
+    # the light-van chassis, which stays out of scope).
+    is_bb = _is_bodybuilder(df)
+    raw_seg = df["Segment"].fillna("").astype(str).str.lower()
+
+    def _segment(bodybuilder: bool, raw: str) -> str | None:
+        if bodybuilder:
+            return None if "van" in raw else "Rigid"
+        return map_segment_kaida(raw)
+
+    df["SegmentNorm"] = [_segment(bb, rs) for bb, rs in zip(is_bb, raw_seg)]
+
     df = df[df["BrandNorm"] != "Unknown"]
     df = df[df["SegmentNorm"].notna()]
     return df.reset_index(drop=True)
 
 
+def _assign_importer_blocks(importer: pd.Series) -> pd.Series:
+    """Label each row with its importer block; None for the block's total row.
+
+    KAIDA splits a long importer name over consecutive cells and leaves the rest
+    blank, so the only reliable name is on the row that closes the block
+    ("Volvo Trucks Korea-Total"). Rows after the last total row (and the
+    grand-total row itself) get None and are dropped by the caller.
+    """
+    labels: list[str | None] = [None] * len(importer)
+    pending: list[int] = []
+    for pos, raw in enumerate(importer):
+        text = "" if raw is None or pd.isna(raw) else str(raw).strip()
+        low = text.lower()
+        if low in ("total", "grand-total", "grand total"):
+            pending.clear()          # grand total closes the sheet
+            continue
+        if low.endswith("-total") or low.endswith(" total"):
+            name = re.sub(r"[-\s]total$", "", text, flags=re.I).strip()
+            for i in pending:
+                labels[i] = name
+            pending.clear()
+            continue
+        pending.append(pos)
+    return pd.Series(labels, index=importer.index)
+
+
+def _is_bodybuilder(df: pd.DataFrame) -> pd.Series:
+    """Bodybuilder rows: Brand=='Bodybuilder' (2026) or Model '*_Bodybuilder'."""
+    brand = df["Brand"].fillna("").astype(str).str.strip().str.lower()
+    model = df["Model"].fillna("").astype(str).str.lower()
+    return brand.eq("bodybuilder") | model.str.contains("bodybuilder")
+
+
+def _block_brand_blobs(df: pd.DataFrame) -> dict[str, str]:
+    """Per importer block, the concatenation of its non-bodybuilder brand cells."""
+    out: dict[str, str] = {}
+    bb = _is_bodybuilder(df)
+    for block, chunk in df[~bb].groupby("ImporterBlock"):
+        seen = [str(v).strip() for v in chunk["Brand"].dropna().unique() if str(v).strip()]
+        out[str(block)] = "".join(seen)
+    return out
+
+
 def load_kaida_year(root: Path, year: int) -> pd.DataFrame:
-    """Load + parse + concat CV + Dump reports for one year."""
+    """Load + parse + concat the reports for one year.
+
+    Through 2025 tipper volumes arrived in a separate "(Dump)" workbook. From
+    2026 they are rows inside the main file, so the dump workbook is only merged
+    when the main file has no tipper rows of its own — merging both would double
+    count.
+    """
     cv_path, dump_path = find_kaida_files(root, year)
     frames = []
+    has_tipper = False
     if cv_path:
-        frames.append(_parse_kaida_excel(cv_path))
-    if dump_path:
+        cv = _parse_kaida_excel(cv_path)
+        has_tipper = not cv.empty and (cv["SegmentNorm"] == "Tipper").any()
+        frames.append(cv)
+    if dump_path and not has_tipper:
         df = _parse_kaida_excel(dump_path)
-        # Dump report uses Segment="Dump" -> Tipper (already handled)
         if not df.empty:
             df["SegmentNorm"] = "Tipper"
         frames.append(df)
@@ -196,7 +322,12 @@ def load_kaida_year(root: Path, year: int) -> pd.DataFrame:
 
 def get_available_kaida_years(root: Path) -> list[int]:
     years = []
-    for p in root.glob("KAIDA *"):
+    parent = root / "KAIDA"
+    if parent.is_dir():
+        for p in parent.iterdir():
+            if p.is_dir() and re.fullmatch(r"\d{4}", p.name):
+                years.append(int(p.name))
+    for p in root.glob("KAIDA *"):          # legacy "KAIDA {year}/" layout
         if p.is_dir():
             m = re.search(r"(\d{4})", p.name)
             if m:
@@ -254,6 +385,61 @@ def aggregate_kaida(detail: pd.DataFrame) -> dict:
     totals_row = detail[month_cols + ([total_col] if total_col else [])].sum()
     out["monthly_totals"] = _to_int_dict(totals_row)
 
+    out.update(_aggregate_tractor_hp(detail, month_cols, total_col, _to_int_dict))
+
+    return out
+
+
+def _aggregate_tractor_hp(detail, month_cols, total_col, to_int_dict) -> dict:
+    """Tractor-only power-class aggregates.
+
+    Only the tractor segment publishes a meaningful HP rating in the KAIDA
+    sheets (rigids and tippers vary by body, not by engine), so the power
+    analysis is scoped to it.
+
+      "tractor_by_hp":       {band: {month: int, ..., "Total": int}}
+      "tractor_by_hp_brand": {brand: {band: {month: ..., "Total": int}}}
+      "tractor_hp_points":   [{"hp": 500, "band": str, "by_brand": {brand: row}, ...row}]
+    """
+    out = {"tractor_by_hp": {}, "tractor_by_hp_brand": {}, "tractor_hp_points": []}
+    if "HP" not in detail.columns:
+        return out
+    tr = detail[detail["SegmentNorm"] == "Tractor"].copy()
+    if tr.empty:
+        return out
+    tr["HPBand"] = [hp_band(v) for v in tr["HP"]]
+    tr = tr[tr["HPBand"].notna()]
+    if tr.empty:
+        return out
+
+    value_cols = month_cols + ([total_col] if total_col else [])
+
+    g = tr.groupby("HPBand")[value_cols].sum()
+    for band in HP_BAND_ORDER:
+        if band in g.index:
+            out["tractor_by_hp"][band] = to_int_dict(g.loc[band])
+
+    g = tr.groupby(["BrandNorm", "HPBand"])[value_cols].sum()
+    for brand in BRAND_ORDER:
+        out["tractor_by_hp_brand"][brand] = {}
+        for band in HP_BAND_ORDER:
+            if (brand, band) in g.index:
+                out["tractor_by_hp_brand"][brand][band] = to_int_dict(g.loc[(brand, band)])
+
+    # Exact ratings, so the front-end can draw the real spread inside a band.
+    # Monthly detail is kept per brand as well — the page's month filter has to
+    # reach this chart too, and at ~16 ratings the payload stays small.
+    pts = tr.groupby("HP")[value_cols].sum()
+    by_brand = tr.groupby(["HP", "BrandNorm"])[value_cols].sum()
+    for hp in sorted(pts.index):
+        entry = {"hp": int(hp), "band": hp_band(hp), **to_int_dict(pts.loc[hp]), "by_brand": {}}
+        for brand in BRAND_ORDER:
+            if (hp, brand) in by_brand.index:
+                row = to_int_dict(by_brand.loc[(hp, brand)])
+                if any(row.values()):
+                    entry["by_brand"][brand] = row
+        if entry["Total"] or entry["by_brand"]:
+            out["tractor_hp_points"].append(entry)
     return out
 
 

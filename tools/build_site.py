@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -270,6 +271,13 @@ def build_cv_data(raw_root: Path, out_dir: Path) -> list[int]:
 
 
 def main() -> None:
+    # A Windows console defaults to cp949 here, which cannot encode the em-dash
+    # and arrows used in the progress output — without this the build dies after
+    # writing the JSON but before the manifest.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw", default="raw_data", help="raw Excel directory")
     parser.add_argument("--out", default="docs/data", help="JSON output directory")

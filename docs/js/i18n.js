@@ -58,9 +58,13 @@ export function applyT(root = document) {
     const val = el.dataset.tdataValue || el.value || el.textContent;
     el.textContent = tdata(val, kind);
   });
-  // <title data-t="page_overview"></title>
-  if (document.title && document.querySelector('title[data-t]')) {
-    document.title = t(document.querySelector('title[data-t]').dataset.t);
+  // <title data-t="page_overview"></title> — keep the site name in the tab,
+  // which the plain t() replacement would otherwise drop.
+  const titleEl = document.querySelector("title[data-t]");
+  if (titleEl) {
+    const page = t(titleEl.dataset.t);
+    const app = t("app_title");
+    document.title = page === app ? page : `${page} · ${app}`;
   }
 }
 

@@ -3,27 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title data-t="nav_segment">KAIDA 세그먼트 분석 · CV Data Dashboard</title>
+  <title data-t="nav_segment">KAIDA 세그먼트 분석 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
   <link rel="stylesheet" href="../css/style.css" />
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+  <script src="../vendor/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="../vendor/msal-browser.min.js"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar"></aside>
   <main class="main">
-    <h1 class="page-title" data-t="nav_segment">KAIDA 세그먼트 분석</h1>
-    <div class="page-sub">월별 Mix · 세그먼트별 브랜드 · MB SoM</div>
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_segment">KAIDA 세그먼트 분석</h1>
+      <div class="page-sub" id="page-sub"></div>
 
-    <section class="filter-bar" id="filters"></section>
+      <section class="filter-bar" id="filters"></section>
+
+      <div id="kpi-row" class="kpi-row"></div>
+    </div>
 
     <section class="section">
-      <h2>세그먼트 요약</h2>
+      <h2 data-t="section_segment_summary">세그먼트 요약</h2>
       <div id="segment-summary"></div>
     </section>
 
     <section class="section">
-      <h2>월별 세그먼트 Mix</h2>
+      <h2 data-t="section_segment_mix">월별 세그먼트 Mix</h2>
       <div class="chart-row">
         <div id="chart-monthly-mix" class="chart"></div>
         <div id="chart-ytd-mix" class="chart"></div>
@@ -31,58 +38,719 @@
     </section>
 
     <section class="section">
-      <h2>세그먼트별 상세</h2>
+      <h2 data-t="section_segment_detail">세그먼트별 상세</h2>
       <div class="tabs" id="segment-tabs"></div>
       <div id="segment-panels"></div>
     </section>
 
-    <div class="banner info" data-t="todo_note">이 페이지는 스켈레톤입니다.</div>
-    <details class="todo-list" open>
-      <summary>구현 항목 (원본 <code>pages/1_KAIDA_세그먼트분석.py</code> 기준)</summary>
-      <ul>
-        <li>요약 테이블: 세그먼트 × (당월 vol/share, 전월 vol/share, MoM%, PY vol/share, YoY%, YTD CY/PY, YoY%)</li>
-        <li>스택드 바: 월별 세그먼트 Mix (%)</li>
-        <li>YTD 컬러 박스: 세그먼트 볼륨</li>
-        <li>세그먼트 탭 × 3:
-          <ul>
-            <li>그룹드 바: 브랜드 CY vs PY</li>
-            <li>Top-3 podium + MB SoM YTD</li>
-            <li>라인: MB SoM 누적</li>
-            <li>그룹드 바 + 라인 오버레이: 월별 + MB SoM%</li>
-            <li>브랜드 상세 테이블</li>
-          </ul>
-        </li>
-      </ul>
-      <p>모든 차트 헬퍼는 <code>js/charts.js</code>에 있으며 <code>kaida_{year}.json</code> 의 <code>by_brand</code>, <code>by_brand_seg</code>, <code>by_segment</code>를 그대로 사용할 수 있습니다. <code>index.html</code>의 <code>render*()</code> 함수들을 참고.</p>
-    </details>
+    <section class="section" id="hp-section" hidden>
+      <h2 data-t="section_tractor_hp">트랙터 마력별 시장분석</h2>
+      <div id="hp-kpi" class="kpi-row"></div>
+      <div class="panel">
+        <div class="panel-title" id="hp-band-title">Power Class Mix</div>
+        <div id="hp-share-band" class="chart flat"></div>
+        <div id="hp-band-legend" class="brand-legend"></div>
+      </div>
+      <div class="chart-row">
+        <div id="hp-band-yoy" class="chart"></div>
+        <div id="hp-brand-mix" class="chart"></div>
+      </div>
+      <div class="chart-row">
+        <div id="hp-monthly-mix" class="chart"></div>
+        <div id="hp-band-trend" class="chart"></div>
+      </div>
+      <div id="hp-points" class="chart"></div>
+      <div id="hp-table"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title" id="seg-market-title">Segment Market</div>
+      <div class="seg-market">
+        <div class="sm-band">
+          <div class="tm-head" data-t="col_ytd">YTD</div>
+          <div id="seg-share-band" class="chart flat"></div>
+          <div id="seg-band-legend" class="brand-legend"></div>
+        </div>
+        <div class="sm-side">
+          <div class="tm-head">Y-o-Y</div>
+          <div id="seg-yoy" class="chart flat"></div>
+        </div>
+        <div class="sm-callout">
+          <div class="som-callout" id="seg-som-callout"></div>
+        </div>
+      </div>
+      <div class="seg-market-lower">
+        <div id="seg-avg-month" class="chart flat"></div>
+        <div id="seg-glide" class="chart flat"></div>
+      </div>
+    </section>
   </main>
 </div>
 
 <script type="module">
   import { requireLogin } from "../js/auth.js";
-  import { loadTranslations, applyT } from "../js/i18n.js";
+  import { loadTranslations, applyT, t, tdata } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
-  import { renderFilters, yearOptions, monthOptions, brandOptions, segmentOptions } from "../js/filters.js";
-  import { loadManifest } from "../js/data.js";
+  import { renderFilters, syncFilters, yearOptions, monthOptions,
+           brandOptions, segmentOptions } from "../js/filters.js";
+  import { loadManifest, loadKaidaPair, loadKaida } from "../js/data.js";
+  import { groupedBar, stackedBar, lineChart, donutChart,
+           shareBandH, comboBarLine, verticalBar,
+           BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
+  import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
+  import { getState, setState, subscribe } from "../js/state.js";
 
-  (async () => {
+  const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
+  const SEGMENT_ORDER = ["Tractor", "Rigid", "Tipper"];
+
+  let _years = [];
+
+  async function bootstrap() {
     if (!(await requireLogin())) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
     applyT();
+
+    let manifest;
     try {
-      const manifest = await loadManifest();
-      renderFilters(document.getElementById("filters"), [
-        { key: "year", label: "filter_year", options: yearOptions(manifest.kaida_years || []) },
-        { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
-        { key: "brand", label: "filter_brand", options: brandOptions(["MB","Volvo","Scania","MAN","IVECO"]), default: "ALL" },
-        { key: "segment", label: "filter_segment", options: segmentOptions(["Tractor","Cargo","Tipper"]), default: "ALL" },
-      ], () => {});
+      manifest = await loadManifest();
     } catch (e) {
-      document.querySelector(".main").insertAdjacentHTML("afterbegin",
-        `<div class="banner error">${e.message}</div>`);
+      return banner("error", `${t("no_data")} (manifest.json)`);
     }
-  })();
+    _years = manifest.kaida_years || [];
+    if (!_years.length) return banner("warn", `${t("no_data")} (KAIDA)`);
+
+    renderFilters(document.getElementById("filters"), [
+      { key: "year", label: "filter_year", options: yearOptions(_years), default: _years[0] },
+      { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
+      { key: "brand", label: "filter_brand", as: "tiles", colors: BRAND_TILE_COLORS,
+        options: brandOptions(BRAND_ORDER, true), default: "ALL" },
+      { key: "segment", label: "filter_segment", tkind: "segment", as: "tiles",
+        colors: SEGMENT_TILE_COLORS, options: segmentOptions(SEGMENT_ORDER, true), default: "ALL" },
+    ], render);
+
+    document.addEventListener("langchange", render);
+    subscribe(render);
+    render();
+  }
+
+  function banner(kind, msg) {
+    document.querySelector(".main").insertAdjacentHTML("afterbegin",
+      `<div class="banner ${kind}">${msg}</div>`);
+  }
+
+  // ---- shared accessors -----------------------------------------------------
+
+  function zeros() { const o = {}; for (const m of MONTHS) o[m] = 0; o.Total = 0; return o; }
+
+  function sumThrough(row, lastIdx) {
+    let total = 0;
+    for (let i = 0; i < lastIdx; i++) total += row[MONTHS[i]] || 0;
+    return total;
+  }
+
+  const segRow = (data, seg) => (data && data.by_segment[seg]) || zeros();
+  const brandRow = (data, brand) => (data && data.by_brand[brand]) || zeros();
+  const brandSegRow = (data, brand, seg) =>
+    (data && data.by_brand_seg[brand] && data.by_brand_seg[brand][seg]) || zeros();
+  const monthVal = (row, idx) => row[MONTHS[idx - 1]] || 0;
+
+  /** Segment row honouring the brand filter — `scope` null means whole market. */
+  const scopeSegRow = (data, scope, seg) =>
+    scope ? brandSegRow(data, scope, seg) : segRow(data, seg);
+  /** All-segment row honouring the brand filter. */
+  const scopeTotalRow = (data, scope) =>
+    scope ? brandRow(data, scope) : ((data && data.monthly_totals) || zeros());
+
+  /** Blank out months the year has no data for yet, so the line stops there
+   *  instead of plunging to zero for the rest of the year. */
+  const trim = (values, last) => values.map((v, i) => (i < last ? v : null));
+
+  // ---- render ---------------------------------------------------------------
+
+  async function render() {
+    const s = getState();
+    syncFilters();
+    const year = parseInt(s.year, 10) || _years[0];
+    const monthSel = s.month || "YTD";
+
+    let cur = null, prev = null;
+    try {
+      ({ cur, prev } = await loadKaidaPair(year));
+    } catch (e) {
+      console.error(e);
+    }
+    if (!cur) return banner("warn", t("no_data"));
+
+    const monthIdx = monthSel === "YTD"
+      ? (cur.last_data_month || 12)
+      : parseInt(monthSel, 10);
+
+    // `scope` narrows the summary / mix / tile figures to one brand — null is
+    // the whole market. `brand` is the focus for the share-of-market views,
+    // which always need a single brand and fall back to MB.
+    const scope = s.brand && s.brand !== "ALL" ? s.brand : null;
+    const brand = scope || "MB";
+    // The segment tiles and the detail tabs share one state key, so they can
+    // never disagree. "전체" leaves the detail on the first segment.
+    const segSel = s.segment && s.segment !== "ALL" ? s.segment : SEGMENT_ORDER[0];
+
+    const period = monthSel === "YTD" ? `YTD (~${MONTHS_KR[monthIdx - 1]})` : MONTHS_KR[monthIdx - 1];
+    document.getElementById("page-sub").textContent =
+      `${year} · ${period}${scope ? ` · ${scope}` : ""}`;
+
+    renderKpis(cur, prev, monthIdx, s.segment || "ALL", scope);
+    renderSummary(cur, prev, monthIdx, scope);
+    renderMonthlyMix(cur, scope);
+    renderYtdMix(cur, monthIdx, scope);
+    renderTabs(cur, prev, monthIdx, segSel, brand);
+    renderHpSection(cur, prev, monthIdx, segSel, brand);
+    await renderSegmentMarket(cur, prev, monthIdx, segSel, brand);
+  }
+
+  const BRAND_SHADE = {
+    MB: "#136f7b", Volvo: "#6b7075", Scania: "#c3c8cd", MAN: "#dfe3e7", IVECO: "#9aa1a8",
+  };
+
+  // ---- tractor power classes ------------------------------------------------
+  // Only the tractor sheets carry a usable HP rating, so this block renders for
+  // that segment and hides itself for the others.
+
+  const HP_ORDER = ["<500", "500-549", "550-599", "600-699", "700+"];
+  // Ordered variable -> ordered ramp: pale for the entry ratings, deep teal for
+  // the heavy-haul end.
+  const HP_COLOR = {
+    "<500": "#CDE9E0", "500-549": "#9BD4C4", "550-599": "#4FB3AE",
+    "600-699": "#0E96A0", "700+": "#065A66",
+  };
+  const HP_LABEL = { "<500": "~499hp", "500-549": "500–549hp", "550-599": "550–599hp",
+                     "600-699": "600–699hp", "700+": "700hp+" };
+
+  const hpRow = (data, band) =>
+    (data && data.tractor_by_hp && data.tractor_by_hp[band]) || zeros();
+  const hpBrandRow = (data, brand, band) =>
+    (data && data.tractor_by_hp_brand && data.tractor_by_hp_brand[brand]
+      && data.tractor_by_hp_brand[brand][band]) || zeros();
+  /** Bands the year actually sells in — an all-zero band would print an empty
+   *  slice in every chart. */
+  const hpBands = (cur, prev, monthIdx) => HP_ORDER.filter(b =>
+    sumThrough(hpRow(cur, b), monthIdx) > 0 ||
+    (prev && sumThrough(hpRow(prev, b), monthIdx) > 0));
+
+  function renderHpSection(cur, prev, monthIdx, seg, brand) {
+    const el = document.getElementById("hp-section");
+    const hasHp = seg === "Tractor" && cur.tractor_by_hp
+      && Object.keys(cur.tractor_by_hp).length > 0;
+    el.hidden = !hasHp;
+    if (!hasHp) return;
+
+    const bands = hpBands(cur, prev, monthIdx);
+    document.getElementById("hp-band-title").textContent =
+      `${tdata("Tractor", "segment")} Power Class · ${cur.year}`;
+
+    renderHpKpis(cur, prev, monthIdx, bands);
+    renderHpBand(cur, prev, monthIdx, bands);
+    renderHpBandYoY(cur, prev, monthIdx, bands);
+    renderHpBrandMix(cur, monthIdx, bands);
+    renderHpMonthlyMix(cur, bands);
+    renderHpBandTrend(cur, bands);
+    renderHpPoints(cur, monthIdx);
+    renderHpTable(cur, prev, monthIdx, bands, brand);
+  }
+
+  function renderHpKpis(cur, prev, monthIdx, bands) {
+    const total = bands.reduce((a, b) => a + sumThrough(hpRow(cur, b), monthIdx), 0);
+    document.getElementById("hp-kpi").innerHTML = bands.map(b => {
+      const cy = sumThrough(hpRow(cur, b), monthIdx);
+      const py = prev ? sumThrough(hpRow(prev, b), monthIdx) : 0;
+      const share = total ? (cy / total) * 100 : 0;
+      return `
+        <div class="kpi-card">
+          <div class="title">${HP_LABEL[b]}</div>
+          <div class="value">${fmtNum(cy)}</div>
+          <div class="delta">${deltaSpan(calcYoY(cy, py))} <small>YoY · ${fmtPct(share)}</small></div>
+        </div>`;
+    }).join("");
+  }
+
+  function renderHpBand(cur, prev, monthIdx, bands) {
+    const rows = [`Y${cur.year}`];
+    const values = {};
+    for (const b of bands) values[b] = [sumThrough(hpRow(cur, b), monthIdx)];
+    if (prev) {
+      rows.push(`Y${prev.year}`);
+      for (const b of bands) values[b].push(sumThrough(hpRow(prev, b), monthIdx));
+    }
+    shareBandH(document.getElementById("hp-share-band"), {
+      rows, keys: bands, values, colors: HP_COLOR,
+      height: rows.length > 1 ? 168 : 110, showRowTotals: true,
+    });
+    document.getElementById("hp-band-legend").innerHTML = bands.map(b =>
+      `<span class="lg"><i style="background:${HP_COLOR[b]}"></i>${HP_LABEL[b]}</span>`).join("");
+  }
+
+  function renderHpBandYoY(cur, prev, monthIdx, bands) {
+    groupedBar(document.getElementById("hp-band-yoy"), {
+      categories: bands.map(b => HP_LABEL[b]),
+      series: [
+        { name: `${cur.year} YTD`, values: bands.map(b => sumThrough(hpRow(cur, b), monthIdx)),
+          color: TOKEN.teal },
+        { name: prev ? `${prev.year} YTD` : "PY",
+          values: bands.map(b => prev ? sumThrough(hpRow(prev, b), monthIdx) : 0),
+          color: TOKEN.mint },
+      ],
+      title: t("chart_hp_band_yoy"),
+    });
+  }
+
+  /** Where each brand sits on the power ladder — 100% stacked, so a small
+   *  importer's positioning is as readable as the volume leader's. */
+  function renderHpBrandMix(cur, monthIdx, bands) {
+    const totals = {};
+    for (const b of BRAND_ORDER) {
+      totals[b] = bands.reduce((a, band) => a + sumThrough(hpBrandRow(cur, b, band), monthIdx), 0);
+    }
+    const brands = BRAND_ORDER.filter(b => totals[b] > 0);
+    stackedBar(document.getElementById("hp-brand-mix"), {
+      categories: brands,
+      series: bands.map(band => ({
+        name: HP_LABEL[band],
+        color: HP_COLOR[band],
+        values: brands.map(b => totals[b]
+          ? (sumThrough(hpBrandRow(cur, b, band), monthIdx) / totals[b]) * 100 : 0),
+      })),
+      valueKind: "pct1",
+      title: t("chart_hp_brand_mix"),
+    });
+  }
+
+  function renderHpMonthlyMix(cur, bands) {
+    const last = cur.last_data_month || 12;
+    const idx = [...Array(last).keys()];
+    stackedBar(document.getElementById("hp-monthly-mix"), {
+      categories: idx.map(i => MONTHS_KR[i]),
+      series: bands.map(band => ({
+        name: HP_LABEL[band],
+        color: HP_COLOR[band],
+        values: idx.map(i => {
+          const tot = bands.reduce((a, bd) => a + (hpRow(cur, bd)[MONTHS[i]] || 0), 0);
+          return tot ? ((hpRow(cur, band)[MONTHS[i]] || 0) / tot) * 100 : 0;
+        }),
+      })),
+      valueKind: "pct1",
+      title: t("chart_hp_monthly_mix"),
+    });
+  }
+
+  function renderHpBandTrend(cur, bands) {
+    const last = cur.last_data_month || 12;
+    lineChart(document.getElementById("hp-band-trend"), {
+      x: MONTHS_KR,
+      series: bands.map(band => ({
+        name: HP_LABEL[band],
+        color: HP_COLOR[band],
+        values: trim(MONTHS.map(m => hpRow(cur, band)[m] || 0), last),
+      })),
+      title: t("chart_hp_band_trend"),
+      yLabel: "units",
+    });
+  }
+
+  /** The exact ratings behind the bands, split by brand — this is where the
+   *  head-to-head model positioning shows (e.g. 500 vs 510 vs 540). */
+  function renderHpPoints(cur, monthIdx) {
+    const pts = (cur.tractor_hp_points || [])
+      .map(p => ({
+        hp: p.hp,
+        total: sumThrough(p, monthIdx),
+        byBrand: Object.fromEntries(BRAND_ORDER.map(b =>
+          [b, p.by_brand && p.by_brand[b] ? sumThrough(p.by_brand[b], monthIdx) : 0])),
+      }))
+      .filter(p => p.total > 0);
+    stackedBar(document.getElementById("hp-points"), {
+      categories: pts.map(p => `${p.hp}hp`),
+      series: BRAND_ORDER
+        .filter(b => pts.some(p => p.byBrand[b] > 0))
+        .map(b => ({ name: b, color: BRAND_TILE_COLORS[b], values: pts.map(p => p.byBrand[b]) })),
+      title: t("chart_hp_points"),
+      height: 380,
+    });
+  }
+
+  function renderHpTable(cur, prev, monthIdx, bands, brand) {
+    const totCy = bands.reduce((a, b) => a + sumThrough(hpRow(cur, b), monthIdx), 0);
+    const totPy = prev ? bands.reduce((a, b) => a + sumThrough(hpRow(prev, b), monthIdx), 0) : 0;
+    const rows = bands.map(b => {
+      const cy = sumThrough(hpRow(cur, b), monthIdx);
+      const py = prev ? sumThrough(hpRow(prev, b), monthIdx) : 0;
+      const foc = sumThrough(hpBrandRow(cur, brand, b), monthIdx);
+      const focPy = prev ? sumThrough(hpBrandRow(prev, brand, b), monthIdx) : 0;
+      return { b, cy, py, foc,
+        share: totCy ? (cy / totCy) * 100 : 0,
+        sharePy: totPy ? (py / totPy) * 100 : 0,
+        som: cy ? (foc / cy) * 100 : 0,
+        somPy: py ? (focPy / py) * 100 : 0 };
+    });
+    document.getElementById("hp-table").innerHTML = `
+      <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="label">${t("col_hp_band")}</th>
+            <th tabindex="0" data-hint="${t("hint_ytd")}">${cur.year} YTD</th>
+            <th tabindex="0" data-hint="${t("hint_ytd_py")}">${prev ? prev.year + " YTD" : "PY"}</th>
+            <th tabindex="0" data-hint="${t("hint_yoy_ytd")}">YoY</th>
+            <th tabindex="0" data-hint="${t("hint_ytd_share")}">Mix</th>
+            <th tabindex="0" data-hint="${t("hint_dpp")}">Δpp</th>
+            <th>${brand} YTD</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_dpp")}">${brand} SoM</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td class="label">${HP_LABEL[r.b]}</td>
+              <td class="num">${fmtNum(r.cy)}</td>
+              <td class="num">${fmtNum(r.py)}</td>
+              <td class="num">${deltaSpan(calcYoY(r.cy, r.py))}</td>
+              <td class="num">${fmtPct(r.share)}</td>
+              <td class="num">${deltaSpan(r.share - r.sharePy, { suffix: "pp" })}</td>
+              <td class="num">${fmtNum(r.foc)}</td>
+              <td class="num">${fmtPct(r.som)} ${deltaSpan(r.som - r.somPy, { suffix: "pp" })}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      </div>`;
+  }
+
+  /** The per-segment market page: brand mix, YoY, the focus brand's SoM and glide path. */
+  async function renderSegmentMarket(cur, prev, monthIdx, seg, brand = "MB") {
+    document.getElementById("seg-market-title").textContent =
+      `${tdata(seg, "segment")} Market ${cur.year}`;
+
+    // Brand mix, current vs previous year
+    const rows = [`Y${cur.year}`];
+    const values = {};
+    for (const b of BRAND_ORDER) values[b] = [sumThrough(brandSegRow(cur, b, seg), monthIdx)];
+    if (prev) {
+      rows.push(`Y${prev.year}`);
+      for (const b of BRAND_ORDER) values[b].push(sumThrough(brandSegRow(prev, b, seg), monthIdx));
+    }
+    shareBandH(document.getElementById("seg-share-band"), {
+      rows, keys: BRAND_ORDER, values, colors: BRAND_SHADE,
+      height: rows.length > 1 ? 168 : 110,
+    });
+    document.getElementById("seg-band-legend").innerHTML = BRAND_ORDER.map(b =>
+      `<span class="lg"><i style="background:${BRAND_SHADE[b]}"></i>${b}</span>`).join("");
+
+    // Selected month, current vs previous year
+    const mCur = monthVal(segRow(cur, seg), monthIdx);
+    const mPrev = prev ? monthVal(segRow(prev, seg), monthIdx) : 0;
+    groupedBar(document.getElementById("seg-yoy"), {
+      categories: [MONTHS_KR[monthIdx - 1]],
+      series: [
+        { name: `${cur.year}`, values: [mCur], color: TOKEN.teal },
+        { name: prev ? `${prev.year}` : "PY", values: [mPrev], color: TOKEN.mint },
+      ],
+      showlegend: false, height: 168,
+    });
+
+    // Focus brand's share of this segment, YTD
+    const mktYtd = sumThrough(segRow(cur, seg), monthIdx);
+    const mbYtd = sumThrough(brandSegRow(cur, brand, seg), monthIdx);
+    const mktYtdPy = prev ? sumThrough(segRow(prev, seg), monthIdx) : 0;
+    const mbYtdPy = prev ? sumThrough(brandSegRow(prev, brand, seg), monthIdx) : 0;
+    const som = mktYtd ? (mbYtd / mktYtd) * 100 : 0;
+    const somPy = mktYtdPy ? (mbYtdPy / mktYtdPy) * 100 : 0;
+    document.getElementById("seg-som-callout").innerHTML = `
+      <div class="cap">${brand} SoM · YTD ${String(monthIdx).padStart(2, "0")}/${cur.year}</div>
+      <div class="val">${fmtPct(som)}</div>
+      <div class="cap">${deltaSpan(som - somPy, { suffix: "pp" })} vs ${prev ? prev.year : "PY"}</div>`;
+
+    // Focus brand's monthly volume with the MTD / YTD share trend
+    const last = cur.last_data_month || 12;
+    const mbMonthly = MONTHS.map(m => brandSegRow(cur, brand, seg)[m] || 0);
+    const mbMonthlyPy = prev ? MONTHS.map(m => brandSegRow(prev, brand, seg)[m] || 0) : MONTHS.map(() => 0);
+    const segMonthly = MONTHS.map(m => segRow(cur, seg)[m] || 0);
+    const somMtd = mbMonthly.map((v, i) => (segMonthly[i] ? (v / segMonthly[i]) * 100 : 0));
+    let cm = 0, ct = 0;
+    const somYtd = mbMonthly.map((v, i) => {
+      cm += v; ct += segMonthly[i];
+      return ct ? (cm / ct) * 100 : 0;
+    });
+
+    comboBarLine(document.getElementById("seg-glide"), {
+      x: MONTHS_KR,
+      bars: [
+        { name: `${brand} ${cur.year}`, values: trim(mbMonthly, last), color: TOKEN.teal },
+        { name: prev ? `${brand} ${prev.year}` : "PY", values: mbMonthlyPy, color: TOKEN.mint },
+      ],
+      lines: [
+        { name: "MTD SoM", values: trim(somMtd, last), color: TOKEN.amber, dash: "dot" },
+        { name: "YTD SoM", values: trim(somYtd, last), color: TOKEN.deepTeal, width: 3 },
+      ],
+      height: 380,
+      yLabel: "units",
+    });
+
+    // Focus brand's average per month, one bar per available year
+    const avgYears = [];
+    for (const y of [..._years].sort()) {
+      let data = y === cur.year ? cur : (prev && y === prev.year ? prev : null);
+      if (!data) { try { data = await loadKaida(y); } catch (e) { continue; } }
+      const months = data.last_data_month || 12;
+      if (!months) continue;
+      const vol = sumThrough(brandSegRow(data, brand, seg), months);
+      avgYears.push({ year: y, avg: Math.round(vol / months) });
+    }
+    verticalBar(document.getElementById("seg-avg-month"), {
+      // Year alone keeps the ticks horizontal in this narrow column; the
+      // "per month" meaning lives in the title.
+      categories: avgYears.map(a => String(a.year)),
+      values: avgYears.map(a => a.avg),
+      color: TOKEN.teal,
+      title: `${brand} Avg / Month`,
+      height: 380,
+    });
+  }
+
+  function renderKpis(cur, prev, monthIdx, sel, scope) {
+    const totalCy = sumThrough(scopeTotalRow(cur, scope), monthIdx);
+    const totalPy = prev ? sumThrough(scopeTotalRow(prev, scope), monthIdx) : 0;
+
+    // The whole market leads the row, so the segment figures next to it read as
+    // parts of a known total. Its ring mirrors the segment filter.
+    const cards = [`
+      <div class="kpi-card total${sel === "ALL" ? " active" : ""}">
+        <div class="title" data-t="filter_all">전체</div>
+        <div class="value">${fmtNum(totalCy)}</div>
+        <div class="delta">${deltaSpan(calcYoY(totalCy, totalPy))} <small>YoY</small></div>
+      </div>`];
+
+    for (const seg of SEGMENT_ORDER) {
+      const cy = sumThrough(scopeSegRow(cur, scope, seg), monthIdx);
+      const py = prev ? sumThrough(scopeSegRow(prev, scope, seg), monthIdx) : 0;
+      const share = totalCy ? (cy / totalCy) * 100 : 0;
+      cards.push(`
+        <div class="kpi-card${sel === seg ? " active" : ""}">
+          <div class="title">${tdata(seg, "segment")}</div>
+          <div class="value">${fmtNum(cy)}</div>
+          <div class="delta">${deltaSpan(calcYoY(cy, py))} <small>YoY · ${fmtPct(share)}</small></div>
+        </div>`);
+    }
+    const row = document.getElementById("kpi-row");
+    row.innerHTML = cards.join("");
+    applyT(row);
+  }
+
+  function renderSummary(cur, prev, monthIdx, scope) {
+    const totCur = scopeTotalRow(cur, scope);
+    const totPrev = prev ? scopeTotalRow(prev, scope) : null;
+
+    const monthTot = monthVal(totCur, monthIdx);
+    const prevMonthTot = monthIdx > 1 ? monthVal(totCur, monthIdx - 1) : 0;
+    const pyMonthTot = totPrev ? monthVal(totPrev, monthIdx) : 0;
+    const ytdTot = sumThrough(totCur, monthIdx);
+    const ytdTotPy = totPrev ? sumThrough(totPrev, monthIdx) : 0;
+
+    const rows = SEGMENT_ORDER.map(seg => {
+      const row = scopeSegRow(cur, scope, seg);
+      const rowPy = prev ? scopeSegRow(prev, scope, seg) : null;
+      const m = monthVal(row, monthIdx);
+      const pm = monthIdx > 1 ? monthVal(row, monthIdx - 1) : 0;
+      const py = rowPy ? monthVal(rowPy, monthIdx) : 0;
+      const ytd = sumThrough(row, monthIdx);
+      const ytdPy = rowPy ? sumThrough(rowPy, monthIdx) : 0;
+      return { seg, m, pm, py, ytd, ytdPy,
+        share: monthTot ? (m / monthTot) * 100 : 0,
+        sharePm: prevMonthTot ? (pm / prevMonthTot) * 100 : 0,
+        sharePy: pyMonthTot ? (py / pyMonthTot) * 100 : 0,
+        ytdShare: ytdTot ? (ytd / ytdTot) * 100 : 0,
+        ytdSharePy: ytdTotPy ? (ytdPy / ytdTotPy) * 100 : 0,
+      };
+    });
+
+    document.getElementById("segment-summary").innerHTML = `
+      <div class="table-scroll">
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="label" data-t="filter_segment">Segment</th>
+            <th tabindex="0" data-hint="${t("hint_month_vol")}">${t("col_month_vol")}</th>
+            <th tabindex="0" data-hint="${t("hint_share")}">Share</th>
+            <th tabindex="0" data-hint="${t("hint_prev_month")}">${t("col_prev_month")}</th>
+            <th tabindex="0" data-hint="${t("hint_mom")}">MoM</th>
+            <th tabindex="0" data-hint="${t("hint_py")}">PY</th>
+            <th tabindex="0" data-hint="${t("hint_yoy_month")}">YoY</th>
+            <th tabindex="0" data-hint="${t("hint_ytd")}">YTD ${cur.year}</th>
+            <th tabindex="0" data-hint="${t("hint_ytd_py")}">YTD ${prev ? prev.year : "PY"}</th>
+            <th tabindex="0" data-hint="${t("hint_yoy_ytd")}">YoY</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_ytd_share")}">YTD Share</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_dpp")}">Δpp</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td class="label">${tdata(r.seg, "segment")}</td>
+              <td class="num">${fmtNum(r.m)}</td>
+              <td class="num">${fmtPct(r.share)}</td>
+              <td class="num">${fmtNum(r.pm)}</td>
+              <td class="num">${deltaSpan(calcYoY(r.m, r.pm))}</td>
+              <td class="num">${fmtNum(r.py)}</td>
+              <td class="num">${deltaSpan(calcYoY(r.m, r.py))}</td>
+              <td class="num">${fmtNum(r.ytd)}</td>
+              <td class="num">${fmtNum(r.ytdPy)}</td>
+              <td class="num">${deltaSpan(calcYoY(r.ytd, r.ytdPy))}</td>
+              <td class="num">${fmtPct(r.ytdShare)}</td>
+              <td class="num">${deltaSpan(r.ytdShare - r.ytdSharePy, { suffix: "pp" })}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      </div>`;
+    applyT(document.getElementById("segment-summary"));
+  }
+
+  function renderMonthlyMix(cur, scope) {
+    // Mix only makes sense for months that already have data.
+    const last = cur.last_data_month || 12;
+    const idx = [...Array(last).keys()];
+    const totals = idx.map(i => MONTHS_KR[i]);
+    const series = SEGMENT_ORDER.map(seg => {
+      const row = scopeSegRow(cur, scope, seg);
+      return {
+        name: tdata(seg, "segment"),
+        color: SEG_COLOR[seg],
+        values: idx.map(i => {
+          const monthTotal = SEGMENT_ORDER.reduce(
+            (a, sg) => a + (scopeSegRow(cur, scope, sg)[MONTHS[i]] || 0), 0);
+          return monthTotal ? ((row[MONTHS[i]] || 0) / monthTotal) * 100 : 0;
+        }),
+      };
+    });
+    stackedBar(document.getElementById("chart-monthly-mix"), {
+      categories: totals, series, valueKind: "pct1",
+    });
+  }
+
+  function renderYtdMix(cur, monthIdx, scope) {
+    const labels = [], values = [];
+    for (const seg of SEGMENT_ORDER) {
+      const v = sumThrough(scopeSegRow(cur, scope, seg), monthIdx);
+      if (v > 0) { labels.push(tdata(seg, "segment")); values.push(v); }
+    }
+    donutChart(document.getElementById("chart-ytd-mix"), { labels, values });
+  }
+
+  const SEG_COLOR = { Tractor: TOKEN.mint, Rigid: TOKEN.teal, Tipper: TOKEN.amber };
+
+  function renderTabs(cur, prev, monthIdx, active, brand) {
+    document.getElementById("segment-tabs").innerHTML = SEGMENT_ORDER.map(seg =>
+      `<button type="button" data-seg="${seg}" class="${seg === active ? "active" : ""}">${tdata(seg, "segment")}</button>`
+    ).join("");
+    // Tabs write the same state key as the segment tiles — one selection, two
+    // ways to reach it.
+    document.querySelectorAll("#segment-tabs button").forEach(btn => {
+      btn.addEventListener("click", () => setState({ segment: btn.dataset.seg }));
+    });
+
+    document.getElementById("segment-panels").innerHTML = `
+      <div class="chart-row">
+        <div id="seg-brand-bar" class="chart"></div>
+        <div id="seg-som" class="chart"></div>
+      </div>
+      <div id="seg-trend" class="chart"></div>
+      <div id="seg-table"></div>`;
+
+    renderSegmentPanel(cur, prev, monthIdx, active, brand);
+  }
+
+  function renderSegmentPanel(cur, prev, monthIdx, seg, brand = "MB") {
+    // Brand volumes, current vs previous year, through the selected month
+    const rows = BRAND_ORDER.map(b => ({
+      brand: b,
+      cy: sumThrough(brandSegRow(cur, b, seg), monthIdx),
+      py: prev ? sumThrough(brandSegRow(prev, b, seg), monthIdx) : 0,
+    })).sort((a, b) => b.cy - a.cy);
+
+    groupedBar(document.getElementById("seg-brand-bar"), {
+      categories: rows.map(r => r.brand),
+      series: [
+        { name: `${cur.year} YTD`, values: rows.map(r => r.cy), color: TOKEN.teal },
+        { name: prev ? `${prev.year} YTD` : "PY", values: rows.map(r => r.py), color: TOKEN.mint },
+      ],
+    });
+
+    // Focus brand's cumulative share of the segment: volume through month N
+    // over market volume through month N, so the line converges on the YTD
+    // figure instead of swinging with each month's small volumes.
+    const somOf = (data) => {
+      let mb = 0, mkt = 0;
+      return MONTHS.map(m => {
+        mb += brandSegRow(data, brand, seg)[m] || 0;
+        mkt += segRow(data, seg)[m] || 0;
+        return mkt ? (mb / mkt) * 100 : 0;
+      });
+    };
+    const last = cur.last_data_month || 12;
+    const somSeries = [
+      { name: `${cur.year} ${brand} YTD SoM`, values: trim(somOf(cur), last), color: TOKEN.deepTeal },
+    ];
+    if (prev) somSeries.push({
+      name: `${prev.year} ${brand} YTD SoM`,
+      values: trim(somOf(prev), prev.last_data_month || 12),
+      color: TOKEN.mint,
+    });
+    lineChart(document.getElementById("seg-som"), {
+      x: MONTHS_KR, series: somSeries, yLabel: "%", valueKind: "pct1",
+    });
+
+    // Monthly volume by brand within the segment
+    lineChart(document.getElementById("seg-trend"), {
+      x: MONTHS_KR,
+      series: BRAND_ORDER.map(b => ({
+        name: b,
+        values: trim(MONTHS.map(m => brandSegRow(cur, b, seg)[m] || 0), last),
+      })),
+    });
+
+    const totCy = rows.reduce((a, r) => a + r.cy, 0);
+    const totPy = rows.reduce((a, r) => a + r.py, 0);
+    document.getElementById("seg-table").innerHTML = `
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="label" data-t="filter_brand">Brand</th>
+            <th tabindex="0" data-hint="${t("hint_ytd")}">${cur.year} YTD</th>
+            <th tabindex="0" data-hint="${t("hint_ytd_py")}">${prev ? prev.year + " YTD" : "PY"}</th>
+            <th tabindex="0" data-hint="${t("hint_yoy_ytd")}">YoY</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_ytd_share")}">Share</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_dpp")}">Δpp</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r, i) => {
+            const share = totCy ? (r.cy / totCy) * 100 : 0;
+            const sharePy = totPy ? (r.py / totPy) * 100 : 0;
+            return `
+              <tr${r.brand === brand ? ' class="highlight"' : ""}>
+                <td class="label">${i + 1}. ${r.brand}</td>
+                <td class="num">${fmtNum(r.cy)}</td>
+                <td class="num">${fmtNum(r.py)}</td>
+                <td class="num">${deltaSpan(calcYoY(r.cy, r.py))}</td>
+                <td class="num">${fmtPct(share)}</td>
+                <td class="num">${deltaSpan(share - sharePy, { suffix: "pp" })}</td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    applyT(document.getElementById("seg-table"));
+  }
+
+  bootstrap().catch(e => {
+    console.error(e);
+    banner("error", e.message);
+  });
 </script>
 </body>
 </html>

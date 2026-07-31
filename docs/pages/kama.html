@@ -3,21 +3,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title data-t="nav_kama">KAMA 국내 상용 · CV Data Dashboard</title>
+  <title data-t="nav_kama">KAMA 국내 상용 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
   <link rel="stylesheet" href="../css/style.css" />
-  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
-  <script src="https://alcdn.msauth.net/browser/3.10.0/js/msal-browser.min.js"></script>
+  <script src="../vendor/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="../vendor/msal-browser.min.js"></script>
 </head>
 <body>
 <div class="app">
   <aside class="sidebar"></aside>
   <main class="main">
-    <h1 class="page-title" data-t="nav_kama">KAMA 국내 상용</h1>
-    <div class="page-sub">현대 · 타타대우 월별 등록 + SoM</div>
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_kama">KAMA 국내 상용</h1>
+      <div class="page-sub">현대 · 타타대우 월별 등록 + SoM</div>
 
-    <section class="filter-bar" id="filters"></section>
+      <section class="filter-bar" id="filters"></section>
 
-    <div id="kpi-row" class="kpi-row"></div>
+      <div id="kpi-row" class="kpi-row"></div>
+    </div>
+
+    <section class="section">
+      <h2>Domestic truck sales</h2>
+      <div id="chart-sales" class="chart"></div>
+    </section>
+
+    <section class="section">
+      <h2>Domestic Brand Market Share</h2>
+      <div id="chart-share" class="chart"></div>
+    </section>
 
     <section class="section">
       <h2>브랜드 비교</h2>
@@ -25,7 +40,7 @@
     </section>
 
     <section class="section">
-      <h2>현대 SoM 추이</h2>
+      <h2 id="som-title">현대 SoM 추이</h2>
       <div id="chart-som" class="chart"></div>
     </section>
 
@@ -40,14 +55,26 @@
   import { requireLogin } from "../js/auth.js";
   import { loadTranslations, applyT, t } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
-  import { renderFilters, yearOptions, monthOptions, segmentOptions } from "../js/filters.js";
+  import { renderFilters, syncFilters, yearOptions, monthOptions,
+           brandOptions, segmentOptions } from "../js/filters.js";
   import { loadManifest, loadKama } from "../js/data.js";
-  import { groupedBar, lineChart } from "../js/charts.js";
-  import { fmtNum, fmtPct } from "../js/format.js";
+  import { groupedBar, stackedBar, lineChart, comboBarLine,
+           SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
+  import { fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
   import { getState, subscribe } from "../js/state.js";
 
   const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
   const MONTHS_KR = MONTHS.map((_, i) => `${i+1}월`);
+
+  const BRANDS = ["Hyundai", "Tata Daewoo"];
+  // Short marks for the chart legends, as in the source report.
+  const SHORT = { Hyundai: "HD", "Tata Daewoo": "Tata" };
+  // The report's own pastel pair — kept identical across every chart here.
+  const KAMA_COLOR = { Hyundai: "#6cbfd9", "Tata Daewoo": "#f2914d" };
+  const TOTAL_LINE = TOKEN.deepTeal;
+  const PY_LINE = TOKEN.mint;
+  // Tiles need more punch than the chart pastels to read as a selected state.
+  const KAMA_TILE = { ALL: TOKEN.deepTeal, Hyundai: "#1f7fa8", "Tata Daewoo": "#d9702c" };
 
   (async () => {
     if (!(await requireLogin())) return;
@@ -64,8 +91,10 @@
       renderFilters(document.getElementById("filters"), [
         { key: "year", label: "filter_year", options: yearOptions(years), default: years[0] },
         { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
-        { key: "segment", label: "filter_segment",
-          options: segmentOptions(["Cargo","Tractor","Dump"]), default: "ALL" },
+        { key: "brand", label: "filter_brand", as: "tiles", colors: KAMA_TILE,
+          options: brandOptions(BRANDS, true), default: "ALL" },
+        { key: "segment", label: "filter_segment", as: "tiles", colors: SEGMENT_TILE_COLORS,
+          tkind: "segment", options: segmentOptions(["Rigid","Tractor","Tipper"]), default: "ALL" },
       ], render);
       subscribe(render);
       document.addEventListener("langchange", render);
@@ -78,56 +107,159 @@
 
   async function render() {
     const s = { ...getState() };
+    syncFilters();
     const manifest = await loadManifest();
     const year = parseInt(s.year, 10) || manifest.kama_years[0];
     const data = await loadKama(year);
+    // Previous year drives the YoY tiles and the dotted comparison line.
+    let py = null;
+    try { py = await loadKama(year - 1); } catch (e) { py = null; }
 
-    const brands = ["Hyundai", "Tata Daewoo"];
     const seg = s.segment && s.segment !== "ALL" ? s.segment : null;
+    // The brand tiles pick the focus brand for the SoM views; "전체" means Hyundai.
+    const sel = s.brand && s.brand !== "ALL" ? s.brand : null;
+    const focus = sel || "Hyundai";
 
-    const ytd = (b) => seg
-      ? (data.by_brand_seg[b]?.[seg]?.YTD ?? 0)
-      : (data.by_brand[b]?.YTD ?? 0);
-    const total = ytd("Hyundai") + ytd("Tata Daewoo");
-    const hyundaiShare = total ? (ytd("Hyundai") / total) * 100 : 0;
+    const rowOf = (d, b) => (seg
+      ? (d && d.by_brand_seg[b] && d.by_brand_seg[b][seg])
+      : (d && d.by_brand[b])) || {};
+    const monthlyVals = (d, b) => MONTHS.map(m => rowOf(d, b)[m] ?? 0);
 
-    document.getElementById("kpi-row").innerHTML = [
-      kpi("YTD", fmtNum(total)),
-      kpi("Hyundai", fmtNum(ytd("Hyundai"))),
-      kpi("Hyundai Share", fmtPct(hyundaiShare)),
-    ].join("");
+    // ---- monthly series, shared by every chart below --------------------
+    const byBrand = {}, byBrandPy = {};
+    for (const b of BRANDS) {
+      byBrand[b] = monthlyVals(data, b);
+      byBrandPy[b] = py ? monthlyVals(py, b) : MONTHS.map(() => 0);
+    }
+    const totalMonthly = MONTHS.map((_, i) =>
+      BRANDS.reduce((a, b) => a + byBrand[b][i], 0));
+    const totalMonthlyPy = MONTHS.map((_, i) =>
+      BRANDS.reduce((a, b) => a + byBrandPy[b][i], 0));
+    // Stop the lines at the last month that has data instead of letting them
+    // plunge to zero across the rest of the year.
+    const lastMonth = totalMonthly.reduce((last, v, i) => (v > 0 ? i + 1 : last), 0);
+    const trim = (vals) => vals.map((v, i) => (i < lastMonth ? v : null));
 
+    // The stored YTD field spans a whole year, so comparing it against a
+    // part-year would report a collapse that never happened. Everything
+    // aggregated here sums the same months on both sides.
+    const monthIdx = !s.month || s.month === "YTD" ? lastMonth : parseInt(s.month, 10);
+    const through = (vals) => vals.slice(0, monthIdx).reduce((a, v) => a + v, 0);
+    const cyOf = (b) => through(byBrand[b]);
+    const pyOf = (b) => (py ? through(byBrandPy[b]) : 0);
+
+    const total = BRANDS.reduce((a, b) => a + cyOf(b), 0);
+    const totalPy = BRANDS.reduce((a, b) => a + pyOf(b), 0);
+
+    renderKpis({ total, totalPy, cyOf, pyOf, sel });
+    renderSales(byBrand, totalMonthly, totalMonthlyPy, trim, sel, year, py);
+    renderShare(byBrand, totalMonthly, lastMonth);
+
+    const label = monthIdx === lastMonth ? "YTD" : `~${monthIdx}월`;
     groupedBar(document.getElementById("chart-brand"), {
-      categories: brands,
-      series: [{ name: `${year} YTD`, values: brands.map(b => ytd(b)) }],
+      categories: BRANDS,
+      series: [
+        { name: `${year} ${label}`, values: BRANDS.map(cyOf), color: TOTAL_LINE },
+        ...(py ? [{ name: `${year - 1} ${label}`, values: BRANDS.map(pyOf), color: PY_LINE }] : []),
+      ],
     });
 
-    const monthlyVals = (b) => MONTHS.map(m => seg
-      ? (data.by_brand_seg[b]?.[seg]?.[m] ?? 0)
-      : (data.by_brand[b]?.[m] ?? 0));
-    const hyVals = monthlyVals("Hyundai");
-    const totalMonthly = MONTHS.map((_, i) =>
-      brands.reduce((acc, b) => acc + monthlyVals(b)[i], 0));
-    const somMonthly = hyVals.map((v, i) => totalMonthly[i] ? (v / totalMonthly[i]) * 100 : 0);
+    // Focus brand's share of the domestic pair, month by month
+    document.getElementById("som-title").textContent = `${focus} SoM 추이`;
+    const somOf = (vals) => vals.map((v, i) =>
+      i >= lastMonth ? null : (totalMonthly[i] ? (v / totalMonthly[i]) * 100 : 0));
     lineChart(document.getElementById("chart-som"), {
       x: MONTHS_KR,
-      series: [{ name: "Hyundai SoM", values: somMonthly, color: "#1a56db" }],
+      series: [{ name: `${SHORT[focus]} SoM`, values: somOf(byBrand[focus]), color: KAMA_COLOR[focus] }],
       yLabel: "%",
+      valueKind: "pct1",
     });
 
-    const rows = brands.map(b => {
-      const vals = monthlyVals(b);
-      return `<tr><td class="label">${b}</td>${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join("")}<td class="num"><strong>${fmtNum(vals.reduce((a,b)=>a+b,0))}</strong></td></tr>`;
+    const rows = BRANDS.map(b => {
+      const vals = byBrand[b];
+      return `<tr${b === sel ? ' class="highlight"' : ""}><td class="label">${b}</td>${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join("")}<td class="num"><strong>${fmtNum(vals.reduce((a, c) => a + c, 0))}</strong></td></tr>`;
     }).join("");
     document.getElementById("monthly-table").innerHTML = `
       <table class="data">
-        <thead><tr><th class="label">Brand</th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th>YTD</th></tr></thead>
+        <thead><tr><th class="label">Brand</th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
 
-  function kpi(title, value) {
-    return `<div class="kpi-card"><div class="title">${title}</div><div class="value">${value}</div></div>`;
+  /** 전체 tile leads, then one tile per brand — same shape as the KAIDA tiles. */
+  function renderKpis({ total, totalPy, cyOf, pyOf, sel }) {
+    const cards = [`
+      <div class="kpi-card total${sel === null ? " active" : ""}">
+        <div class="title" data-t="filter_all">전체</div>
+        <div class="value">${fmtNum(total)}</div>
+        <div class="delta">${deltaSpan(calcYoY(total, totalPy))} <small>YoY</small></div>
+      </div>`];
+
+    for (const b of BRANDS) {
+      const cy = cyOf(b);
+      const prev = pyOf(b);
+      const share = total ? (cy / total) * 100 : 0;
+      cards.push(`
+        <div class="kpi-card${sel === b ? " active" : ""}">
+          <div class="title">${b}</div>
+          <div class="value">${fmtNum(cy)}</div>
+          <div class="delta">${deltaSpan(calcYoY(cy, prev))} <small>YoY · ${fmtPct(share)}</small></div>
+        </div>`);
+    }
+    const row = document.getElementById("kpi-row");
+    row.innerHTML = cards.join("");
+    applyT(row);
+  }
+
+  /**
+   * Monthly volume per brand as grouped bars, with this year's and last year's
+   * market totals overlaid as lines on the same unit axis.
+   */
+  function renderSales(byBrand, totalMonthly, totalMonthlyPy, trim, sel, year, py) {
+    const shown = sel ? [sel] : BRANDS;
+    comboBarLine(document.getElementById("chart-sales"), {
+      x: MONTHS_KR,
+      bars: shown.map(b => ({
+        name: SHORT[b], values: trim(byBrand[b]), color: KAMA_COLOR[b],
+      })),
+      lines: [
+        { name: `${year}`, values: trim(totalMonthly), color: TOTAL_LINE,
+          axis: "y", valueKind: "int", width: 2, symbol: "square", markerSize: 8 },
+        ...(py ? [{ name: `${year - 1}`, values: totalMonthlyPy, color: TOKEN.mint,
+          axis: "y", valueKind: "int", dash: "dot", width: 1.5,
+          textposition: "bottom center" }] : []),
+      ],
+      yLabel: "units",
+      height: 400,
+      labelSize: 11,
+    });
+  }
+
+  /** 100% share per month plus a highlighted YTD column on the right. */
+  function renderShare(byBrand, totalMonthly, lastMonth) {
+    const cats = [...MONTHS_KR, "YTD"];
+    const ytdTotal = totalMonthly.reduce((a, v) => a + v, 0);
+    const series = BRANDS.map(b => {
+      const vals = MONTHS.map((_, i) =>
+        i >= lastMonth || !totalMonthly[i] ? null : (byBrand[b][i] / totalMonthly[i]) * 100);
+      const bYtd = byBrand[b].reduce((a, v) => a + v, 0);
+      vals.push(ytdTotal ? (bYtd / ytdTotal) * 100 : null);
+      return { name: SHORT[b], values: vals, color: KAMA_COLOR[b] };
+    });
+    stackedBar(document.getElementById("chart-share"), {
+      categories: cats,
+      series,
+      valueKind: "pct1",
+      height: 400,
+      labelSize: 12,
+      yaxis: { range: [0, 100], ticksuffix: "%", tickvals: [0, 50, 100] },
+      // The YTD column is a summary, not another month — call it out.
+      shapes: [{
+        type: "rect", xref: "x", yref: "paper",
+        x0: cats.length - 1.5, x1: cats.length - 0.5, y0: 0, y1: 1,
+        fillcolor: TOKEN.amber, opacity: 0.14, line: { width: 0 }, layer: "below",
+      }],
+    });
   }
 </script>
 </body>

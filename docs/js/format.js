@@ -25,6 +25,16 @@ export function fmtKoreanScale(n) {
   return fmtNum(n);
 }
 
+/** Readable foreground for text drawn on `hex` — dark on light fills, white on dark. */
+export function onColor(hex) {
+  if (typeof hex !== "string" || !/^#[0-9a-f]{6}$/i.test(hex)) return "white";
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return brightness > 0.55 ? "#1f2328" : "white";
+}
+
 export function calcYoY(cur, prev) {
   if (!prev) return null;
   return ((cur - prev) / prev) * 100;
@@ -36,7 +46,9 @@ export function deltaSpan(v, opts = {}) {
   if (neutralZero && v === 0) return `<span class="delta">0${suffix}</span>`;
   const cls = v > 0 ? "up" : "down";
   const sign = v > 0 ? "+" : "";
-  const val = suffix === "%" ? fmtPct(v) : fmtNum(v);
+  // Percentage-point deltas are fractions too — round them like percentages
+  // rather than printing the raw float ("-10.432pp").
+  const val = suffix === "%" ? fmtPct(v) : (Math.round(v * 10) / 10).toFixed(1);
   return `<span class="delta ${cls}">${sign}${val.replace(/^\+/, "")}${suffix === "%" ? "" : suffix}</span>`;
 }
 

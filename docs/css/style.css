@@ -17,6 +17,13 @@
   --man: #F7B731;
   --iveco: #0097E6;
   --sidebar-w: 260px;
+  /* Dashboard colour tokens — mirrors TOKEN in js/charts.js */
+  --deep-teal: #065A66;
+  --teal: #0E96A0;
+  --mint: #9BD4C4;
+  --amber: #F0A500;
+  --burnt-orange: #C86A15;
+  --rust: #B23A10;
 }
 
 * { box-sizing: border-box; }
@@ -37,7 +44,10 @@ a:hover { text-decoration: underline; }
 /* Layout */
 .app {
   display: grid;
-  grid-template-columns: var(--sidebar-w) 1fr;
+  /* minmax(0, 1fr), not 1fr: a plain 1fr floors the column at the content's
+     min-content width, which let the report panels push `main` wider than the
+     window and clip their right edge on a ~1280px screen. */
+  grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
   min-height: 100vh;
 }
 
@@ -50,14 +60,34 @@ a:hover { text-decoration: underline; }
   height: 100vh;
   overflow-y: auto;
 }
+/* Brand block — Mercedes-Benz Trucks mark above the site name, top-left. */
+.sidebar .brand {
+  display: block;
+  color: inherit;
+  margin: 0 0 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar .brand:hover { text-decoration: none; }
+.sidebar .brand-logo {
+  display: block;
+  width: 100%;
+  max-width: 190px;
+  height: auto;
+  margin-bottom: 14px;
+}
 .sidebar h1 {
-  font-size: 1.05rem;
-  margin: 0 0 4px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  color: var(--text);
+  margin: 0 0 5px;
 }
 .sidebar .subtitle {
-  font-size: 0.78rem;
+  font-size: 0.85rem;
   color: var(--muted);
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 .sidebar .nav-group {
   margin: 14px 0;
@@ -127,22 +157,54 @@ a:hover { text-decoration: underline; }
   margin-bottom: 18px;
 }
 
+/* Sticky page header — title + filters + KPI tiles stay pinned while charts
+   scroll. It is pinned, so every row it spends is a row the charts below never
+   get: the layout here trades vertical stacking for horizontal space wherever
+   it can, at unchanged font sizes. */
+.page-head {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: var(--bg);
+  padding: 10px 36px 8px;
+  margin: -28px -36px 14px;
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.28);
+}
+/* Title and its caption share one line instead of stacking. */
+.page-head .page-title,
+.page-head .page-sub {
+  display: inline-block;
+  vertical-align: baseline;
+  margin: 0;
+}
+.page-head .page-title { margin-right: 10px; }
+.page-head .filter-bar { margin: 6px 0 8px; }
+.page-head .kpi-row { margin-bottom: 0; }
+
 /* Filter bar */
 .filter-bar {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
   background: var(--bg-soft);
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 7px 12px;
   margin-bottom: 24px;
 }
+/* The selects take a fixed slot and never grow, so every spare pixel goes to
+   the tile groups — they are the ones that break onto a second line. */
+.filter-bar > .filter-field { flex: 0 1 150px; min-width: 0; }
+/* Tile groups need room for every option — they outgrow a select-sized slot. */
+.filter-bar > .filter-field.tiles { flex: 1 1 auto; min-width: 0; }
 .filter-bar label {
   display: block;
   font-size: 0.74rem;
+  line-height: 1;
   color: var(--muted);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
   text-transform: uppercase;
   letter-spacing: 0.4px;
 }
@@ -157,6 +219,40 @@ a:hover { text-decoration: underline; }
   color: var(--text);
 }
 .filter-bar input[type="range"] { padding: 0; }
+
+/* Clickable filter tiles — replace the <select> for brand / segment. */
+/* One group = one line. Letting the tiles wrap put a lone IVECO under its own
+   row; keeping the group intact pushes the *next* field down instead, which
+   reads as a deliberate second row of filters. Narrow screens re-enable wrap
+   below. */
+.tile-group {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+.filter-tile {
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--tile);   /* colour hint while unselected */
+  border-radius: 8px;
+  padding: 7px 11px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, box-shadow 0.12s;
+}
+.filter-tile:hover { border-color: var(--tile); background: var(--bg-soft); }
+.filter-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filter-tile.active {
+  background: var(--tile);
+  border-color: var(--tile);
+  color: var(--tile-fg, #fff);
+  box-shadow: 0 2px 6px -1px rgba(0, 0, 0, 0.35);
+}
 .filter-bar .range-value {
   font-size: 0.8rem;
   color: var(--accent);
@@ -165,34 +261,67 @@ a:hover { text-decoration: underline; }
 }
 
 /* KPI cards */
+/* Sized so the widest row on the site (6 cards) still fits one line on a
+   ~1280px window at 100% zoom — the old 195px floor wrapped the last card. */
 .kpi-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 8px;
   margin-bottom: 24px;
 }
+/* Two rows, not three: the caption keeps its own line, then the value and its
+   delta sit side by side on a shared baseline. Same type sizes, ~a third less
+   height. */
 .kpi-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 8px;
   border: 1px solid var(--border);
   border-radius: 10px;
-  padding: 14px 16px;
+  padding: 8px 12px 9px;
   background: var(--bg);
+  min-width: 0;
+}
+/* The caption owns its line; value + delta share the next one. Where the pair
+   genuinely cannot fit — a long delta in a narrow six-card row — the delta
+   drops to its own line rather than being clipped. */
+.kpi-card .title { flex: 0 0 100%; }
+/* Leading "whole market" tile — the total the other tiles divide up. */
+.kpi-card.total {
+  background: var(--bg-soft);
+  border-color: #b6bfc8;
+}
+/* Mirrors the segment filter selection. */
+.kpi-card.active {
+  border-color: var(--deep-teal);
+  box-shadow: 0 0 0 2px rgba(6, 90, 102, 0.28);
 }
 .kpi-card .title {
-  font-size: 0.78rem;
+  font-size: 0.88rem;
+  font-weight: 600;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .kpi-card .value {
-  font-size: 1.7rem;
+  font-size: 1.62rem;
   font-weight: 700;
-  margin: 6px 0 2px;
+  line-height: 1.15;
+  margin: 2px 0 0;
   color: var(--text);
+  white-space: nowrap;
 }
 .kpi-card .delta {
-  font-size: 0.82rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.2;
   color: var(--muted);
+  white-space: nowrap;
 }
+.kpi-card .delta small { font-size: 0.86em; font-weight: 500; }
 .kpi-card .delta .up { color: var(--success); }
 .kpi-card .delta .down { color: var(--danger); }
 
@@ -229,6 +358,11 @@ a:hover { text-decoration: underline; }
 @media (max-width: 1100px) {
   .chart-row, .chart-row.three { grid-template-columns: 1fr; }
 }
+/* Below this a tile group genuinely cannot hold its line — wrapping beats
+   overflowing the filter bar. */
+@media (max-width: 860px) {
+  .tile-group { flex-wrap: wrap; }
+}
 
 /* Tabs */
 .tabs {
@@ -257,13 +391,13 @@ a:hover { text-decoration: underline; }
 table.data {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.86rem;
+  font-size: 1.15rem;      /* 16px at the 14px base */
   margin: 10px 0;
 }
 table.data th,
 table.data td {
   text-align: right;
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-bottom: 1px solid #eef1f5;
 }
 table.data th {
@@ -272,9 +406,49 @@ table.data th {
   color: var(--muted);
   border-bottom: 1px solid var(--border);
   text-transform: uppercase;
-  font-size: 0.74rem;
+  font-size: 1.03rem;
   letter-spacing: 0.4px;
 }
+/* Column-header glossary — hover or keyboard-focus a header to see what the
+   abbreviation stands for. The tooltip opens downward so the scroll container
+   around wide tables never clips it. */
+table.data th[data-hint] {
+  cursor: help;
+  position: relative;
+  text-decoration: underline dotted 1px;
+  text-underline-offset: 3px;
+}
+table.data th[data-hint]::after {
+  content: attr(data-hint);
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 270px;
+  padding: 8px 11px;
+  white-space: normal;
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.86rem;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #fff;
+  background: #1f2328;
+  border-radius: 6px;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s;
+  pointer-events: none;
+  z-index: 40;
+}
+table.data th[data-hint]:hover::after,
+table.data th[data-hint]:focus-visible::after { opacity: 1; visibility: visible; }
+/* Right-hand columns anchor to their own edge instead of overflowing. */
+table.data th[data-hint].hint-end::after { left: auto; right: 0; transform: none; }
+
 table.data td.label,
 table.data th.label {
   text-align: left;
@@ -282,6 +456,252 @@ table.data th.label {
   color: var(--text);
 }
 table.data tr:hover td { background: #fafbfc; }
+table.data tr.highlight td { background: var(--accent-soft); font-weight: 600; }
+table.data tr.sub td { color: var(--muted); font-size: 1.08rem; }
+table.data td.dim { color: #c6ccd2; }
+table.data.compact th,
+table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
+/* Wide summary tables scroll inside their own box instead of the page */
+.table-scroll { overflow-x: auto; }
+.table-scroll table.data { min-width: 980px; }
+
+/* ---- Market report panels ------------------------------------------------ */
+/* Mirrors the printed KAIDA market deck: a Total Market band, the segment
+   scorecards beneath it, and the MB SoM glide path. */
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 0 14px 14px;
+  margin-bottom: 14px;
+  min-width: 0;
+}
+.panel-title {
+  background: var(--bg-soft);
+  color: var(--deep-teal);
+  font-weight: 700;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 7px 10px;
+  margin: 0 -14px 12px;
+  border-radius: 10px 10px 0 0;
+  border-bottom: 1px solid var(--border);
+}
+/* Sub-line directly under a panel header — carries the headline YoY delta. */
+.panel-sub {
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: -8px 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+.panel-sub:empty { display: none; }
+.panel-sub .delta.up { color: var(--success); }
+.panel-sub .delta.down { color: var(--danger); }
+.panel-sub small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 4px;
+}
+
+/* The share band spans the full panel width (the old Y-o-Y side chart is gone). */
+.total-market {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+.tm-head {
+  text-align: center;
+  font-size: 0.88rem;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+  margin-bottom: 6px;
+}
+.chart.flat { min-height: 0; border: none; padding: 0; }
+
+.brand-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+.brand-legend .lg { display: inline-flex; align-items: center; gap: 4px; }
+.brand-legend i {
+  width: 10px; height: 10px; border-radius: 2px; display: inline-block;
+}
+
+
+/* Segment scorecards — one card per segment, read top-down:
+   결론(SoM) → 원인(성장률 격차) → 모멘텀(MTD). */
+.scorecards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 900px) {
+  .scorecards { grid-template-columns: 1fr; }
+}
+.scard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  padding: 14px 16px 16px;
+  min-width: 0;
+}
+.scard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.scard-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--deep-teal);
+}
+/* The verdict, stated in words so the card does not have to be decoded. */
+.scard-badge {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.scard-badge.good { background: #d8ecef; color: #06525d; }
+.scard-badge.warn,
+.scard-badge.bad { background: #f7ded4; color: #a63c12; }
+
+.scard-hero {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.scard-hero .v {
+  font-size: 2.1rem;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+.scard-cap {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.scard-rule {
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+
+.sdelta {
+  font-size: 1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sdelta.up { color: var(--teal); }
+.sdelta.down { color: var(--rust); }
+.sdelta.flat { color: var(--muted); }
+
+.scard-growth {
+  display: grid;
+  grid-template-columns: auto auto minmax(80px, 1.2fr);
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 0.86rem;
+}
+.scard-growth .k { color: var(--muted); }
+.scard-growth .n { font-weight: 700; font-variant-numeric: tabular-nums; }
+/* Growth bars diverge from a shared zero line, so "market up / MB down" is a
+   shape you see before you read either number. */
+.dv { position: relative; height: 16px; min-width: 50px; }
+.dv::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.dv i {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  display: block;
+  border-radius: 2px;
+}
+.scard-gap {
+  margin-top: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.scard-gap.up { color: var(--teal); }
+.scard-gap.down { color: var(--rust); }
+
+.scard-foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.scard-foot b { font-variant-numeric: tabular-nums; }
+.scard-vol {
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-top: 3px;
+}
+/* MB's slice of the segment, drawn to scale under the numbers. */
+.scard-meter {
+  margin-top: 10px;
+  height: 12px;
+  border-radius: 3px;
+  background: #e6eaed;
+  overflow: hidden;
+}
+.scard-meter i {
+  display: block;
+  height: 100%;
+  background: var(--teal);
+}
+
+/* Per-segment market overview (segment page) */
+.seg-market {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px 200px;
+  gap: 12px;
+  align-items: start;
+}
+.seg-market-lower {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+@media (max-width: 1000px) {
+  .seg-market, .seg-market-lower { grid-template-columns: 1fr; }
+}
+.sm-callout { align-self: center; }
+
+/* Big single-number callout used on the segment pages */
+.som-callout {
+  background: var(--deep-teal);
+  color: white;
+  border-radius: 10px;
+  padding: 14px 18px;
+  text-align: center;
+}
+.som-callout .cap { font-size: 0.76rem; opacity: 0.85; }
+.som-callout .val { font-size: 1.9rem; font-weight: 700; line-height: 1.2; }
 table.data .num { font-variant-numeric: tabular-nums; }
 table.data .up { color: var(--success); font-weight: 600; }
 table.data .down { color: var(--danger); font-weight: 600; }
@@ -330,6 +750,12 @@ table.data .down { color: var(--danger); font-weight: 600; }
   border-radius: 14px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.06);
   text-align: center;
+}
+.auth-card .auth-logo {
+  display: block;
+  width: 180px;
+  height: auto;
+  margin: 0 auto 20px;
 }
 .auth-card h1 { margin: 0 0 8px; font-size: 1.4rem; }
 .auth-card p { margin: 6px 0; color: var(--text); }
@@ -402,4 +828,8 @@ table.data .down { color: var(--danger); font-weight: 600; }
     border-bottom: 1px solid var(--border);
   }
   .main { padding: 16px; }
+  .page-head {
+    padding: 12px 16px 10px;
+    margin: -16px -16px 16px;
+  }
 }
