@@ -29,9 +29,12 @@ const msalConfig = {
     // Popup flow → redirectUri is only where MSAL posts the auth response.
     // Use the origin + "/" (NO page path) so a SINGLE Entra SPA redirect URI
     // covers every page of this multi-page static site instead of registering
-    // each .html URL. Entra matches redirect URIs as an EXACT string, so the
-    // trailing slash here must match what is registered:
-    //   https://mbtruck-cvdata.startruckkorea.com/
+    // each .html URL.
+    //
+    // Entra compares redirect URIs as an EXACT string, and the sibling apps on
+    // this same registration disagree about the trailing slash (mb-truck-spec
+    // registered ".com", SAM-AFAB registered ".com/"). Register BOTH forms for
+    // this host and the ambiguity disappears — see docs/ENTRA_SETUP.md.
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
     redirectUri: window.location.origin + "/",
     postLogoutRedirectUri: window.location.origin + "/",
@@ -166,7 +169,8 @@ export async function signIn() {
     pca.setActiveAccount(result.account);
   } catch (e) {
     if (!_isStaleAuthError(e)) {
-      _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e));
+      _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e),
+                   _redirectUriHint(e));
       return;
     }
     // stale interaction state left in storage → clear and retry once
@@ -264,12 +268,31 @@ function _renderForbidden(account) {
   document.getElementById("signout-btn").addEventListener("click", () => signOut());
 }
 
-function _renderError(message) {
+// An unregistered redirect URI is the single most likely reason sign-in fails
+// on a NEW host: Entra renders AADSTS50011 inside the popup and never posts a
+// response back, so MSAL only ever sees "the user closed the popup". Rather
+// than leave that dead end, spell out the fix whenever the popup ends without
+// a token on a protected host.
+function _redirectUriHint(e) {
+  const code = (e && e.errorCode) || "";
+  const looksUnregistered =
+    code === "user_cancelled" ||
+    code === "popup_window_error" ||
+    /AADSTS50011|redirect_uri/i.test((e && e.message) || "");
+  if (!looksUnregistered || !_loginRequired()) return "";
+  const uri = window.location.origin;
+  return `이 주소가 Entra 앱(9b247088-…)의 SPA 리디렉션 URI로 등록되지 않았을 수 있습니다.
+          Azure Portal → 앱 등록 → 인증 → SPA 에 <code>${escapeHtml(uri)}</code> 와
+          <code>${escapeHtml(uri)}/</code> 를 모두 추가하세요.`;
+}
+
+function _renderError(message, hint = "") {
   document.body.innerHTML = `
     <div class="auth-gate">
       <div class="auth-card">
         <h1>오류</h1>
         <p>${escapeHtml(message)}</p>
+        ${hint ? `<p class="muted">${hint}</p>` : ""}
         <button onclick="location.reload()" type="button">새로고침</button>
       </div>
     </div>`;
