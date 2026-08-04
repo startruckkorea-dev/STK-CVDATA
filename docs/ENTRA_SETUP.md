@@ -65,8 +65,9 @@ https://startruckkorea.sharepoint.com/sites/STK-PMM
 ## 4. 데이터 갱신 (관리자)
 
 1. `python tools/build_site.py` → `build/data/*.json` 생성 (gitignore, 스테이징)
-   — 원본 xlsx 는 탐색기에 **동기화된 SharePoint 폴더**를 그대로 읽습니다
-   (`CV_RAW_DIR` 환경변수, README 참고). 로컬 복사본을 두지 않습니다.
+   — 원본 xlsx 는 SharePoint 에서 폴더째 내려받아 `raw_data/` 에 둡니다
+   (OneDrive 미사용이라 폴더 동기화는 불가). 확정 연도는 1회로 끝납니다.
+   README 참고.
 2. 사이트의 **관리 → 데이터 발행** 페이지에서 `build/data` 를 끌어다 놓고 발행
 
 **2번이 곧 배포입니다** — git push 는 데이터에 아무 영향이 없습니다.

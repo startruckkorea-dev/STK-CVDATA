@@ -21,7 +21,7 @@
 SharePoint  sites/STK-PMM → Shared Documents/mbtruck-cvdata/
    ├── KAIDA/ KAMA/ CV_Data/   ← 원본 xlsx
    │      │
-   │      │ 탐색기 동기화 (복사 아님 — 같은 파일)
+   │      │ 폴더 다운로드(zip) → raw_data/    ※ 확정 연도는 1회로 끝
    │      ↓
    │   (1) build_site.py → build/data/*.json
    │      │
@@ -86,30 +86,41 @@ CV_data_git/
 
 ## 데이터 갱신 (관리자)
 
-### 준비 (최초 1회) — SharePoint 폴더를 탐색기에 동기화
+### 원본 xlsx 가져오기
 
-SharePoint `mbtruck-cvdata` 폴더에서 **동기화** 버튼을 누르면 탐색기에 로컬
-폴더처럼 나타난다. 그 경로를 `CV_RAW_DIR` 에 넣어두면 복사본을 따로 유지할
-필요가 없다 — 빌드가 SharePoint 원본을 그대로 읽는다.
+OneDrive 클라이언트를 쓰지 않으므로 SharePoint 폴더 동기화는 불가능하다.
+SharePoint 화면에서 `KAIDA` · `KAMA` 폴더를 선택해 **다운로드**(zip)한 뒤,
+`raw_data/` 에 아래 구조 그대로 풀어 넣는다.
+
+```
+raw_data/
+  KAIDA/KAIDA/{year}/        2017 … 현재
+  KAIDA/KAIDA-Dump/{year}/   2017 … 2025 (2026부터 덤프가 본 파일에 통합)
+  KAMA/{year}/               Monthly{year}-{01..12}.xlsx
+  CV_Data/{year}/            2020 …
+```
+
+확정 연도는 다시 바뀌지 않으니 **한 번만** 받으면 되고, 이후로는 진행 연도
+파일만 갱신하면 된다.
+
+폴더가 `raw_data/` 가 아닌 다른 곳에 있다면 `--raw` 로 지정하거나
+`CV_RAW_DIR` 에 넣어둔다 — WebDAV 로 매핑한 SharePoint 경로도 그대로 쓸 수
+있다(`\\startruckkorea.sharepoint.com@SSL\DavWWWRoot\...`), 다만 인증이
+자주 풀리고 대용량에서 느리다.
 
 ```powershell
-pip install -r requirements.txt
-[Environment]::SetEnvironmentVariable(
-  'CV_RAW_DIR',
-  "$env:USERPROFILE\Star Truck Korea\STK-PMM - 문서\mbtruck-cvdata",
-  'User')   # 실제 동기화 경로로 바꿀 것. 새 터미널부터 적용된다
+[Environment]::SetEnvironmentVariable('CV_RAW_DIR', 'D:\경로\mbtruck-cvdata', 'User')
 ```
 
 ### 매 갱신
 
 1. JSON 생성
    ```powershell
-   python tools/build_site.py        # $CV_RAW_DIR → build/data/*.json
+   pip install -r requirements.txt
+   python tools/build_site.py        # raw_data(또는 $CV_RAW_DIR) → build/data/*.json
    ```
+   KAMA 는 파일당 1~2.5초가 걸린다 — 10개년 전체 재빌드는 3~5분.
 2. 사이트 → **관리 → 데이터 발행** → `build/data` 폴더를 끌어다 놓고 발행
-
-`CV_RAW_DIR` 을 설정하지 않았다면 `--raw` 로 직접 지정한다:
-`python tools/build_site.py --raw "C:/.../mbtruck-cvdata"`
 
 발행 페이지는 현재 SharePoint 에 올라가 있는 파일과 최종 수정 시각을 함께
 보여주므로, 무엇이 언제 갱신됐는지 그 화면에서 바로 확인할 수 있다.
