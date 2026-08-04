@@ -1,6 +1,7 @@
 // Shared sidebar rendering — ports utils/kaida_processor.py::render_sidebar.
 import { getLang, setLang, t, applyT } from "./i18n.js";
 import { renderUserChip } from "./auth.js";
+import { refresh } from "./data.js";
 
 const NAV = [
   {
@@ -64,15 +65,27 @@ export function renderSidebar(activeHref = null) {
       <button data-lang="ko" class="${getLang() === "ko" ? "active" : ""}">한국어</button>
       <button data-lang="en" class="${getLang() === "en" ? "active" : ""}">English</button>
     </div>
-    <div class="data-source" id="data-source"></div>
+    <div class="data-box">
+      <div class="data-source" id="data-source"></div>
+      <div class="data-age" id="data-age"></div>
+      <button class="data-refresh" id="data-refresh" type="button"
+              data-t="action_refresh">데이터 새로 고침</button>
+    </div>
   `;
   sidebar.innerHTML = html;
+
+  sidebar.querySelector("#data-refresh").addEventListener("click", (e) => {
+    e.currentTarget.disabled = true;
+    e.currentTarget.removeAttribute("data-t");   // don't let applyT overwrite it
+    e.currentTarget.textContent = t("action_refreshing");
+    refresh();
+  });
 
   // Filled in when data.js has decided where the numbers came from.
   document.addEventListener("datasource", (ev) => {
     const el = sidebar.querySelector("#data-source");
     if (!el) return;
-    const { source, error } = ev.detail;
+    const { source, error, generatedAt } = ev.detail;
     if (source === "sharepoint") {
       el.className = "data-source live";
       el.textContent = "SharePoint";
@@ -81,6 +94,18 @@ export function renderSidebar(activeHref = null) {
       el.className = "data-source failed";
       el.textContent = "데이터 연결 실패";
       el.title = error || "";
+    }
+    // The build timestamp is the honest answer to "how fresh is this?" —
+    // refreshing re-reads SharePoint, but the numbers there are only as new as
+    // the last publish.
+    const age = sidebar.querySelector("#data-age");
+    if (age) {
+      age.textContent = generatedAt
+        ? `${generatedAt.toLocaleString("ko-KR", {
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit",
+          })} 집계`
+        : "";
     }
   });
 

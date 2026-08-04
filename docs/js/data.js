@@ -30,6 +30,38 @@ export function dataSourceError() {
   return _failure;
 }
 
+/** When the loaded numbers were computed (manifest.generated_at), or null. */
+export function generatedAt() {
+  const m = _cache.get("manifest.json");
+  return m && m.generated_at ? new Date(m.generated_at) : null;
+}
+
+// Anything derived from SharePoint that survives a reload belongs under this
+// prefix, so "새로 고침" can drop all of it without knowing what wrote it.
+// Nothing persists yet; the browser-side xlsx parse cache will.
+const PERSIST_PREFIX = "cvdata.cache.";
+
+/**
+ * Drop every cached copy of the data and reload the page against SharePoint.
+ *
+ * A plain reload already refetches — the point of routing it through here is
+ * that persisted caches get cleared too, so this stays the one button that
+ * means "forget what you know" as more caching is added.
+ */
+export function refresh() {
+  _cache.clear();
+  _ready = null;
+  _failure = null;
+  try {
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith(PERSIST_PREFIX)) localStorage.removeItem(k);
+    }
+  } catch (_) {
+    // private mode / storage disabled — the in-memory clear still stands
+  }
+  window.location.reload();
+}
+
 /** Thrown for every load once the source is known to be unreachable, so each
  *  page surfaces the same actionable message rather than a raw Graph error. */
 function sourceError(detail) {
@@ -54,8 +86,8 @@ async function ready() {
         const manifest = await readJsonFile("manifest.json", SP_DATA_PATH);
         if (!manifest) {
           // 404 — the folder or the file isn't there yet.
-          detail = "site_data/manifest.json 이 없습니다. 관리자가 " +
-                   "tools/publish_data.py 를 실행해야 합니다";
+          detail = "site_data/manifest.json 이 없습니다. " +
+                   "관리자가 [관리 → 데이터 발행] 에서 발행해야 합니다";
         } else {
           _cache.set("manifest.json", manifest);
         }
@@ -67,7 +99,11 @@ async function ready() {
 
     _failure = detail;
     document.dispatchEvent(new CustomEvent("datasource", {
-      detail: { source: detail ? null : "sharepoint", error: detail },
+      detail: {
+        source: detail ? null : "sharepoint",
+        error: detail,
+        generatedAt: generatedAt(),
+      },
     }));
     if (detail) throw sourceError(detail);
     return true;

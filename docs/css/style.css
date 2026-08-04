@@ -818,9 +818,39 @@ table.data .down { color: var(--danger); font-weight: 600; }
 }
 .user-chip button.signout:hover { color: var(--danger); border-color: var(--danger); }
 
+/* Data freshness block: where the numbers came from, when they were computed,
+   and the one control that forgets everything and re-reads SharePoint. */
+.data-box {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+.data-age {
+  font-size: 0.68rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.data-age:empty { display: none; }
+.data-refresh {
+  margin-top: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+}
+.data-refresh:hover:not([disabled]) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.data-refresh[disabled] { opacity: 0.6; cursor: default; }
+
 /* SharePoint connection state. Empty until data.js resolves the source. */
 .data-source {
-  margin-top: 10px;
   font-size: 0.7rem;
   letter-spacing: 0.02em;
   color: var(--muted);
