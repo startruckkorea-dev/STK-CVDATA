@@ -64,12 +64,12 @@ https://startruckkorea.sharepoint.com/sites/STK-PMM
 
 ## 4. 데이터 갱신 (관리자)
 
-1. SharePoint `mbtruck-cvdata/` 의 원본 xlsx 를 PC `raw_data/` 로 내려받는다
-   (탐색기 동기화 또는 브라우저 다운로드)
-2. `python tools/build_site.py` → `build/data/*.json` 생성 (gitignore, 스테이징)
-3. 사이트의 **관리 → 데이터 발행** 페이지에서 `build/data` 를 끌어다 놓고 발행
+1. `python tools/build_site.py` → `build/data/*.json` 생성 (gitignore, 스테이징)
+   — 원본 xlsx 는 탐색기에 **동기화된 SharePoint 폴더**를 그대로 읽습니다
+   (`CV_RAW_DIR` 환경변수, README 참고). 로컬 복사본을 두지 않습니다.
+2. 사이트의 **관리 → 데이터 발행** 페이지에서 `build/data` 를 끌어다 놓고 발행
 
-**3번이 곧 배포입니다** — git push 는 데이터에 아무 영향이 없습니다.
+**2번이 곧 배포입니다** — git push 는 데이터에 아무 영향이 없습니다.
 발행에는 해당 폴더 **쓰기 권한**이 필요합니다 (읽기 전용 계정은 Graph 403).
 
 ### 왜 Python 이 아니라 브라우저에서 발행하나

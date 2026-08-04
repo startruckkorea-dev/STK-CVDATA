@@ -1,20 +1,25 @@
-"""Build step — raw_data/*.xlsx -> build/data/*.json.
+"""Build step — raw xlsx -> build/data/*.json.
 
-Reads everything in raw_data/ and emits compact JSON aggregates that the static
-HTML pages consume client-side.
+Reads the KAIDA / KAMA / CV_Data folders and emits compact JSON aggregates that
+the static HTML pages consume client-side.
+
+--raw can point straight at the SharePoint folder synced into Explorer
+(mbtruck-cvdata), so there is no local copy of the source to keep in step.
+Set CV_RAW_DIR once and plain `python tools/build_site.py` uses it.
 
 The output is STAGING, not the deployed site: build/ is gitignored, and the
-pages read their JSON from SharePoint. Follow this with tools/publish_data.py
-to upload the result — that upload is what users actually see.
+pages read their JSON from SharePoint. Publish it from the site's
+"관리 → 데이터 발행" page — that upload is what users actually see.
 
 Usage:
   python tools/build_site.py
-  python tools/build_site.py --raw raw_data --out build/data
+  python tools/build_site.py --raw "C:/Users/.../mbtruck-cvdata" --out build/data
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from datetime import datetime, timezone
@@ -283,7 +288,14 @@ def main() -> None:
             stream.reconfigure(encoding="utf-8", errors="replace")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--raw", default="raw_data", help="raw Excel directory")
+    # Point this at the SharePoint folder synced into Explorer and there is no
+    # copy to keep in step — the build reads exactly what SharePoint holds.
+    # CV_RAW_DIR saves retyping the long OneDrive path on every run.
+    parser.add_argument(
+        "--raw",
+        default=os.environ.get("CV_RAW_DIR", "raw_data"),
+        help="raw Excel directory (default: $CV_RAW_DIR or raw_data)",
+    )
     # Staging only — build/ is gitignored and never deployed. The site reads
     # its JSON from SharePoint, so the build's job is to produce files for
     # tools/publish_data.py to upload, not to drop them into docs/.

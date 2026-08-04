@@ -19,12 +19,13 @@
 
 ```
 SharePoint  sites/STK-PMM → Shared Documents/mbtruck-cvdata/
-   ├── 원본 xlsx ──(1) 탐색기/브라우저로 내려받기──→ raw_data/
-   │                                                   │
-   │                              (2) build_site.py    ↓
-   │                                            build/data/*.json
-   │                                                   │
-   └── site_data/ ←──(3) 사이트의 "데이터 발행" 페이지에서 업로드
+   ├── KAIDA/ KAMA/ CV_Data/   ← 원본 xlsx
+   │      │
+   │      │ 탐색기 동기화 (복사 아님 — 같은 파일)
+   │      ↓
+   │   (1) build_site.py → build/data/*.json
+   │      │
+   └── site_data/ ←(2) 사이트 "데이터 발행" 페이지에서 업로드
           │
           └──Graph(위임 토큰)──→ 브라우저   ← 화면은 오직 여기만 읽는다
 ```
@@ -33,7 +34,7 @@ SharePoint  sites/STK-PMM → Shared Documents/mbtruck-cvdata/
 gitignore 대상이고, 화면은 SharePoint `site_data/` 만 읽는다. 읽지 못하면
 오래된 값을 보여주는 대신 **오류를 표시**한다.
 
-따라서 **(3) 발행이 곧 배포**다 — git push 는 데이터에 영향이 없다.
+따라서 **(2) 발행이 곧 배포**다 — git push 는 데이터에 영향이 없다.
 열람 권한 관리 = SharePoint 폴더 권한 관리.
 
 업로드가 Python 이 아니라 브라우저에서 이뤄지는 이유는, 이 앱 등록의
@@ -85,14 +86,30 @@ CV_data_git/
 
 ## 데이터 갱신 (관리자)
 
-1. SharePoint `mbtruck-cvdata/` 의 원본 xlsx 를 PC `raw_data/` 로 내려받는다
-   (탐색기 동기화 또는 브라우저 다운로드)
-2. JSON 생성
+### 준비 (최초 1회) — SharePoint 폴더를 탐색기에 동기화
+
+SharePoint `mbtruck-cvdata` 폴더에서 **동기화** 버튼을 누르면 탐색기에 로컬
+폴더처럼 나타난다. 그 경로를 `CV_RAW_DIR` 에 넣어두면 복사본을 따로 유지할
+필요가 없다 — 빌드가 SharePoint 원본을 그대로 읽는다.
+
+```powershell
+pip install -r requirements.txt
+[Environment]::SetEnvironmentVariable(
+  'CV_RAW_DIR',
+  "$env:USERPROFILE\Star Truck Korea\STK-PMM - 문서\mbtruck-cvdata",
+  'User')   # 실제 동기화 경로로 바꿀 것. 새 터미널부터 적용된다
+```
+
+### 매 갱신
+
+1. JSON 생성
    ```powershell
-   pip install -r requirements.txt
-   python tools/build_site.py        # raw_data/ → build/data/*.json
+   python tools/build_site.py        # $CV_RAW_DIR → build/data/*.json
    ```
-3. 사이트 → **관리 → 데이터 발행** → `build/data` 폴더를 끌어다 놓고 발행
+2. 사이트 → **관리 → 데이터 발행** → `build/data` 폴더를 끌어다 놓고 발행
+
+`CV_RAW_DIR` 을 설정하지 않았다면 `--raw` 로 직접 지정한다:
+`python tools/build_site.py --raw "C:/.../mbtruck-cvdata"`
 
 발행 페이지는 현재 SharePoint 에 올라가 있는 파일과 최종 수정 시각을 함께
 보여주므로, 무엇이 언제 갱신됐는지 그 화면에서 바로 확인할 수 있다.
