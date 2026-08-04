@@ -122,10 +122,11 @@ def _kaida_folder(root: Path, year: int) -> Path | None:
     return None
 
 
-# SharePoint files the whole archive by report type instead of by year:
-#   KAIDA/KAIDA/       every main report, all years
-#   KAIDA/KAIDA-Dump/  the separate tipper workbooks (2025 and earlier)
-# The year then lives in the filename rather than a folder name.
+# SharePoint splits the archive by report type first, then by year:
+#   KAIDA/KAIDA/{year}/       the main report
+#   KAIDA/KAIDA-Dump/{year}/  the separate tipper workbook (through 2025)
+# Both are also read without the year folder, since the year is in the filename
+# either way ("2017 KAIDA CV ...", "... (Dec 2017)").
 def _kaida_flat_dirs(root: Path) -> tuple[Path | None, Path | None]:
     main = root / "KAIDA" / "KAIDA"
     dump = root / "KAIDA" / "KAIDA-Dump"
@@ -147,13 +148,22 @@ def _year_in_name(path: Path) -> int | None:
 
 
 def _latest_for_year(folder: Path | None, year: int) -> Path | None:
-    """Newest report for `year` in a flat folder, by the month in its name."""
+    """Newest report for `year` under a report-type folder.
+
+    Prefers the year subfolder; inside it the folder name is the authority, so a
+    file whose name omits the year is still picked up. Falls back to files
+    sitting directly in the report folder, which must name the year themselves.
+    """
     if folder is None:
         return None
-    files = [
-        p for p in folder.glob("*.xlsx")
-        if not p.name.startswith("~$") and _year_in_name(p) == year
-    ]
+    year_dir = folder / str(year)
+    if year_dir.is_dir():
+        files = [p for p in year_dir.glob("*.xlsx") if not p.name.startswith("~$")]
+    else:
+        files = [
+            p for p in folder.glob("*.xlsx")
+            if not p.name.startswith("~$") and _year_in_name(p) == year
+        ]
     return max(files, key=_file_month_index) if files else None
 
 
@@ -372,12 +382,15 @@ def get_available_kaida_years(root: Path) -> list[int]:
             m = re.search(r"(\d{4})", p.name)
             if m:
                 years.append(int(m.group(1)))
-    # SharePoint layout: years come off the filenames, not the folders. Only the
-    # main folder counts — a year with a dump workbook but no main report has no
-    # tractor/cargo volumes and would build an empty year.
+    # SharePoint layout. Only the main folder counts — a year with a dump
+    # workbook but no main report has no tractor/cargo volumes and would build
+    # an empty year.
     main_dir, _ = _kaida_flat_dirs(root)
     if main_dir is not None:
-        for p in main_dir.glob("*.xlsx"):
+        for p in main_dir.iterdir():
+            if p.is_dir() and re.fullmatch(r"\d{4}", p.name):
+                years.append(int(p.name))
+        for p in main_dir.glob("*.xlsx"):     # same folder, no year subfolder
             if p.name.startswith("~$"):
                 continue
             y = _year_in_name(p)
