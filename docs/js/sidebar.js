@@ -74,12 +74,12 @@ export function renderSidebar(activeHref = null) {
     const { source, error } = ev.detail;
     if (source === "sharepoint") {
       el.className = "data-source live";
-      el.textContent = "SharePoint 실시간";
+      el.textContent = "SharePoint";
       el.title = "Shared Documents/mbtruck-cvdata/site_data";
     } else {
-      el.className = "data-source bundled";
-      el.textContent = "저장본 데이터";
-      el.title = error ? `SharePoint 미사용: ${error}` : "";
+      el.className = "data-source failed";
+      el.textContent = "데이터 연결 실패";
+      el.title = error || "";
     }
   });
 

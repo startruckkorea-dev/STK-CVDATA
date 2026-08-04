@@ -1,11 +1,15 @@
-"""Build step — raw_data/*.xlsx -> site/data/*.json.
+"""Build step — raw_data/*.xlsx -> build/data/*.json.
 
 Reads everything in raw_data/ and emits compact JSON aggregates that the static
-HTML pages consume client-side. Designed to be re-run by GitHub Actions.
+HTML pages consume client-side.
+
+The output is STAGING, not the deployed site: build/ is gitignored, and the
+pages read their JSON from SharePoint. Follow this with tools/publish_data.py
+to upload the result — that upload is what users actually see.
 
 Usage:
   python tools/build_site.py
-  python tools/build_site.py --raw raw_data --out site/data
+  python tools/build_site.py --raw raw_data --out build/data
 """
 from __future__ import annotations
 
@@ -280,7 +284,10 @@ def main() -> None:
 
     parser = argparse.ArgumentParser()
     parser.add_argument("--raw", default="raw_data", help="raw Excel directory")
-    parser.add_argument("--out", default="docs/data", help="JSON output directory")
+    # Staging only — build/ is gitignored and never deployed. The site reads
+    # its JSON from SharePoint, so the build's job is to produce files for
+    # tools/publish_data.py to upload, not to drop them into docs/.
+    parser.add_argument("--out", default="build/data", help="JSON output directory")
     args = parser.parse_args()
 
     raw_root = Path(args.raw).resolve()

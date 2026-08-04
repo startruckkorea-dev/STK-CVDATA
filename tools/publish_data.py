@@ -1,21 +1,20 @@
-"""docs/data/*.json -> SharePoint  Shared Documents/mbtruck-cvdata/site_data/
+"""build/data/*.json -> SharePoint  Shared Documents/mbtruck-cvdata/site_data/
 
 The dashboard reads its JSON straight from SharePoint in the browser
-(docs/js/data.js), so publishing new numbers is an upload here — not a git
-push. The committed docs/data/*.json stays as the fallback for anyone who
-can't reach the folder.
+(docs/js/data.js) and keeps NO copy in the repo, so this upload is what
+publishes new numbers — a git push does nothing for the data.
 
 Full refresh cycle:
     python tools/sharepoint_sync.py          # SharePoint xlsx -> raw_data/
-    python tools/build_site.py               # raw_data/ -> docs/data/*.json
-    python tools/publish_data.py             # docs/data/*.json -> SharePoint
+    python tools/build_site.py               # raw_data/ -> build/data/*.json
+    python tools/publish_data.py             # build/data/*.json -> SharePoint
 
 Auth reuses the same delegated MSAL cache as sharepoint_sync.py — run
 tools/auth_setup.py once, then this works silently. Uploading needs WRITE
 permission on the folder; a read-only account gets Graph 403.
 
 Usage:
-  python tools/publish_data.py [--src docs/data] [--dry-run]
+  python tools/publish_data.py [--src build/data] [--dry-run]
 """
 from __future__ import annotations
 
@@ -92,8 +91,14 @@ def upload(token: str, site_id: str, folder: str, path: Path) -> None:
 
 
 def main() -> None:
+    # The Windows console defaults to cp949 here, which can't encode the dashes
+    # and arrows in these messages — same guard build_site.py uses.
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src", default="docs/data")
+    parser.add_argument("--src", default="build/data")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -103,9 +108,9 @@ def main() -> None:
         sys.exit(f"no JSON in {src} — run tools/build_site.py first")
     if not (src / "manifest.json").exists():
         sys.exit(
-            f"{src}/manifest.json is missing. The browser probes for it to decide "
-            "whether SharePoint is live, so publishing without it would leave "
-            "every user on the committed fallback."
+            f"{src}/manifest.json is missing. Every page reads it first to learn "
+            "which years exist, and there is no local fallback — publishing "
+            "without it would leave the dashboard blank for everyone."
         )
 
     hostname = env("SP_SITE_HOSTNAME", "startruckkorea.sharepoint.com")

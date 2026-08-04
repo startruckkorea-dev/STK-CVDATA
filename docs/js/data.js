@@ -1,98 +1,87 @@
-// Data fetcher — two sources, resolved once per page load.
+// Data fetcher — SharePoint is the ONLY source.
 //
-//   1. SharePoint (preferred)  Shared Documents/mbtruck-cvdata/site_data/*.json
-//      Read straight from the browser with the signed-in user's delegated
-//      Graph token. Publishing new numbers is then a SharePoint upload
-//      (tools/publish_data.py), not a git push — everyone sees it immediately.
+//   https://startruckkorea.sharepoint.com/sites/STK-PMM
+//     → Shared Documents / mbtruck-cvdata / site_data / *.json
 //
-//   2. Repo bundle (fallback)  docs/data/*.json committed alongside the site.
-//      Used on localhost / *.github.io where there is no login, and whenever
-//      a Graph call fails (no permission on the folder, network, 404).
+// Read straight from the browser with the signed-in user's delegated Graph
+// token, so what everyone sees is whatever was last published there
+// (tools/publish_data.py) — never a snapshot committed alongside the site.
 //
-// The probe runs ONCE: if site_data/manifest.json is unreachable we stay on the
-// bundle for the rest of the page rather than paying a failing Graph round-trip
-// per file.
+// There is deliberately NO local fallback. A copy in the repo would be a
+// second source of truth that silently goes stale, and this repo is public,
+// so committing the numbers would publish them to anyone with the URL.
+// When SharePoint can't be reached the pages say so instead of quietly
+// rendering older figures.
 
 import { graphAvailable, readJsonFile, SP_DATA_PATH } from "./graph.js";
 
 const _cache = new Map();
 
-/** "sharepoint" | "bundled" | null (not resolved yet) */
-let _source = null;
-let _probe = null;
-let _sourceError = null;
+let _ready = null;
+let _failure = null;
 
-function root() {
-  return document.documentElement.dataset.siteRoot || ".";
-}
-
-/** Which source the numbers on screen came from. Null until the first load. */
+/** "sharepoint" once reachable, null while unresolved or failed. */
 export function dataSource() {
-  return _source;
+  return _failure ? null : (_ready ? "sharepoint" : null);
 }
 
-/** Why SharePoint was skipped, if it was. Shown in the UI as a hint. */
+/** Why SharePoint is unreachable, if it is. */
 export function dataSourceError() {
-  return _sourceError;
+  return _failure;
 }
 
-async function fetchBundled(name) {
-  const url = `${root()}/data/${name}`;
-  const res = await fetch(url, { cache: "no-cache" });
-  if (!res.ok) throw new Error(`failed to load ${url}: ${res.status}`);
-  return res.json();
+/** Thrown for every load once the source is known to be unreachable, so each
+ *  page surfaces the same actionable message rather than a raw Graph error. */
+function sourceError(detail) {
+  const e = new Error(
+    "SharePoint 데이터를 읽을 수 없습니다 — " + detail +
+    " (사이트: STK-PMM / mbtruck-cvdata/site_data)"
+  );
+  e.dataSource = true;
+  return e;
 }
 
-/** Decide the source once, by trying to read the manifest from SharePoint. */
-async function resolveSource() {
-  if (_source) return _source;
-  if (_probe) return _probe;
+/** Resolve the source once per page load by reading the manifest. */
+async function ready() {
+  if (_ready) return _ready;
 
-  _probe = (async () => {
+  _ready = (async () => {
+    let detail = null;
     if (!graphAvailable()) {
-      _sourceError = "not signed in";
-      _source = "bundled";
-      return _source;
+      detail = "Microsoft 계정으로 로그인되지 않았습니다";
+    } else {
+      try {
+        const manifest = await readJsonFile("manifest.json", SP_DATA_PATH);
+        if (!manifest) {
+          // 404 — the folder or the file isn't there yet.
+          detail = "site_data/manifest.json 이 없습니다. 관리자가 " +
+                   "tools/publish_data.py 를 실행해야 합니다";
+        } else {
+          _cache.set("manifest.json", manifest);
+        }
+      } catch (e) {
+        // 403 is the common one: signed in, but no access to the folder.
+        detail = e.message;
+      }
     }
-    try {
-      const manifest = await readJsonFile("manifest.json", SP_DATA_PATH);
-      if (!manifest) throw new Error("site_data/manifest.json not found");
-      _cache.set("manifest.json", manifest);
-      _source = "sharepoint";
-    } catch (e) {
-      console.warn("SharePoint data unavailable, using bundled JSON:", e.message);
-      _sourceError = e.message;
-      _source = "bundled";
-    }
-    // The sidebar renders before any data loads, so it can't read _source
-    // directly — tell it once the probe settles.
+
+    _failure = detail;
     document.dispatchEvent(new CustomEvent("datasource", {
-      detail: { source: _source, error: _sourceError },
+      detail: { source: detail ? null : "sharepoint", error: detail },
     }));
-    return _source;
+    if (detail) throw sourceError(detail);
+    return true;
   })();
 
-  return _probe;
+  return _ready;
 }
 
 async function fetchJson(name) {
   if (_cache.has(name)) return _cache.get(name);
+  await ready();
 
-  const src = await resolveSource();
-  let data = null;
-
-  if (src === "sharepoint") {
-    try {
-      data = await readJsonFile(name, SP_DATA_PATH);
-    } catch (e) {
-      // One file missing from SharePoint shouldn't sink the page — the bundle
-      // still has last-published numbers for it.
-      console.warn(`SharePoint read failed for ${name}:`, e.message);
-      data = null;
-    }
-  }
-  if (data === null) data = await fetchBundled(name);
-
+  const data = await readJsonFile(name, SP_DATA_PATH);
+  if (data === null) throw sourceError(`site_data/${name} 이 없습니다`);
   _cache.set(name, data);
   return data;
 }

@@ -76,7 +76,7 @@
     try { manifest = await loadManifest(); }
     catch (e) {
       document.querySelector(".main").insertAdjacentHTML("afterbegin",
-        `<div class="banner error">${t("no_data")} (manifest.json missing)</div>`); return;
+        `<div class="banner error">${e.message}</div>`); return;
     }
     const years = manifest.cv_years || [];
     if (!years.length) {

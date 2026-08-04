@@ -818,8 +818,7 @@ table.data .down { color: var(--danger); font-weight: 600; }
 }
 .user-chip button.signout:hover { color: var(--danger); border-color: var(--danger); }
 
-/* Where the numbers on screen came from — SharePoint live vs. the JSON
-   committed in the repo. Empty until data.js resolves the source. */
+/* SharePoint connection state. Empty until data.js resolves the source. */
 .data-source {
   margin-top: 10px;
   font-size: 0.7rem;
@@ -838,7 +837,7 @@ table.data .down { color: var(--danger); font-weight: 600; }
   background: currentColor;
 }
 .data-source.live { color: var(--accent); }
-.data-source.bundled { color: var(--muted); cursor: help; }
+.data-source.failed { color: var(--danger); cursor: help; }
 
 /* Responsive sidebar collapse on narrow screens */
 @media (max-width: 880px) {

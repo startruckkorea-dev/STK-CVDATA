@@ -9,9 +9,12 @@ venv/
 # Raw data (mirrored from SharePoint at build time, not committed)
 raw_data/
 
-# Build artifacts — uncomment to gitignore if you only use GitHub Actions
-# site/data/*.json
-# !site/data/.gitkeep
+# Built JSON. SharePoint is the only source the site reads, so these are
+# staging for tools/publish_data.py — never deployed, never committed.
+# This repo is public: committing them would publish the figures, and a copy
+# in git would be a second source of truth that silently goes stale.
+build/
+docs/data/
 
 # Secrets
 .env.local

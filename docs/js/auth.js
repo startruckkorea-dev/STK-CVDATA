@@ -14,13 +14,15 @@ const TENANT_ID = "19cab1f5-21f4-44df-8ac6-96d6ca595203";
 const ALLOWED_DOMAINS = ["hyosung.com", "startruckkorea.com"];
 const ALLOWED_USERS = []; // leave empty to allow anyone in the domains
 
-// The login gate is only enforced on the production domain(s). On localhost or
-// a personal *.github.io preview the dashboard loads without sign-in (the data
-// JSON is a committed static file). Add every production host here. Mirrors the
-// SAM_AFAB PROTECTED_HOSTS gate.
-const PROTECTED_HOSTS = ["mbtruck-cvdata.startruckkorea.com"];
+// Login is required on EVERY host, localhost included. The dashboard reads its
+// numbers from SharePoint through the signed-in user's Graph token and keeps no
+// copy in the repo, so an un-authenticated page has nothing at all to render —
+// skipping the gate anywhere would only produce an empty dashboard.
+//
+// Local development therefore needs its origin registered on the Entra app too
+// (e.g. http://localhost:8000, no trailing slash) — see docs/ENTRA_SETUP.md.
 function _loginRequired() {
-  return PROTECTED_HOSTS.includes(window.location.hostname);
+  return true;
 }
 
 const msalConfig = {
@@ -109,11 +111,8 @@ function _isAllowed(account) {
  * (in which case a login screen is rendered).
  */
 export async function requireLogin() {
-  // The MSAL library may be unavailable (blocked CDN / offline). Resolve the
-  // gate WITHOUT it: on a non-production host just render the page; on a
-  // protected host we cannot authenticate, so surface a clear error.
+  // Without MSAL there is no token, and without a token there is no data.
   if (typeof msal === "undefined") {
-    if (!_loginRequired()) return { username: "", name: "" };
     _renderError("Microsoft 로그인 라이브러리를 불러오지 못했습니다 (네트워크/CDN 차단). 관리자에게 문의하세요.");
     return null;
   }
@@ -135,17 +134,13 @@ export async function requireLogin() {
 
   const accounts = pca.getAllAccounts();
   if (accounts.length === 0) {
-    // Non-production host (localhost / *.github.io): skip the gate and let the
-    // page render. Return a truthy stub so `if (!(await requireLogin())) return`
-    // callers proceed.
-    if (!_loginRequired()) return { username: "", name: "" };
     _renderLoginScreen();
     return null;
   }
   const account = accounts[0];
   pca.setActiveAccount(account);
 
-  if (_loginRequired() && !_isAllowed(account)) {
+  if (!_isAllowed(account)) {
     _renderForbidden(account);
     return null;
   }

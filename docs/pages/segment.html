@@ -115,7 +115,7 @@
     try {
       manifest = await loadManifest();
     } catch (e) {
-      return banner("error", `${t("no_data")} (manifest.json)`);
+      return banner("error", e.message);
     }
     _years = manifest.kaida_years || [];
     if (!_years.length) return banner("warn", `${t("no_data")} (KAIDA)`);

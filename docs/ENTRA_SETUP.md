@@ -38,18 +38,15 @@ Entra 는 리디렉션 URI 를 **문자열 그대로** 비교합니다. 그래�
 
 ## 2. 접근 제어
 
-두 겹입니다.
+**데이터는 SharePoint 에만 있습니다.** 레포에는 숫자가 단 한 줄도 커밋되지 않습니다
+(`docs/data/`, `build/` 모두 gitignore). 레포가 public 이어도 유출될 데이터가 없습니다.
 
-1. **화면 게이트** — [js/auth.js](js/auth.js) 의 `PROTECTED_HOSTS` 에 있는 호스트
-   (`mbtruck-cvdata.startruckkorea.com`) 에서만 로그인을 요구하고,
-   `ALLOWED_DOMAINS` (`hyosung.com`, `startruckkorea.com`) 계정만 통과시킵니다.
-   localhost / `*.github.io` 에서는 로그인 없이 열립니다.
-2. **실제 보안 경계 = SharePoint** — 정적 사이트의 게이트는 UX 용일 뿐이고,
-   레포가 public 이므로 `docs/data/*.json` 은 URL 만 알면 누구나 받을 수 있습니다.
-   진짜 권한은 Graph 가 강제합니다: `mbtruck-cvdata` 폴더 접근 권한이 없는 계정은
-   로그인에 성공해도 Graph 403 을 받고 SharePoint 데이터를 읽지 못합니다.
-
-**비공개로 유지해야 하는 수치는 `docs/data/` 에 커밋하지 말고 SharePoint 에만 두세요.**
+1. **로그인 게이트** — [js/auth.js](js/auth.js) 는 **모든 호스트에서** 로그인을 요구하고
+   (localhost 포함), `ALLOWED_DOMAINS`(`hyosung.com`, `startruckkorea.com`) 계정만
+   통과시킵니다. 토큰이 없으면 읽을 데이터 자체가 없으므로 게이트를 우회할 이유가 없습니다.
+2. **실제 권한 = SharePoint** — Graph 가 강제합니다. `mbtruck-cvdata` 폴더 접근 권한이
+   없는 계정은 로그인에 성공해도 403 을 받고 아무 숫자도 보지 못합니다.
+   즉 대시보드 열람 권한 관리 = **SharePoint 폴더 권한 관리** 입니다.
 
 ## 3. 데이터 경로
 
@@ -57,25 +54,24 @@ Entra 는 리디렉션 URI 를 **문자열 그대로** 비교합니다. 그래�
 https://startruckkorea.sharepoint.com/sites/STK-PMM
   └ Shared Documents / mbtruck-cvdata /
       ├── (KAIDA / KAMA / CV 원본 xlsx)
-      └── site_data /        ← 브라우저가 읽는 빌드 결과 JSON
+      └── site_data /        ← 브라우저가 읽는 유일한 소스
             manifest.json, kaida_*.json, kama_*.json, cvdata_*.json
 ```
 
-[js/data.js](js/data.js) 는 페이지 로드 시 `site_data/manifest.json` 을 한 번 탐색해서
-읽히면 **SharePoint 모드**, 실패하면 **레포 번들 모드**(`docs/data/*.json`) 로 고정합니다.
-사이드바 하단에 현재 소스가 표시됩니다 (`SharePoint 실시간` / `저장본 데이터`).
+[js/data.js](js/data.js) 는 페이지 로드 시 `site_data/manifest.json` 을 읽습니다.
+실패하면 **폴백 없이 오류를 표시**합니다 — 오래된 숫자를 조용히 보여주지 않습니다.
+사이드바 하단에 연결 상태가 뜹니다 (`SharePoint` / `데이터 연결 실패`).
 
 ## 4. 데이터 갱신 (관리자 PC)
 
 ```powershell
 python tools/auth_setup.py        # 최초 1회 — device code 로그인, .msal_cache.json 생성
 python tools/sharepoint_sync.py   # SharePoint 원본 xlsx -> raw_data/
-python tools/build_site.py        # raw_data/ -> docs/data/*.json
-python tools/publish_data.py      # docs/data/*.json -> SharePoint site_data/
+python tools/build_site.py        # raw_data/ -> build/data/*.json  (gitignore, 스테이징)
+python tools/publish_data.py      # build/data/*.json -> SharePoint site_data/
 ```
 
-`publish_data.py` 까지 돌리면 **git push 없이** 모든 사용자에게 즉시 반영됩니다.
-번들 폴백까지 함께 갱신하려면 `docs/data/` 변경분을 커밋해서 push 하면 됩니다.
+**`publish_data.py` 가 곧 배포입니다** — git push 는 데이터에 아무 영향이 없습니다.
 업로드에는 해당 폴더 **쓰기 권한**이 필요합니다 (읽기 전용 계정은 Graph 403).
 
 ## 5. 문제 해결
@@ -86,6 +82,7 @@ python tools/publish_data.py      # docs/data/*.json -> SharePoint site_data/
 | 팝업에 Microsoft 오류 페이지가 뜨고 닫으면 실패 | 십중팔구 리디렉션 URI 불일치. 사이트가 안내 문구를 띄웁니다 → 1번 확인 |
 | 로그인 팝업이 바로 닫히고 실패 | 브라우저 팝업 차단 해제. auth.js 가 stale 상태는 자동 1회 재시도함 |
 | `접근 권한 없음` 화면 | 계정 도메인이 `ALLOWED_DOMAINS` 밖. 회사 계정으로 로그인 |
-| 사이드바에 `저장본 데이터` 로 표시 | SharePoint 읽기 실패. 콘솔 경고 확인 — 대개 폴더 권한 없음(403) 또는 `site_data/` 미생성(404) |
-| Graph 404 | `site_data` 폴더가 아직 없음 → `python tools/publish_data.py` 실행 시 자동 생성 |
-| Graph 403 (업로드) | 해당 계정에 폴더 쓰기 권한 없음 |
+| 사이드바에 `데이터 연결 실패` | 화면 상단 배너에 사유가 그대로 표시됩니다 (미로그인 / 403 / site_data 없음) |
+| `site_data/manifest.json 이 없습니다` | 아직 한 번도 발행 안 됨 → 관리자가 `python tools/publish_data.py` 실행 (폴더도 자동 생성) |
+| Graph 403 (열람) | 그 계정에 `mbtruck-cvdata` 폴더 **읽기** 권한 없음 → SharePoint 에서 공유 |
+| Graph 403 (업로드) | 그 계정에 폴더 **쓰기** 권한 없음 |
