@@ -1,13 +1,17 @@
 """build/data/*.json -> SharePoint  Shared Documents/mbtruck-cvdata/site_data/
 
-The dashboard reads its JSON straight from SharePoint in the browser
-(docs/js/data.js) and keeps NO copy in the repo, so this upload is what
-publishes new numbers — a git push does nothing for the data.
+NOT IN USE. The Entra app registration has "Allow public client flows"
+disabled, so every Python auth path (device code, interactive, ROPC) is
+rejected with AADSTS7000218 — this script cannot get a token as things stand.
+Publish from the browser instead: docs/pages/publish.html ("관리 → 데이터 발행"),
+which uses the SPA token that already works.
 
-Full refresh cycle:
-    python tools/sharepoint_sync.py          # SharePoint xlsx -> raw_data/
-    python tools/build_site.py               # raw_data/ -> build/data/*.json
-    python tools/publish_data.py             # build/data/*.json -> SharePoint
+Kept for the day that setting is turned on; see docs/ENTRA_SETUP.md §4 for
+what enabling it implies for the apps sharing this registration.
+
+The dashboard reads its JSON straight from SharePoint in the browser
+(docs/js/data.js) and keeps NO copy in the repo, so publishing — by whichever
+route — is what ships new numbers; a git push does nothing for the data.
 
 Auth reuses the same delegated MSAL cache as sharepoint_sync.py — run
 tools/auth_setup.py once, then this works silently. Uploading needs WRITE

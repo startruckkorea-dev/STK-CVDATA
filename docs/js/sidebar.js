@@ -24,6 +24,7 @@ const NAV = [
   {
     group: "admin",
     items: [
+      { href: "/pages/publish.html", key: "nav_publish" },
       { href: "/pages/translate.html", key: "nav_translate" },
     ],
   },

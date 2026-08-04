@@ -1,5 +1,12 @@
 """Microsoft Graph SharePoint -> raw_data/ mirror.
 
+NOT IN USE with the delegated flow: the Entra app has "Allow public client
+flows" disabled, so tools/auth_setup.py cannot mint the cache this reads and
+every delegated token request fails with AADSTS7000218. Download the raw xlsx
+from the SharePoint folder by hand (Explorer sync or the browser) until that
+setting changes. The client_credentials path below still works if someone
+grants application permissions and supplies GRAPH_CLIENT_SECRET.
+
 Supports two auth flows (auto-selected based on env vars):
 
   1. Application (client_credentials)

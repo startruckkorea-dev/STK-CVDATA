@@ -1,111 +1,389 @@
 {
-  "_meta": { "version": 1, "updated": "2026-05-21", "note": "seed file" },
+  "_meta": {
+    "version": 1,
+    "updated": "2026-05-21",
+    "note": "seed file"
+  },
   "ui": {
-    "app_title": { "ko": "한국 상용차 시장 리포트", "en": "Korea Commercial Vehicle Market Report" },
-    "app_subtitle": { "ko": "상용차 등록·시장 분석", "en": "Commercial Vehicle Registration Analytics" },
-
-    "group_import_cv": { "ko": "수입 상용차 (KAIDA / KAMA)", "en": "Import CV (KAIDA / KAMA)" },
-    "group_cv_data": { "ko": "CV DATA (등록원본)", "en": "CV DATA (Registration)" },
-    "group_admin": { "ko": "관리", "en": "Admin" },
-
-    "nav_market_insight": { "ko": "시장 인사이트", "en": "Market Insight" },
-    "nav_segment": { "ko": "KAIDA 세그먼트 분석", "en": "KAIDA Segment Analysis" },
-    "nav_kama": { "ko": "KAMA 국내 상용", "en": "KAMA Domestic CV" },
-    "nav_overview": { "ko": "시장 개요", "en": "Market Overview" },
-    "nav_bestselling": { "ko": "베스트셀링 모델", "en": "Best-Selling Models" },
-    "nav_cargo": { "ko": "카고차량 분석", "en": "Cargo Analysis" },
-    "nav_price": { "ko": "가격 분석", "en": "Price Analysis" },
-    "nav_body": { "ko": "특장업체 분석", "en": "Bodybuilder Analysis" },
-    "nav_translate": { "ko": "번역 편집", "en": "Translation Editor" },
-
-    "filter_year": { "ko": "연도", "en": "Year" },
-    "filter_month": { "ko": "월", "en": "Month" },
-    "filter_brand": { "ko": "브랜드", "en": "Brand" },
-    "filter_segment": { "ko": "세그먼트", "en": "Segment" },
-    "filter_all": { "ko": "전체", "en": "All" },
-    "section_segment_summary": { "ko": "세그먼트 요약", "en": "Segment Summary" },
-    "section_segment_mix": { "ko": "월별 세그먼트 Mix", "en": "Monthly Segment Mix" },
-    "section_segment_detail": { "ko": "세그먼트별 상세", "en": "Segment Detail" },
-    "col_month_vol": { "ko": "당월", "en": "Month" },
-    "col_prev_month": { "ko": "전월", "en": "Prev. Month" },
-    "col_ytd": { "ko": "YTD", "en": "YTD" },
-    "hint_month_vol": { "ko": "당월 — 선택한 기준월의 등록대수", "en": "Month — registrations in the selected month" },
-    "hint_prev_month": { "ko": "전월 — 기준월 직전 달의 등록대수", "en": "Prev. Month — registrations in the month before" },
-    "hint_share": { "ko": "SHARE — 당월 점유율. 기준월 시장 전체 중 차지하는 비중", "en": "SHARE — share of the selected month's total market" },
-    "hint_mom": { "ko": "MoM (Month over Month) — 전월 대비 증감률", "en": "MoM (Month over Month) — change vs. the previous month" },
-    "hint_py": { "ko": "PY (Previous Year) — 전년 동월 등록대수", "en": "PY (Previous Year) — same month, one year earlier" },
-    "hint_yoy_month": { "ko": "YoY (Year over Year) — 전년 동월 대비 증감률", "en": "YoY (Year over Year) — change vs. the same month last year" },
-    "hint_ytd": { "ko": "YTD (Year To Date) — 1월부터 기준월까지 누적 등록대수", "en": "YTD (Year To Date) — cumulative from January through the selected month" },
-    "hint_ytd_py": { "ko": "전년 동기 누적 — 전년 1월부터 같은 기준월까지 누적", "en": "Prior-year YTD — same cumulative period one year earlier" },
-    "hint_yoy_ytd": { "ko": "YoY (Year over Year) — 전년 동기 누적 대비 증감률", "en": "YoY (Year over Year) — change vs. the same cumulative period last year" },
-    "hint_ytd_share": { "ko": "YTD SHARE — 누적 점유율. 누적 시장 전체 중 차지하는 비중", "en": "YTD SHARE — share of the cumulative market" },
-    "hint_dpp": { "ko": "Δpp (Delta Percentage Point) — 점유율의 전년 대비 변화폭. %가 아닌 %p 단위", "en": "Δpp (Delta Percentage Point) — share change vs. last year, in points not percent" },
-    "section_segment_market": { "ko": "세그먼트 시장 개요", "en": "Segment Market Overview" },
-    "filter_size": { "ko": "크기", "en": "Size" },
-    "filter_domestic": { "ko": "국산/외산", "en": "Domestic/Import" },
-    "filter_purpose": { "ko": "용도", "en": "Purpose" },
-
-    "kpi_ytd": { "ko": "YTD 등록", "en": "YTD Registrations" },
-    "kpi_month": { "ko": "당월 등록", "en": "This Month" },
-    "kpi_mb_share": { "ko": "MB 점유율", "en": "MB Market Share" },
-    "kpi_leader": { "ko": "1위 브랜드", "en": "Market Leader" },
-    "kpi_gainer": { "ko": "상승폭 최대", "en": "Top Gainer" },
-    "kpi_loser": { "ko": "하락폭 최대", "en": "Top Loser" },
-    "kpi_total": { "ko": "전체 등록", "en": "Total Registrations" },
-    "kpi_monthly_avg": { "ko": "월평균", "en": "Monthly Avg" },
-    "kpi_domestic_ratio": { "ko": "국산 비중", "en": "Domestic Share" },
-    "kpi_avg_price": { "ko": "평균 취득가", "en": "Avg Price" },
-
-    "section_brand_compare": { "ko": "브랜드별 YTD 비교", "en": "Brand YTD Comparison" },
-    "section_segment_compare": { "ko": "세그먼트별 YTD", "en": "Segment YTD" },
-    "section_mb_som": { "ko": "MB 점유율 추이", "en": "MB SoM Trend" },
-    "section_brand_trend": { "ko": "브랜드별 월별 추이", "en": "Monthly Trend by Brand" },
-    "section_market_share": { "ko": "YTD 시장 점유율", "en": "YTD Market Share" },
-    "section_brand_table": { "ko": "브랜드 성과 요약", "en": "Brand Performance Summary" },
-
-    "loading": { "ko": "불러오는 중…", "en": "Loading…" },
-    "no_data": { "ko": "데이터가 없습니다.", "en": "No data available." },
-    "todo_note": { "ko": "이 페이지는 스켈레톤입니다. 동일한 패턴으로 채워 넣으세요.", "en": "This page is a skeleton. Fill it in using the same pattern." },
-    "section_tractor_hp": { "ko": "트랙터 마력별 시장분석", "en": "Tractor Market by Power Class" },
-    "chart_hp_band_yoy": { "ko": "마력대별 등록 (YTD, 전년 대비)", "en": "Registrations by Power Class (YTD vs PY)" },
-    "chart_hp_brand_mix": { "ko": "브랜드별 마력대 구성비", "en": "Power Class Mix by Brand" },
-    "chart_hp_monthly_mix": { "ko": "월별 마력대 구성비", "en": "Monthly Power Class Mix" },
-    "chart_hp_band_trend": { "ko": "마력대별 월별 등록 추이", "en": "Monthly Volume by Power Class" },
-    "chart_hp_points": { "ko": "마력(정격)별 등록 · 브랜드 구성", "en": "Registrations by Exact Rating · Brand Split" },
-    "col_hp_band": { "ko": "마력대", "en": "Power Class" },
-    "badge_share_gain": { "ko": "점유 확대", "en": "Share gain" },
-    "badge_missed": { "ko": "기회 상실", "en": "Missed upside" },
-    "badge_squeezed": { "ko": "이중 압박", "en": "Double squeeze" },
-    "label_mb_som_ytd": { "ko": "MB 점유율 (YTD)", "en": "MB share (YTD)" },
-    "label_market_growth": { "ko": "시장 성장률", "en": "Market growth" },
-    "label_mb_growth": { "ko": "MB 성장률", "en": "MB growth" },
-    "label_vs_market": { "ko": "시장 대비", "en": "vs. market" },
-    "label_mtd_som": { "ko": "MTD SoM", "en": "MTD SoM" },
-    "label_volume": { "ko": "물량", "en": "Volume" },
-    "label_market": { "ko": "시장", "en": "Market" }
+    "app_title": {
+      "ko": "한국 상용차 시장 리포트",
+      "en": "Korea Commercial Vehicle Market Report"
+    },
+    "app_subtitle": {
+      "ko": "상용차 등록·시장 분석",
+      "en": "Commercial Vehicle Registration Analytics"
+    },
+    "group_import_cv": {
+      "ko": "수입 상용차 (KAIDA / KAMA)",
+      "en": "Import CV (KAIDA / KAMA)"
+    },
+    "group_cv_data": {
+      "ko": "CV DATA (등록원본)",
+      "en": "CV DATA (Registration)"
+    },
+    "group_admin": {
+      "ko": "관리",
+      "en": "Admin"
+    },
+    "nav_market_insight": {
+      "ko": "시장 인사이트",
+      "en": "Market Insight"
+    },
+    "nav_segment": {
+      "ko": "KAIDA 세그먼트 분석",
+      "en": "KAIDA Segment Analysis"
+    },
+    "nav_kama": {
+      "ko": "KAMA 국내 상용",
+      "en": "KAMA Domestic CV"
+    },
+    "nav_overview": {
+      "ko": "시장 개요",
+      "en": "Market Overview"
+    },
+    "nav_bestselling": {
+      "ko": "베스트셀링 모델",
+      "en": "Best-Selling Models"
+    },
+    "nav_cargo": {
+      "ko": "카고차량 분석",
+      "en": "Cargo Analysis"
+    },
+    "nav_price": {
+      "ko": "가격 분석",
+      "en": "Price Analysis"
+    },
+    "nav_body": {
+      "ko": "특장업체 분석",
+      "en": "Bodybuilder Analysis"
+    },
+    "nav_publish": {
+      "ko": "데이터 발행",
+      "en": "Publish Data"
+    },
+    "nav_translate": {
+      "ko": "번역 편집",
+      "en": "Translation Editor"
+    },
+    "filter_year": {
+      "ko": "연도",
+      "en": "Year"
+    },
+    "filter_month": {
+      "ko": "월",
+      "en": "Month"
+    },
+    "filter_brand": {
+      "ko": "브랜드",
+      "en": "Brand"
+    },
+    "filter_segment": {
+      "ko": "세그먼트",
+      "en": "Segment"
+    },
+    "filter_all": {
+      "ko": "전체",
+      "en": "All"
+    },
+    "section_segment_summary": {
+      "ko": "세그먼트 요약",
+      "en": "Segment Summary"
+    },
+    "section_segment_mix": {
+      "ko": "월별 세그먼트 Mix",
+      "en": "Monthly Segment Mix"
+    },
+    "section_segment_detail": {
+      "ko": "세그먼트별 상세",
+      "en": "Segment Detail"
+    },
+    "col_month_vol": {
+      "ko": "당월",
+      "en": "Month"
+    },
+    "col_prev_month": {
+      "ko": "전월",
+      "en": "Prev. Month"
+    },
+    "col_ytd": {
+      "ko": "YTD",
+      "en": "YTD"
+    },
+    "hint_month_vol": {
+      "ko": "당월 — 선택한 기준월의 등록대수",
+      "en": "Month — registrations in the selected month"
+    },
+    "hint_prev_month": {
+      "ko": "전월 — 기준월 직전 달의 등록대수",
+      "en": "Prev. Month — registrations in the month before"
+    },
+    "hint_share": {
+      "ko": "SHARE — 당월 점유율. 기준월 시장 전체 중 차지하는 비중",
+      "en": "SHARE — share of the selected month's total market"
+    },
+    "hint_mom": {
+      "ko": "MoM (Month over Month) — 전월 대비 증감률",
+      "en": "MoM (Month over Month) — change vs. the previous month"
+    },
+    "hint_py": {
+      "ko": "PY (Previous Year) — 전년 동월 등록대수",
+      "en": "PY (Previous Year) — same month, one year earlier"
+    },
+    "hint_yoy_month": {
+      "ko": "YoY (Year over Year) — 전년 동월 대비 증감률",
+      "en": "YoY (Year over Year) — change vs. the same month last year"
+    },
+    "hint_ytd": {
+      "ko": "YTD (Year To Date) — 1월부터 기준월까지 누적 등록대수",
+      "en": "YTD (Year To Date) — cumulative from January through the selected month"
+    },
+    "hint_ytd_py": {
+      "ko": "전년 동기 누적 — 전년 1월부터 같은 기준월까지 누적",
+      "en": "Prior-year YTD — same cumulative period one year earlier"
+    },
+    "hint_yoy_ytd": {
+      "ko": "YoY (Year over Year) — 전년 동기 누적 대비 증감률",
+      "en": "YoY (Year over Year) — change vs. the same cumulative period last year"
+    },
+    "hint_ytd_share": {
+      "ko": "YTD SHARE — 누적 점유율. 누적 시장 전체 중 차지하는 비중",
+      "en": "YTD SHARE — share of the cumulative market"
+    },
+    "hint_dpp": {
+      "ko": "Δpp (Delta Percentage Point) — 점유율의 전년 대비 변화폭. %가 아닌 %p 단위",
+      "en": "Δpp (Delta Percentage Point) — share change vs. last year, in points not percent"
+    },
+    "section_segment_market": {
+      "ko": "세그먼트 시장 개요",
+      "en": "Segment Market Overview"
+    },
+    "filter_size": {
+      "ko": "크기",
+      "en": "Size"
+    },
+    "filter_domestic": {
+      "ko": "국산/외산",
+      "en": "Domestic/Import"
+    },
+    "filter_purpose": {
+      "ko": "용도",
+      "en": "Purpose"
+    },
+    "kpi_ytd": {
+      "ko": "YTD 등록",
+      "en": "YTD Registrations"
+    },
+    "kpi_month": {
+      "ko": "당월 등록",
+      "en": "This Month"
+    },
+    "kpi_mb_share": {
+      "ko": "MB 점유율",
+      "en": "MB Market Share"
+    },
+    "kpi_leader": {
+      "ko": "1위 브랜드",
+      "en": "Market Leader"
+    },
+    "kpi_gainer": {
+      "ko": "상승폭 최대",
+      "en": "Top Gainer"
+    },
+    "kpi_loser": {
+      "ko": "하락폭 최대",
+      "en": "Top Loser"
+    },
+    "kpi_total": {
+      "ko": "전체 등록",
+      "en": "Total Registrations"
+    },
+    "kpi_monthly_avg": {
+      "ko": "월평균",
+      "en": "Monthly Avg"
+    },
+    "kpi_domestic_ratio": {
+      "ko": "국산 비중",
+      "en": "Domestic Share"
+    },
+    "kpi_avg_price": {
+      "ko": "평균 취득가",
+      "en": "Avg Price"
+    },
+    "section_brand_compare": {
+      "ko": "브랜드별 YTD 비교",
+      "en": "Brand YTD Comparison"
+    },
+    "section_segment_compare": {
+      "ko": "세그먼트별 YTD",
+      "en": "Segment YTD"
+    },
+    "section_mb_som": {
+      "ko": "MB 점유율 추이",
+      "en": "MB SoM Trend"
+    },
+    "section_brand_trend": {
+      "ko": "브랜드별 월별 추이",
+      "en": "Monthly Trend by Brand"
+    },
+    "section_market_share": {
+      "ko": "YTD 시장 점유율",
+      "en": "YTD Market Share"
+    },
+    "section_brand_table": {
+      "ko": "브랜드 성과 요약",
+      "en": "Brand Performance Summary"
+    },
+    "loading": {
+      "ko": "불러오는 중…",
+      "en": "Loading…"
+    },
+    "no_data": {
+      "ko": "데이터가 없습니다.",
+      "en": "No data available."
+    },
+    "todo_note": {
+      "ko": "이 페이지는 스켈레톤입니다. 동일한 패턴으로 채워 넣으세요.",
+      "en": "This page is a skeleton. Fill it in using the same pattern."
+    },
+    "section_tractor_hp": {
+      "ko": "트랙터 마력별 시장분석",
+      "en": "Tractor Market by Power Class"
+    },
+    "chart_hp_band_yoy": {
+      "ko": "마력대별 등록 (YTD, 전년 대비)",
+      "en": "Registrations by Power Class (YTD vs PY)"
+    },
+    "chart_hp_brand_mix": {
+      "ko": "브랜드별 마력대 구성비",
+      "en": "Power Class Mix by Brand"
+    },
+    "chart_hp_monthly_mix": {
+      "ko": "월별 마력대 구성비",
+      "en": "Monthly Power Class Mix"
+    },
+    "chart_hp_band_trend": {
+      "ko": "마력대별 월별 등록 추이",
+      "en": "Monthly Volume by Power Class"
+    },
+    "chart_hp_points": {
+      "ko": "마력(정격)별 등록 · 브랜드 구성",
+      "en": "Registrations by Exact Rating · Brand Split"
+    },
+    "col_hp_band": {
+      "ko": "마력대",
+      "en": "Power Class"
+    },
+    "badge_share_gain": {
+      "ko": "점유 확대",
+      "en": "Share gain"
+    },
+    "badge_missed": {
+      "ko": "기회 상실",
+      "en": "Missed upside"
+    },
+    "badge_squeezed": {
+      "ko": "이중 압박",
+      "en": "Double squeeze"
+    },
+    "label_mb_som_ytd": {
+      "ko": "MB 점유율 (YTD)",
+      "en": "MB share (YTD)"
+    },
+    "label_market_growth": {
+      "ko": "시장 성장률",
+      "en": "Market growth"
+    },
+    "label_mb_growth": {
+      "ko": "MB 성장률",
+      "en": "MB growth"
+    },
+    "label_vs_market": {
+      "ko": "시장 대비",
+      "en": "vs. market"
+    },
+    "label_mtd_som": {
+      "ko": "MTD SoM",
+      "en": "MTD SoM"
+    },
+    "label_volume": {
+      "ko": "물량",
+      "en": "Volume"
+    },
+    "label_market": {
+      "ko": "시장",
+      "en": "Market"
+    }
   },
   "enum": {
     "segment": {
-      "Tractor": { "ko": "Tractor", "en": "Tractor" },
-      "Rigid": { "ko": "Rigid", "en": "Rigid" },
-      "Tipper": { "ko": "Tipper", "en": "Tipper" },
-      "Cargo": { "ko": "Rigid", "en": "Rigid" },
-      "Dump": { "ko": "Tipper", "en": "Tipper" },
-      "트랙터": { "ko": "트랙터", "en": "Tractor" },
-      "카고": { "ko": "카고", "en": "Cargo" },
-      "덤프(건설기계)": { "ko": "덤프(건설기계)", "en": "Dump (Construction)" },
-      "기타": { "ko": "기타", "en": "Other" }
+      "Tractor": {
+        "ko": "Tractor",
+        "en": "Tractor"
+      },
+      "Rigid": {
+        "ko": "Rigid",
+        "en": "Rigid"
+      },
+      "Tipper": {
+        "ko": "Tipper",
+        "en": "Tipper"
+      },
+      "Cargo": {
+        "ko": "Rigid",
+        "en": "Rigid"
+      },
+      "Dump": {
+        "ko": "Tipper",
+        "en": "Tipper"
+      },
+      "트랙터": {
+        "ko": "트랙터",
+        "en": "Tractor"
+      },
+      "카고": {
+        "ko": "카고",
+        "en": "Cargo"
+      },
+      "덤프(건설기계)": {
+        "ko": "덤프(건설기계)",
+        "en": "Dump (Construction)"
+      },
+      "기타": {
+        "ko": "기타",
+        "en": "Other"
+      }
     },
     "size": {
-      "소형": { "ko": "소형", "en": "Small" },
-      "준중형": { "ko": "준중형", "en": "Sub-Mid" },
-      "중형": { "ko": "중형", "en": "Medium" },
-      "준대형": { "ko": "준대형", "en": "Sub-Heavy" },
-      "대형": { "ko": "대형", "en": "Heavy" }
+      "소형": {
+        "ko": "소형",
+        "en": "Small"
+      },
+      "준중형": {
+        "ko": "준중형",
+        "en": "Sub-Mid"
+      },
+      "중형": {
+        "ko": "중형",
+        "en": "Medium"
+      },
+      "준대형": {
+        "ko": "준대형",
+        "en": "Sub-Heavy"
+      },
+      "대형": {
+        "ko": "대형",
+        "en": "Heavy"
+      }
     },
     "domestic": {
-      "국산": { "ko": "국산", "en": "Domestic" },
-      "외산": { "ko": "외산", "en": "Import" }
+      "국산": {
+        "ko": "국산",
+        "en": "Domestic"
+      },
+      "외산": {
+        "ko": "외산",
+        "en": "Import"
+      }
     }
   }
 }

@@ -1,5 +1,11 @@
 """One-time MSAL device-code login.
 
+NOT IN USE. The Entra app registration has "Allow public client flows"
+disabled, so the device-code token exchange fails with AADSTS7000218 even
+though the code is issued. Nothing in the current workflow needs this: the
+site publishes to SharePoint from the browser (docs/pages/publish.html).
+Kept for the day that setting is turned on — docs/ENTRA_SETUP.md §4.
+
 Runs interactively on your PC, prints a code, you open the URL on any
 device, enter the code, and sign in with the company Microsoft account.
 The resulting refresh token + account info is saved to .msal_cache.json
@@ -35,6 +41,15 @@ CACHE_PATH = Path(".msal_cache.json")
 
 
 def main() -> int:
+    # The device code is useless if it arrives late: when stdout is a pipe or a
+    # log file rather than a terminal, Python block-buffers it and the code sits
+    # unseen until the process exits — which is only after the sign-in it was
+    # supposed to enable. Force line buffering (and UTF-8, since the Windows
+    # console here is cp949).
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+
     cache = msal.SerializableTokenCache()
     if CACHE_PATH.exists():
         cache.deserialize(CACHE_PATH.read_text(encoding="utf-8"))

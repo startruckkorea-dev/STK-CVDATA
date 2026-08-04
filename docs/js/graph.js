@@ -81,10 +81,55 @@ export async function writeJsonFile(filename, data, folder = SP_FOLDER_PATH) {
   return res.json();
 }
 
-/** List files in a folder (one level). */
+/** PUT a file verbatim (creates or overwrites). Used by the publish page, which
+ *  uploads the build output byte-for-byte rather than re-serialising it. */
+export async function writeFile(filename, body, folder = SP_FOLDER_PATH) {
+  const siteId = await getSiteId();
+  const path = `${folder}/${filename}`;
+  const res = await gFetch(`/sites/${siteId}/drive/root:/${encPath(path)}:/content`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/octet-stream" },
+    body,
+  });
+  if (!res.ok) {
+    const detail = res.status === 403
+      ? "이 폴더에 쓰기 권한이 없습니다"
+      : await res.text();
+    throw new Error(`write ${path} failed: ${res.status} ${detail}`);
+  }
+  return res.json();
+}
+
+/** Create `folder` (one level under an existing parent) unless it already
+ *  exists. site_data/ won't be there before the first publish. */
+export async function ensureFolder(folder) {
+  const siteId = await getSiteId();
+  const probe = await gFetch(`/sites/${siteId}/drive/root:/${encPath(folder)}`);
+  if (probe.ok) return false;
+
+  const cut = folder.lastIndexOf("/");
+  const parent = cut < 0 ? "" : folder.slice(0, cut);
+  const name = cut < 0 ? folder : folder.slice(cut + 1);
+  const base = `/sites/${siteId}/drive/root`;
+  const url = parent ? `${base}:/${encPath(parent)}:/children` : `${base}/children`;
+  const res = await gFetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name,
+      folder: {},
+      "@microsoft.graph.conflictBehavior": "fail",
+    }),
+  });
+  if (!res.ok) throw new Error(`create ${folder} failed: ${res.status} ${await res.text()}`);
+  return true;
+}
+
+/** List files in a folder (one level). Returns [] when the folder is absent. */
 export async function listFolder(folder = SP_FOLDER_PATH) {
   const siteId = await getSiteId();
   const res = await gFetch(`/sites/${siteId}/drive/root:/${encPath(folder)}:/children`);
+  if (res.status === 404) return [];
   if (!res.ok) throw new Error(`list ${folder} failed: ${res.status}`);
   const data = await res.json();
   return data.value || [];

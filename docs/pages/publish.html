@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_publish">데이터 발행 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="../vendor/msal-browser.min.js"></script>
+  <style>
+    .drop {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: 34px 20px; text-align: center; color: var(--muted);
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .drop:hover, .drop.over { border-color: var(--accent); background: rgba(19,111,123,.04); }
+    .drop strong { color: var(--text); display: block; margin-bottom: 4px; }
+    .drop input { display: none; }
+    .actions { margin: 18px 0; display: flex; gap: 10px; align-items: center; }
+    .actions button {
+      padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg);
+    }
+    .actions button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .actions button[disabled] { opacity: .5; cursor: not-allowed; }
+    .log { font-size: .84rem; }
+    .log .ok { color: var(--accent); }
+    .log .bad { color: var(--danger); }
+    .log .skip { color: var(--muted); }
+    td.mono, th.mono { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_publish">데이터 발행</h1>
+      <div class="page-sub">
+        <code>tools/build_site.py</code> 가 만든 <code>build/data/*.json</code> 을
+        SharePoint <code>mbtruck-cvdata/site_data/</code> 에 올립니다.
+        올린 즉시 모든 사용자에게 반영됩니다.
+      </div>
+    </div>
+
+    <div id="gate"></div>
+
+    <section class="panel" id="publisher" hidden>
+      <div class="panel-title">1. 파일 선택</div>
+      <div class="panel-sub">
+        <code>build/data</code> 폴더의 <code>.json</code> 파일을 모두 선택하거나,
+        폴더째 이 영역에 끌어다 놓으세요.
+      </div>
+
+      <label class="drop" id="drop">
+        <strong>클릭해서 선택 · 또는 여기에 드래그</strong>
+        manifest.json · kaida_*.json · kama_*.json · cvdata_*.json
+        <input type="file" id="picker" multiple accept=".json,application/json" />
+      </label>
+
+      <div id="picked"></div>
+
+      <div class="actions">
+        <button class="primary" id="upload" type="button" disabled>SharePoint에 발행</button>
+        <button id="refresh" type="button">현재 상태 새로고침</button>
+      </div>
+
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">2. 현재 SharePoint에 있는 파일</div>
+      <div id="current">확인 중…</div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { listFolder, writeFile, ensureFolder, SP_DATA_PATH } from "../js/graph.js";
+  import { fmtNum } from "../js/format.js";
+
+  // The dashboard only ever reads these; anything else in the folder would be
+  // dead weight the pages never fetch, so refuse it up front rather than
+  // littering SharePoint.
+  const EXPECTED = /^(manifest|kaida_\d{4}|kama_\d{4}|cvdata_\d{4})\.json$/;
+
+  let _files = [];
+
+  async function bootstrap() {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+
+    document.getElementById("publisher").hidden = false;
+    wirePicker();
+    document.getElementById("upload").addEventListener("click", publish);
+    document.getElementById("refresh").addEventListener("click", showCurrent);
+    showCurrent();
+  }
+
+  // ---- picking ---------------------------------------------------------------
+
+  function wirePicker() {
+    const drop = document.getElementById("drop");
+    const picker = document.getElementById("picker");
+
+    picker.addEventListener("change", () => setFiles([...picker.files]));
+
+    drop.addEventListener("dragover", (e) => {
+      e.preventDefault(); drop.classList.add("over");
+    });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", async (e) => {
+      e.preventDefault();
+      drop.classList.remove("over");
+      setFiles(await filesFromDrop(e.dataTransfer));
+    });
+  }
+
+  /** A dropped folder arrives as a directory entry, not a File — walk it so
+   *  dragging build/data works as well as selecting its contents. */
+  async function filesFromDrop(dt) {
+    const roots = [...dt.items]
+      .map(i => (i.webkitGetAsEntry ? i.webkitGetAsEntry() : null))
+      .filter(Boolean);
+    if (!roots.length) return [...dt.files];
+
+    const out = [];
+    const walk = async (entry) => {
+      if (entry.isFile) {
+        out.push(await new Promise((res, rej) => entry.file(res, rej)));
+        return;
+      }
+      const reader = entry.createReader();
+      for (;;) {
+        const batch = await new Promise((res, rej) => reader.readEntries(res, rej));
+        if (!batch.length) break;
+        for (const e of batch) await walk(e);
+      }
+    };
+    for (const r of roots) await walk(r);
+    return out;
+  }
+
+  function setFiles(list) {
+    _files = list.filter(f => f.name.toLowerCase().endsWith(".json"));
+    render();
+  }
+
+  function render() {
+    const box = document.getElementById("picked");
+    if (!_files.length) {
+      box.innerHTML = "";
+      document.getElementById("upload").disabled = true;
+      return;
+    }
+
+    const rows = _files.map(f => ({ f, ok: EXPECTED.test(f.name) }));
+    const good = rows.filter(r => r.ok);
+    const hasManifest = good.some(r => r.f.name === "manifest.json");
+
+    box.innerHTML = `
+      <table class="data compact">
+        <thead><tr><th class="label mono">파일</th><th>크기</th><th>상태</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr>
+              <td class="label mono">${r.f.name}</td>
+              <td class="num">${fmtNum(r.f.size)} B</td>
+              <td class="num">${r.ok
+                ? '<span class="ok">발행 대상</span>'
+                : '<span class="skip">건너뜀 (알 수 없는 이름)</span>'}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+      ${hasManifest ? "" : `
+        <div class="banner warn">manifest.json 이 없습니다 — 모든 페이지가 이 파일을
+        먼저 읽어 연도 목록을 얻으므로, 빠지면 대시보드가 비어 보입니다.</div>`}`;
+
+    document.getElementById("upload").disabled = !good.length;
+  }
+
+  // ---- publishing ------------------------------------------------------------
+
+  function line(html, cls = "") {
+    document.getElementById("log")
+      .insertAdjacentHTML("beforeend", `<div class="${cls}">${html}</div>`);
+  }
+
+  async function publish() {
+    const btn = document.getElementById("upload");
+    btn.disabled = true;
+    document.getElementById("log").innerHTML = "";
+
+    const targets = _files.filter(f => EXPECTED.test(f.name));
+    try {
+      if (await ensureFolder(SP_DATA_PATH)) line(`폴더 생성: ${SP_DATA_PATH}`, "ok");
+    } catch (e) {
+      line(`폴더 생성 실패 — ${e.message}`, "bad");
+      btn.disabled = false;
+      return;
+    }
+
+    let done = 0;
+    for (const f of targets) {
+      try {
+        // Upload the bytes as they came off disk: re-encoding would risk
+        // changing the very numbers we are publishing.
+        await writeFile(f.name, await f.arrayBuffer(), SP_DATA_PATH);
+        line(`✓ ${f.name} (${fmtNum(f.size)} B)`, "ok");
+        done++;
+      } catch (e) {
+        line(`✗ ${f.name} — ${e.message}`, "bad");
+      }
+    }
+
+    line(`<strong>${done} / ${targets.length} 발행 완료</strong>`,
+         done === targets.length ? "ok" : "bad");
+    btn.disabled = false;
+    showCurrent();
+  }
+
+  // ---- current state ---------------------------------------------------------
+
+  async function showCurrent() {
+    const box = document.getElementById("current");
+    box.textContent = "확인 중…";
+    try {
+      const items = await listFolder(SP_DATA_PATH);
+      if (!items.length) {
+        box.innerHTML = `<div class="banner warn">아직 발행된 파일이 없습니다
+          (<code>${SP_DATA_PATH}</code>). 위에서 발행하면 폴더까지 함께 만들어집니다.</div>`;
+        return;
+      }
+      box.innerHTML = `
+        <table class="data compact">
+          <thead><tr><th class="label mono">파일</th><th>크기</th><th>최종 수정</th></tr></thead>
+          <tbody>
+            ${items.filter(i => i.file).map(i => `
+              <tr>
+                <td class="label mono">${i.name}</td>
+                <td class="num">${fmtNum(i.size)} B</td>
+                <td class="num">${new Date(i.lastModifiedDateTime).toLocaleString("ko-KR")}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>`;
+    } catch (e) {
+      box.innerHTML = `<div class="banner error">${e.message}</div>`;
+    }
+  }
+
+  bootstrap().catch(e => {
+    console.error(e);
+    document.getElementById("gate").innerHTML =
+      `<div class="banner error">${e.message}</div>`;
+  });
+</script>
+
+</body>
+</html>

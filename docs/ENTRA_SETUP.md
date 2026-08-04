@@ -62,17 +62,26 @@ https://startruckkorea.sharepoint.com/sites/STK-PMM
 실패하면 **폴백 없이 오류를 표시**합니다 — 오래된 숫자를 조용히 보여주지 않습니다.
 사이드바 하단에 연결 상태가 뜹니다 (`SharePoint` / `데이터 연결 실패`).
 
-## 4. 데이터 갱신 (관리자 PC)
+## 4. 데이터 갱신 (관리자)
 
-```powershell
-python tools/auth_setup.py        # 최초 1회 — device code 로그인, .msal_cache.json 생성
-python tools/sharepoint_sync.py   # SharePoint 원본 xlsx -> raw_data/
-python tools/build_site.py        # raw_data/ -> build/data/*.json  (gitignore, 스테이징)
-python tools/publish_data.py      # build/data/*.json -> SharePoint site_data/
-```
+1. SharePoint `mbtruck-cvdata/` 의 원본 xlsx 를 PC `raw_data/` 로 내려받는다
+   (탐색기 동기화 또는 브라우저 다운로드)
+2. `python tools/build_site.py` → `build/data/*.json` 생성 (gitignore, 스테이징)
+3. 사이트의 **관리 → 데이터 발행** 페이지에서 `build/data` 를 끌어다 놓고 발행
 
-**`publish_data.py` 가 곧 배포입니다** — git push 는 데이터에 아무 영향이 없습니다.
-업로드에는 해당 폴더 **쓰기 권한**이 필요합니다 (읽기 전용 계정은 Graph 403).
+**3번이 곧 배포입니다** — git push 는 데이터에 아무 영향이 없습니다.
+발행에는 해당 폴더 **쓰기 권한**이 필요합니다 (읽기 전용 계정은 Graph 403).
+
+### 왜 Python 이 아니라 브라우저에서 발행하나
+
+이 앱 등록은 **"Allow public client flows" 가 꺼져 있습니다.** 그래서 Python 쪽
+인증(device code · interactive · ROPC)은 전부 `AADSTS7000218` 로 거부됩니다 —
+`auth_setup.py`, `sharepoint_sync.py`, `publish_data.py` 는 현재 상태에서 동작하지
+않습니다. 반면 브라우저 SPA 흐름은 그 설정과 무관하므로 정상 동작합니다.
+
+세 스크립트는 참고용으로 남겨두었습니다. 쓰려면 Azure Portal → 앱 등록 → 인증 →
+고급 설정 → **Allow public client flows: 예** 로 바꿔야 하고, 이 앱을 공유하는
+mbtruck-spec · SAM-AFAB 에도 함께 적용된다는 점을 감안해야 합니다.
 
 ## 5. 문제 해결
 

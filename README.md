@@ -19,21 +19,28 @@
 
 ```
 SharePoint  sites/STK-PMM → Shared Documents/mbtruck-cvdata/
-   ├── 원본 xlsx  ──┐
-   └── site_data/ ←─┼── (3) publish_data.py 업로드
-          ↑         │
-          │         └── (1) sharepoint_sync.py → raw_data/
-          │                    (2) build_site.py → build/data/*.json
+   ├── 원본 xlsx ──(1) 탐색기/브라우저로 내려받기──→ raw_data/
+   │                                                   │
+   │                              (2) build_site.py    ↓
+   │                                            build/data/*.json
+   │                                                   │
+   └── site_data/ ←──(3) 사이트의 "데이터 발행" 페이지에서 업로드
           │
-   브라우저 ──Graph(위임 토큰)──┘   ← 화면은 오직 여기만 읽는다
+          └──Graph(위임 토큰)──→ 브라우저   ← 화면은 오직 여기만 읽는다
 ```
 
 **레포에는 숫자가 커밋되지 않는다.** `raw_data/`, `build/`, `docs/data/` 는 모두
 gitignore 대상이고, 화면은 SharePoint `site_data/` 만 읽는다. 읽지 못하면
 오래된 값을 보여주는 대신 **오류를 표시**한다.
 
-따라서 **`publish_data.py` 실행이 곧 배포**다 — git push 는 데이터에 영향이 없다.
+따라서 **(3) 발행이 곧 배포**다 — git push 는 데이터에 영향이 없다.
 열람 권한 관리 = SharePoint 폴더 권한 관리.
+
+업로드가 Python 이 아니라 브라우저에서 이뤄지는 이유는, 이 앱 등록의
+"Allow public client flows" 가 꺼져 있어 Python 쪽 인증이 전부 `AADSTS7000218`
+로 거부되기 때문이다. `tools/auth_setup.py` · `sharepoint_sync.py` ·
+`publish_data.py` 는 그 설정을 켜야만 동작한다 —
+[docs/ENTRA_SETUP.md](docs/ENTRA_SETUP.md) 4장 참고.
 
 ---
 
@@ -42,10 +49,10 @@ gitignore 대상이고, 화면은 SharePoint `site_data/` 만 읽는다. 읽지 
 ```
 CV_data_git/
 ├─ tools/
-│   ├─ auth_setup.py           # 1회 device-code 로그인 → .msal_cache.json
-│   ├─ sharepoint_sync.py      # MS Graph → raw_data/ 동기화
 │   ├─ build_site.py           # raw_data/*.xlsx → build/data/*.json 집계
-│   ├─ publish_data.py         # build/data/*.json → SharePoint site_data/
+│   ├─ auth_setup.py           # (미사용) device-code 로그인 — public client flows 필요
+│   ├─ sharepoint_sync.py      # (미사용) MS Graph → raw_data/ 동기화
+│   ├─ publish_data.py         # (미사용) build/data/*.json → SharePoint
 │   ├─ kaida_processor.py      # KAIDA Excel 파서 (Streamlit 원본 포팅)
 │   ├─ kama_processor.py       # KAMA Excel 파서
 │   ├─ cv_data_loader.py       # CV_DATA Excel 로더
@@ -53,7 +60,8 @@ CV_data_git/
 ├─ docs/                       # GH Pages가 publish하는 디렉토리
 │   ├─ index.html              # 메인 (시장 인사이트)
 │   ├─ pages/                  # segment · kama · overview · bestselling
-│   │                          #  · cargo · price · body · translate
+│   │                          #  · cargo · price · body
+│   │                          #  · publish (데이터 발행) · translate
 │   ├─ css/style.css
 │   ├─ js/
 │   │   ├─ auth.js             # MSAL 로그인 게이트 + 토큰 broker
@@ -75,21 +83,20 @@ CV_data_git/
 
 ---
 
-## 데이터 갱신 (관리자 PC)
+## 데이터 갱신 (관리자)
 
-```powershell
-pip install -r requirements.txt
-python tools/auth_setup.py        # 최초 1회 — device code 로그인
-python tools/sharepoint_sync.py   # SharePoint 원본 xlsx → raw_data/
-python tools/build_site.py        # raw_data/ → build/data/*.json
-python tools/publish_data.py      # build/data/*.json → SharePoint site_data/
-```
+1. SharePoint `mbtruck-cvdata/` 의 원본 xlsx 를 PC `raw_data/` 로 내려받는다
+   (탐색기 동기화 또는 브라우저 다운로드)
+2. JSON 생성
+   ```powershell
+   pip install -r requirements.txt
+   python tools/build_site.py        # raw_data/ → build/data/*.json
+   ```
+3. 사이트 → **관리 → 데이터 발행** → `build/data` 폴더를 끌어다 놓고 발행
 
-`publish_data.py` 는 `--dry-run` 으로 업로드 목록만 먼저 확인할 수 있다.
-업로드에는 `mbtruck-cvdata` 폴더 **쓰기 권한**이 필요하다 (없으면 Graph 403).
-
-`.msal_cache.json` 의 refresh token 은 약 90일 유효하다. 만료되면
-`auth_setup.py` 를 다시 실행한다.
+발행 페이지는 현재 SharePoint 에 올라가 있는 파일과 최종 수정 시각을 함께
+보여주므로, 무엇이 언제 갱신됐는지 그 화면에서 바로 확인할 수 있다.
+발행에는 `mbtruck-cvdata` 폴더 **쓰기 권한**이 필요하다 (없으면 Graph 403).
 
 ---
 
