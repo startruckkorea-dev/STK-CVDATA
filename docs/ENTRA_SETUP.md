@@ -17,30 +17,24 @@
 위임 권한 `User.Read`, `Sites.ReadWrite.All`, `Files.ReadWrite.All` 은 **이미 관리자 동의가
 완료**되어 있으므로 추가 권한 요청·동의 절차가 없습니다.
 
-### 딱 한 가지 필요한 작업 — 리디렉션 URI 추가
+### 리디렉션 URI — ✅ 이미 등록 완료 (추가 작업 없음)
 
-이 앱에는 **도메인마다 리디렉션 URI 가 하나씩** 등록돼 있습니다.
-이미 등록된 것: `https://mbtruck-spec.startruckkorea.com`, `https://sam-afab.startruckkorea.com/`,
-`http://localhost:3000`.
-**`mbtruck-cvdata` 는 새 도메인이므로 아직 없습니다.** 코드로는 우회할 수 없습니다 —
-Entra 는 등록되지 않은 origin 으로 토큰을 돌려주지 않습니다.
-
-Azure Portal → Microsoft Entra ID → 앱 등록 → 위 앱 → **인증(Authentication)** →
-Single-page application 플랫폼에 아래 **두 줄을 모두** 추가하고 저장:
+SPA 플랫폼에 세 호스트가 **모두 끝 슬래시 없이** 등록돼 있습니다:
 
 ```
-https://mbtruck-cvdata.startruckkorea.com
-https://mbtruck-cvdata.startruckkorea.com/
+https://mbtruck-cvdata.startruckkorea.com     ← 이 사이트
+https://sam-afab.startruckkorea.com
+https://mbtruck-spec.startruckkorea.com
 ```
 
-> Entra 는 리디렉션 URI 를 문자열 그대로 비교합니다. 형제 앱들이 슬래시 유무가
-> 제각각이라(spec 은 없이, sam-afab 은 붙여서 등록됨) **둘 다 넣어 두면** 슬래시
-> 문제로 `AADSTS50011` 이 나는 일이 없습니다.
+Entra 는 리디렉션 URI 를 **문자열 그대로** 비교합니다. 그래서
+[js/auth.js](js/auth.js) 는 `window.location.origin` 을 그대로 씁니다 —
+`origin` 에는 슬래시가 붙지 않으므로 위 등록값과 정확히 일치합니다.
 
-로컬 개발도 하려면 `http://localhost:8000/` 을 함께 추가하면 됩니다.
+> ⚠️ `redirectUri` 에 `+ "/"` 를 붙이면 그것만으로 `AADSTS50011` 이 납니다.
+> 등록값을 바꾸지 않는 한 origin 그대로 두세요.
 
-이 작업을 할 권한이 없다면 앱 등록의 소유자/테넌트 관리자에게 위 두 줄 추가만
-요청하면 됩니다. 권한 변경·동의 절차는 없습니다.
+로컬 개발도 하려면 `http://localhost:8000` 을 (역시 슬래시 없이) 추가하면 됩니다.
 
 ## 2. 접근 제어
 
@@ -88,8 +82,8 @@ python tools/publish_data.py      # docs/data/*.json -> SharePoint site_data/
 
 | 증상 | 원인 / 조치 |
 | --- | --- |
-| `AADSTS50011` redirect URI mismatch | 1번의 두 줄을 등록 |
-| 팝업에 Microsoft 오류 페이지가 뜨고 닫으면 실패 | 십중팔구 리디렉션 URI 미등록. 사이트가 안내 문구를 띄웁니다 → 1번 수행 |
+| `AADSTS50011` redirect URI mismatch | `auth.js` 의 `redirectUri` 가 등록값과 글자 단위로 같은지 확인 (슬래시 금지) |
+| 팝업에 Microsoft 오류 페이지가 뜨고 닫으면 실패 | 십중팔구 리디렉션 URI 불일치. 사이트가 안내 문구를 띄웁니다 → 1번 확인 |
 | 로그인 팝업이 바로 닫히고 실패 | 브라우저 팝업 차단 해제. auth.js 가 stale 상태는 자동 1회 재시도함 |
 | `접근 권한 없음` 화면 | 계정 도메인이 `ALLOWED_DOMAINS` 밖. 회사 계정으로 로그인 |
 | 사이드바에 `저장본 데이터` 로 표시 | SharePoint 읽기 실패. 콘솔 경고 확인 — 대개 폴더 권한 없음(403) 또는 `site_data/` 미생성(404) |

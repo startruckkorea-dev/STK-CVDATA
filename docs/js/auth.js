@@ -27,17 +27,19 @@ const msalConfig = {
   auth: {
     clientId: CLIENT_ID,
     // Popup flow → redirectUri is only where MSAL posts the auth response.
-    // Use the origin + "/" (NO page path) so a SINGLE Entra SPA redirect URI
-    // covers every page of this multi-page static site instead of registering
-    // each .html URL.
+    // Use the bare origin (NO page path, NO trailing slash) so a SINGLE Entra
+    // SPA redirect URI covers every page of this multi-page static site.
     //
-    // Entra compares redirect URIs as an EXACT string, and the sibling apps on
-    // this same registration disagree about the trailing slash (mb-truck-spec
-    // registered ".com", SAM-AFAB registered ".com/"). Register BOTH forms for
-    // this host and the ambiguity disappears — see docs/ENTRA_SETUP.md.
+    // Entra compares redirect URIs as an EXACT string. All three hosts on this
+    // registration are registered without the trailing slash:
+    //   https://mbtruck-cvdata.startruckkorea.com
+    //   https://sam-afab.startruckkorea.com
+    //   https://mbtruck-spec.startruckkorea.com
+    // so `window.location.origin` — which never carries one — matches as is.
+    // Do not append "/" here; that alone is enough to fail with AADSTS50011.
     authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-    redirectUri: window.location.origin + "/",
-    postLogoutRedirectUri: window.location.origin + "/",
+    redirectUri: window.location.origin,
+    postLogoutRedirectUri: window.location.origin,
   },
   cache: {
     // localStorage so the sign-in persists across pages and tabs — the site is
@@ -282,8 +284,8 @@ function _redirectUriHint(e) {
   if (!looksUnregistered || !_loginRequired()) return "";
   const uri = window.location.origin;
   return `이 주소가 Entra 앱(9b247088-…)의 SPA 리디렉션 URI로 등록되지 않았을 수 있습니다.
-          Azure Portal → 앱 등록 → 인증 → SPA 에 <code>${escapeHtml(uri)}</code> 와
-          <code>${escapeHtml(uri)}/</code> 를 모두 추가하세요.`;
+          Azure Portal → 앱 등록 → 인증 → SPA 에 <code>${escapeHtml(uri)}</code> 가
+          (끝 슬래시 없이) 있는지 확인하세요.`;
 }
 
 function _renderError(message, hint = "") {
