@@ -57,6 +57,12 @@ from kama_processor import (
 )
 
 
+# KAIDA and KAMA are built for every year SharePoint holds (2017 on) — they are
+# monthly aggregates, a few KB per year. CV_DATA is the raw registration export,
+# ~6 MB of source per year, and is only wanted from 2020 on.
+CV_DATA_MIN_YEAR = 2020
+
+
 def _write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -264,9 +270,9 @@ def sync_translations(raw_root: Path) -> None:
 
 def build_cv_data(raw_root: Path, out_dir: Path) -> list[int]:
     print("[CV_DATA]")
-    years = cv_list_years(raw_root)
+    years = [y for y in cv_list_years(raw_root) if y >= CV_DATA_MIN_YEAR]
     if not years:
-        print("  (no CV_DATA files found — skipping)")
+        print(f"  (no CV_DATA files from {CV_DATA_MIN_YEAR} on — skipping)")
         return []
     for year in years:
         df = load_data_combined(raw_root, year)
