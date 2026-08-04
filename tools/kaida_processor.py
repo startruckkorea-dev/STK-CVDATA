@@ -122,17 +122,57 @@ def _kaida_folder(root: Path, year: int) -> Path | None:
     return None
 
 
+# SharePoint files the whole archive by report type instead of by year:
+#   KAIDA/KAIDA/       every main report, all years
+#   KAIDA/KAIDA-Dump/  the separate tipper workbooks (2025 and earlier)
+# The year then lives in the filename rather than a folder name.
+def _kaida_flat_dirs(root: Path) -> tuple[Path | None, Path | None]:
+    main = root / "KAIDA" / "KAIDA"
+    dump = root / "KAIDA" / "KAIDA-Dump"
+    return (main if main.is_dir() else None, dump if dump.is_dir() else None)
+
+
+_YEAR_RE = re.compile(r"(20\d{2})")
+
+
+def _year_in_name(path: Path) -> int | None:
+    """Year from a filename, e.g. '2025 KAIDA CV ...' or '... (Dec. 2025).xlsx'.
+
+    Takes the LAST match: the year trails the month in the dump naming
+    ('(Dec. 2025)') and stands alone in the main one, so the last 20xx token is
+    the year in both.
+    """
+    hits = _YEAR_RE.findall(path.name)
+    return int(hits[-1]) if hits else None
+
+
+def _latest_for_year(folder: Path | None, year: int) -> Path | None:
+    """Newest report for `year` in a flat folder, by the month in its name."""
+    if folder is None:
+        return None
+    files = [
+        p for p in folder.glob("*.xlsx")
+        if not p.name.startswith("~$") and _year_in_name(p) == year
+    ]
+    return max(files, key=_file_month_index) if files else None
+
+
 def find_kaida_files(root: Path, year: int) -> tuple[Path | None, Path | None]:
     """Locate the latest CV + Dump reports for one year.
 
     From 2026 the importers ship a single unified file that already contains
     Tractor / Cargo / Dump rows, so dump_path is often None.
 
+    Handles both layouts: a per-year folder holding every report for that year,
+    and SharePoint's split by report type (KAIDA/KAIDA + KAIDA/KAIDA-Dump) where
+    the year is in the filename.
+
     Returns (cv_path, dump_path). Either may be None if missing.
     """
     folder = _kaida_folder(root, year)
     if folder is None:
-        return None, None
+        main_dir, dump_dir = _kaida_flat_dirs(root)
+        return _latest_for_year(main_dir, year), _latest_for_year(dump_dir, year)
     cv_candidates = []
     dump_candidates = []
     for p in folder.glob("*.xlsx"):
@@ -332,6 +372,17 @@ def get_available_kaida_years(root: Path) -> list[int]:
             m = re.search(r"(\d{4})", p.name)
             if m:
                 years.append(int(m.group(1)))
+    # SharePoint layout: years come off the filenames, not the folders. Only the
+    # main folder counts — a year with a dump workbook but no main report has no
+    # tractor/cargo volumes and would build an empty year.
+    main_dir, _ = _kaida_flat_dirs(root)
+    if main_dir is not None:
+        for p in main_dir.glob("*.xlsx"):
+            if p.name.startswith("~$"):
+                continue
+            y = _year_in_name(p)
+            if y:
+                years.append(y)
     return sorted(set(years), reverse=True)
 
 
