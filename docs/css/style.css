@@ -341,19 +341,29 @@ a:hover { text-decoration: underline; }
   color: var(--muted);
 }
 
+/* Plotly autosizes from offsetWidth/offsetHeight, which include this box's
+   border and padding. Any padding here therefore makes the plot wider than the
+   content area, and it draws straight over the right and bottom border — the
+   frame ends up looking half-missing. Keep the padding at zero (Plotly draws
+   its own margins inside) and clip at the padding box so the border survives
+   whatever the plot does. */
 .chart {
   width: 100%;
   min-height: 360px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
-  padding: 6px;
+  padding: 0;
+  overflow: hidden;
 }
 .chart-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 16px;
 }
+/* Grid items default to min-width:auto and refuse to shrink below their
+   content, which lets a wide plot push the column past its track. */
+.chart-row > * { min-width: 0; }
 .chart-row.three { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 1100px) {
   .chart-row, .chart-row.three { grid-template-columns: 1fr; }
@@ -518,7 +528,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
   padding-bottom: 4px;
   margin-bottom: 6px;
 }
-.chart.flat { min-height: 0; border: none; padding: 0; }
+.chart.flat { min-height: 0; border: none; padding: 0; overflow: visible; }
 
 .brand-legend {
   display: flex;

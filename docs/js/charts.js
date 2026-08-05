@@ -15,6 +15,37 @@ const BASE_LAYOUT = {
 
 const CONFIG = { responsive: true, displaylogo: false, displayModeBar: false };
 
+// Plotly's `responsive` only listens for WINDOW resizes, so a plot keeps the
+// width it was born with when its container changes underneath it — which it
+// does routinely here: the page grows past one screen and a scrollbar appears,
+// the sidebar collapses at the 880px breakpoint, a filter row wraps. The plot
+// is then wider than the box that holds it and overdraws the frame. Watch the
+// element itself instead.
+const _watched = new WeakSet();
+
+function keepFitted(el) {
+  if (!el || _watched.has(el) || typeof ResizeObserver === "undefined") return;
+  _watched.add(el);
+  let queued = false;
+  new ResizeObserver(() => {
+    if (queued) return;
+    queued = true;
+    // Coalesce to one resize per frame — a ResizeObserver that resizes its own
+    // target can otherwise loop.
+    requestAnimationFrame(() => {
+      queued = false;
+      if (el.isConnected) Plotly.Plots.resize(el);
+    });
+  }).observe(el);
+}
+
+/** Render, then keep the plot matched to its container for as long as it lives. */
+function plot(el, traces, layout, config) {
+  if (!el) return;
+  Plotly.newPlot(el, traces, layout, config);
+  keepFitted(el);
+}
+
 /**
  * Dashboard colour tokens. Every non-brand series on the KAIDA / KAMA charts
  * draws from this set so the deck reads as one system. Brand marks (MB, Volvo,
@@ -103,7 +134,7 @@ export function horizontalBar(el, { categories, values, color, title, valueForma
     textposition: "outside",
     cliponaxis: false,
   };
-  Plotly.newPlot(el, [trace], mergeLayout({
+  plot(el, [trace], mergeLayout({
     title, xaxis: { tickformat: valueFormat }, yaxis: { autorange: "reversed" },
     margin: { l: 120, r: 60, t: title ? 40 : 20, b: 36 },
   }), CONFIG);
@@ -120,7 +151,7 @@ export function verticalBar(el, { categories, values, color, title, valueFormat 
     textfont: LABEL_FONT,
     cliponaxis: false,
   };
-  Plotly.newPlot(el, [trace], mergeLayout({
+  plot(el, [trace], mergeLayout({
     title, height, showlegend: false, yaxis: { tickformat: valueFormat },
   }), CONFIG);
 }
@@ -142,7 +173,7 @@ export function groupedBar(el, {
     insidetextanchor: inside ? "middle" : undefined,
     cliponaxis: false,
   }));
-  Plotly.newPlot(el, traces, mergeLayout({
+  plot(el, traces, mergeLayout({
     title, barmode, showlegend, height,
     uniformtext: { mode: "hide", minsize: 8 },
     ...(yaxis ? { yaxis } : {}),
@@ -167,7 +198,7 @@ export function groupedBarH(el, {
     cliponaxis: false,
   }));
   const max = Math.max(1, ...series.flatMap(s => s.values.map(v => v || 0)));
-  Plotly.newPlot(el, traces, mergeLayout({
+  plot(el, traces, mergeLayout({
     height, showlegend,
     margin: { l: leftMargin, r: 46, t: 6, b: 20 },
     barmode: "group",
@@ -199,7 +230,7 @@ export function lineChart(el, { x, series, title, yLabel, valueKind = "int" }) {
     textfont: LABEL_FONT,
     cliponaxis: false,
   }));
-  Plotly.newPlot(el, traces, mergeLayout({
+  plot(el, traces, mergeLayout({
     title,
     yaxis: { title: yLabel, tickformat: "," },
   }), CONFIG);
@@ -240,7 +271,7 @@ export function shareBandH(el, {
     showarrow: false, xanchor: "left", xshift: 8,
     font: { size: 16, color: "#1f2328" },
   })) : [];
-  Plotly.newPlot(el, traces, mergeLayout({
+  plot(el, traces, mergeLayout({
     barmode: "stack",
     height,
     showlegend: false,          // the page renders its own compact brand legend
@@ -289,7 +320,7 @@ export function comboBarLine(el, {
     cliponaxis: false,
   }));
   const useY2 = lines.some(l => l.axis !== "y");
-  Plotly.newPlot(el, [...barTraces, ...lineTraces], mergeLayout({
+  plot(el, [...barTraces, ...lineTraces], mergeLayout({
     title,
     height,
     barmode: "group",
@@ -312,7 +343,7 @@ export function areaChart(el, { x, series, title, stacked = true }) {
     line: { color: s.color || colorFor(s.name), width: 1 },
     fillcolor: s.color || colorFor(s.name),
   }));
-  Plotly.newPlot(el, traces, mergeLayout({ title }), CONFIG);
+  plot(el, traces, mergeLayout({ title }), CONFIG);
 }
 
 export function pieChart(el, { labels, values, title, hole = 0 }) {
@@ -327,7 +358,7 @@ export function pieChart(el, { labels, values, title, hole = 0 }) {
     textinfo: "label+value+percent",
     texttemplate: "%{label}<br>%{value:,} (%{percent})",
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title }), CONFIG);
+  plot(el, [trace], mergeLayout({ title }), CONFIG);
 }
 
 export function donutChart(el, args) { return pieChart(el, { ...args, hole: 0.45 }); }
@@ -341,7 +372,7 @@ export function treemap(el, { labels, parents, values, title }) {
     branchvalues: "total",
     textinfo: "label+value+percent parent",
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title }), CONFIG);
+  plot(el, [trace], mergeLayout({ title }), CONFIG);
 }
 
 export function sunburst(el, { labels, parents, values, title }) {
@@ -353,7 +384,7 @@ export function sunburst(el, { labels, parents, values, title }) {
     branchvalues: "total",
     textinfo: "label+value+percent parent",
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title }), CONFIG);
+  plot(el, [trace], mergeLayout({ title }), CONFIG);
 }
 
 export function heatmap(el, { x, y, z, title, colorscale = "Blues" }) {
@@ -364,7 +395,7 @@ export function heatmap(el, { x, y, z, title, colorscale = "Blues" }) {
     showscale: true,
     hovertemplate: "%{y} / %{x}: %{z:,}<extra></extra>",
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title, margin: { l: 120, r: 24, t: title ? 40 : 20, b: 80 } }), CONFIG);
+  plot(el, [trace], mergeLayout({ title, margin: { l: 120, r: 24, t: title ? 40 : 20, b: 80 } }), CONFIG);
 }
 
 export function boxPlot(el, { categories, data, title }) {
@@ -376,7 +407,7 @@ export function boxPlot(el, { categories, data, title }) {
     boxpoints: "outliers",
     marker: { color: colorFor(c) },
   }));
-  Plotly.newPlot(el, traces, mergeLayout({ title, showlegend: false }), CONFIG);
+  plot(el, traces, mergeLayout({ title, showlegend: false }), CONFIG);
 }
 
 export function histogram(el, { values, binSize, title }) {
@@ -386,7 +417,7 @@ export function histogram(el, { values, binSize, title }) {
     xbins: binSize ? { size: binSize } : undefined,
     marker: { color: "#1a56db" },
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title }), CONFIG);
+  plot(el, [trace], mergeLayout({ title }), CONFIG);
 }
 
 export function scatter(el, { x, y, text, size, color, title }) {
@@ -401,7 +432,7 @@ export function scatter(el, { x, y, text, size, color, title }) {
       line: { color: "white", width: 1 },
     },
   };
-  Plotly.newPlot(el, [trace], mergeLayout({ title }), CONFIG);
+  plot(el, [trace], mergeLayout({ title }), CONFIG);
 }
 
 // Lollipop / min-max chart — ports utils/charts.py::min_max_chart
@@ -437,7 +468,7 @@ export function minMaxChart(el, { labels, mins, maxs, means, medians, title }) {
     x: medians, y: labels,
     marker: { symbol: "line-ns", color: "#231F20", size: 14, line: { width: 2 } },
   });
-  Plotly.newPlot(el, [...range, ...dots], mergeLayout({
+  plot(el, [...range, ...dots], mergeLayout({
     title,
     margin: { l: 200, r: 40, t: title ? 40 : 20, b: 36 },
     yaxis: { autorange: "reversed" },
