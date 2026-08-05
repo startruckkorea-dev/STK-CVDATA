@@ -102,8 +102,18 @@ export const SEGMENT_TILE_COLORS = {
 };
 
 
+// A title has to be given room, or Plotly centres it in a top margin too small
+// to hold it and the glyph tops are cut off by the edge of the SVG. The base
+// margin is sized for an untitled plot, so widen it whenever a title is set and
+// the caller has not specified its own margins.
+const TITLE_MARGIN_TOP = 48;
+
 function mergeLayout(extra = {}) {
-  return { ...BASE_LAYOUT, ...extra };
+  const layout = { ...BASE_LAYOUT, ...extra };
+  if (layout.title && !extra.margin) {
+    layout.margin = { ...BASE_LAYOUT.margin, t: TITLE_MARGIN_TOP };
+  }
+  return layout;
 }
 
 // Every chart prints its values on the marks — the reports these pages replace
@@ -136,7 +146,7 @@ export function horizontalBar(el, { categories, values, color, title, valueForma
   };
   plot(el, [trace], mergeLayout({
     title, xaxis: { tickformat: valueFormat }, yaxis: { autorange: "reversed" },
-    margin: { l: 120, r: 60, t: title ? 40 : 20, b: 36 },
+    margin: { l: 120, r: 60, t: title ? TITLE_MARGIN_TOP : 20, b: 36 },
   }), CONFIG);
 }
 
@@ -395,7 +405,7 @@ export function heatmap(el, { x, y, z, title, colorscale = "Blues" }) {
     showscale: true,
     hovertemplate: "%{y} / %{x}: %{z:,}<extra></extra>",
   };
-  plot(el, [trace], mergeLayout({ title, margin: { l: 120, r: 24, t: title ? 40 : 20, b: 80 } }), CONFIG);
+  plot(el, [trace], mergeLayout({ title, margin: { l: 120, r: 24, t: title ? TITLE_MARGIN_TOP : 20, b: 80 } }), CONFIG);
 }
 
 export function boxPlot(el, { categories, data, title }) {
@@ -470,7 +480,7 @@ export function minMaxChart(el, { labels, mins, maxs, means, medians, title }) {
   });
   plot(el, [...range, ...dots], mergeLayout({
     title,
-    margin: { l: 200, r: 40, t: title ? 40 : 20, b: 36 },
+    margin: { l: 200, r: 40, t: title ? TITLE_MARGIN_TOP : 20, b: 36 },
     yaxis: { autorange: "reversed" },
   }), CONFIG);
 }

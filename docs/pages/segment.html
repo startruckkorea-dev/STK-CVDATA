@@ -80,7 +80,6 @@
         </div>
       </div>
       <div class="seg-market-lower">
-        <div id="seg-avg-month" class="chart flat"></div>
         <div id="seg-glide" class="chart flat"></div>
       </div>
     </section>
@@ -93,9 +92,9 @@
   import { renderSidebar } from "../js/sidebar.js";
   import { renderFilters, syncFilters, yearOptions, monthOptions,
            brandOptions, segmentOptions } from "../js/filters.js";
-  import { loadManifest, loadKaidaPair, loadKaida } from "../js/data.js";
+  import { loadManifest, loadKaidaPair } from "../js/data.js";
   import { groupedBar, stackedBar, lineChart, donutChart,
-           shareBandH, comboBarLine, verticalBar,
+           shareBandH, comboBarLine,
            BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
   import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
   import { getState, setState, subscribe } from "../js/state.js";
@@ -493,25 +492,6 @@
       yLabel: "units",
     });
 
-    // Focus brand's average per month, one bar per available year
-    const avgYears = [];
-    for (const y of [..._years].sort()) {
-      let data = y === cur.year ? cur : (prev && y === prev.year ? prev : null);
-      if (!data) { try { data = await loadKaida(y); } catch (e) { continue; } }
-      const months = data.last_data_month || 12;
-      if (!months) continue;
-      const vol = sumThrough(brandSegRow(data, brand, seg), months);
-      avgYears.push({ year: y, avg: Math.round(vol / months) });
-    }
-    verticalBar(document.getElementById("seg-avg-month"), {
-      // Year alone keeps the ticks horizontal in this narrow column; the
-      // "per month" meaning lives in the title.
-      categories: avgYears.map(a => String(a.year)),
-      values: avgYears.map(a => a.avg),
-      color: TOKEN.teal,
-      title: `${brand} Avg / Month`,
-      height: 380,
-    });
   }
 
   function renderKpis(cur, prev, monthIdx, sel, scope) {

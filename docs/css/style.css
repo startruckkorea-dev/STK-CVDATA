@@ -691,9 +691,11 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
   gap: 12px;
   align-items: start;
 }
+/* Single full-width row since the per-month average chart was removed — the
+   240px column it used to occupy would otherwise indent the glide path. */
 .seg-market-lower {
   display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-top: 10px;
 }
