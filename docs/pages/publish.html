@@ -10,13 +10,40 @@
   <link rel="stylesheet" href="../css/style.css" />
   <script src="../vendor/msal-browser.min.js"></script>
   <style>
+    /* This is an admin form, not a dashboard. The shared page-head packs the
+       title and subtitle onto one line and pins them; panel titles are centred
+       for chart cards. Both read wrong here, so undo them for this page only. */
+    .main .page-head { position: static; box-shadow: none; }
+    .main .page-head .page-title { display: block; margin: 0 0 6px; }
+    .main .page-head .page-sub { display: block; max-width: 78ch; }
+    .main .panel-title { text-align: left; }
+    .main .panel { padding-bottom: 18px; }
+
+    /* Descriptive text under a step header. Not .panel-sub — that one is the
+       big bold YoY figure the dashboard panels carry. */
+    .desc {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin: 0 0 14px;
+      max-width: 76ch;
+      line-height: 1.55;
+    }
+
+    /* A <label> is inline by default: padding and border wrap the line boxes
+       instead of the element, so the dashed frame doubled up and the buttons
+       below overlapped it. Make it a block-level flex column. */
     .drop {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
       border: 2px dashed var(--border); border-radius: 10px;
       padding: 34px 20px; text-align: center; color: var(--muted);
       cursor: pointer; transition: border-color .15s, background .15s;
     }
-    .drop:hover, .drop.over { border-color: var(--accent); background: rgba(19,111,123,.04); }
-    .drop strong { color: var(--text); display: block; margin-bottom: 4px; }
+    .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+    .drop strong { color: var(--text); font-size: 0.98rem; }
+    .drop .hint { font-family: ui-monospace, Consolas, monospace; font-size: 0.78rem; }
     .drop input { display: none; }
     .actions { margin: 18px 0; display: flex; gap: 10px; align-items: center; }
     .actions button {
@@ -50,14 +77,14 @@
 
     <section class="panel" id="publisher" hidden>
       <div class="panel-title">1. 파일 선택</div>
-      <div class="panel-sub">
+      <p class="desc">
         <code>build/data</code> 폴더의 <code>.json</code> 파일을 모두 선택하거나,
         폴더째 이 영역에 끌어다 놓으세요.
-      </div>
+      </p>
 
       <label class="drop" id="drop">
         <strong>클릭해서 선택 · 또는 여기에 드래그</strong>
-        manifest.json · kaida_*.json · kama_*.json · cvdata_*.json
+        <span class="hint">manifest.json · kaida_*.json · kama_*.json · cvdata_*.json</span>
         <input type="file" id="picker" multiple accept=".json,application/json" />
       </label>
 
