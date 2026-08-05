@@ -63,6 +63,12 @@ from kama_processor import (
 CV_DATA_MIN_YEAR = 2020
 
 
+# The manifest is the front-end's index: every year listed in it is offered in
+# the year picker, and picking one that has no JSON is a dead end. So each
+# builder returns the years it actually WROTE, not the years it found source
+# folders for.
+
+
 def _write_json(path: Path, data) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -78,6 +84,7 @@ def build_kaida(raw_root: Path, out_dir: Path) -> list[int]:
     if not years:
         print("  (no KAIDA folders found — skipping)")
         return []
+    written = []
     for year in years:
         detail = load_kaida_year(raw_root, year)
         if detail.empty:
@@ -87,7 +94,8 @@ def build_kaida(raw_root: Path, out_dir: Path) -> list[int]:
         agg["year"] = year
         agg["last_data_month"] = detect_last_data_month(agg)
         _write_json(out_dir / f"kaida_{year}.json", agg)
-    return years
+        written.append(year)
+    return written
 
 
 def build_kama(raw_root: Path, out_dir: Path) -> list[int]:
@@ -96,6 +104,7 @@ def build_kama(raw_root: Path, out_dir: Path) -> list[int]:
     if not years:
         print("  (no KAMA folders found — skipping)")
         return []
+    written = []
     for year in years:
         detail = load_kama_year(raw_root, year)
         if detail.empty:
@@ -104,7 +113,8 @@ def build_kama(raw_root: Path, out_dir: Path) -> list[int]:
         agg = aggregate_kama(detail)
         agg["year"] = year
         _write_json(out_dir / f"kama_{year}.json", agg)
-    return years
+        written.append(year)
+    return written
 
 
 def _aggregate_cv_data(df: pd.DataFrame) -> dict:
@@ -274,6 +284,7 @@ def build_cv_data(raw_root: Path, out_dir: Path) -> list[int]:
     if not years:
         print(f"  (no CV_DATA files from {CV_DATA_MIN_YEAR} on — skipping)")
         return []
+    written = []
     for year in years:
         df = load_data_combined(raw_root, year)
         if df.empty:
@@ -282,7 +293,8 @@ def build_cv_data(raw_root: Path, out_dir: Path) -> list[int]:
         agg = _aggregate_cv_data(df)
         agg["year"] = year
         _write_json(out_dir / f"cvdata_{year}.json", agg)
-    return years
+        written.append(year)
+    return written
 
 
 def main() -> None:
