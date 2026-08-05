@@ -369,7 +369,6 @@
     const totCur = MONTHS.map(m => (cur.monthly_totals || {})[m] || 0);
     const totPrev = prev ? MONTHS.map(m => prev.monthly_totals[m] || 0) : MONTHS.map(() => 0);
 
-    const somMtd = mbCur.map((v, i) => (totCur[i] ? (v / totCur[i]) * 100 : 0));
     // YTD SoM is cumulative — the share of everything registered so far.
     let cm = 0, ct = 0;
     const somYtd = mbCur.map((v, i) => {
@@ -384,7 +383,6 @@
         { name: prev ? `MB ${prev.year}` : "PY", values: mbPrev, color: TOKEN.mint },
       ],
       lines: [
-        { name: "MTD SoM", values: trim(somMtd, last), color: TOKEN.amber, dash: "dot" },
         { name: "YTD SoM", values: trim(somYtd, last), color: TOKEN.deepTeal, width: 3 },
       ],
       height: 420,
