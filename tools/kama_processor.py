@@ -14,8 +14,20 @@ import pandas as pd
 
 KAMA_BRAND_ORDER = ["Hyundai", "Tata Daewoo"]
 # Same terminology as KAIDA: cargo bodies are Rigid, dumpers are Tipper.
-KAMA_SEGMENT_ORDER = ["Rigid", "Tractor", "Tipper"]
+# Mixer is kept apart from Rigid because it is a distinct body market, and EV
+# holds the electric/fuel-cell heavy trucks, which the source reports as one
+# line ("대형트럭 FCEV") with no cargo/tractor split to hand.
+KAMA_SEGMENT_ORDER = ["Rigid", "Tractor", "Tipper", "Mixer", "EV"]
 KAMA_BRAND_COLORS = {"Hyundai": "#1a56db", "Tata Daewoo": "#e04f2e"}
+
+# Dumpers below this are medium-duty and not comparable with the imported
+# tipper market: the source lists 8T DUMP alongside 15T and 25.5T.
+MIN_TIPPER_TONNAGE = 9
+
+# 트럭특장 rows that match no specific body type ("특장기타") are large cargo.
+# The block also carries TRACTOR / MIXER / 8X4 DUMP, which keep their own
+# segments — this is the fallback for the rest, not a blanket rule.
+_BODY_BLOCK = "트럭특장"
 
 MONTHS_MM = [f"{i:02d}" for i in range(1, 13)]
 
@@ -25,6 +37,9 @@ _COL_MODEL = 4
 _COL_MONTH = 7
 _COL_YTD = 8
 
+# Section and subtotal labels that occupy the model cell. These are exact
+# matches: the real FCEV row is named "대형트럭 FCEV" and is classified, not
+# skipped — a bare "FCEV" here is a group header carrying a rolled-up figure.
 _SKIP_LABELS = {"소  계", "소계", "총     계", "총계", "국산", "OEM 수입", "Export", "FCEV"}
 _BLOCK_KEEP = {"트럭", "트럭특장"}
 
@@ -38,28 +53,51 @@ def _normalize_company(label: str) -> str | None:
     return None
 
 
-def classify_kama_model(model_name: str) -> str | None:
-    """Classify a KAMA model row into Rigid / Tractor / Tipper or None to skip."""
+def _leading_tonnage(name: str) -> float | None:
+    """Tonnage a model name opens with — '8T DUMP' -> 8.0, '8X4 DUMP' -> None."""
+    m = re.match(r"(\d+(?:\.\d+)?)\s*T\b", name)
+    return float(m.group(1)) if m else None
+
+
+def classify_kama_model(model_name: str, block: str | None = None) -> str | None:
+    """Classify a KAMA model row into a segment, or None to leave it out.
+
+    Checked in order — the first match wins, and the order carries meaning:
+    PULL CARGO must be tested before CARGO or trailer pullers would be counted
+    as rigids, and MIXER before the tonnage rule for the same reason.
+
+    `block` is the row's 차종. It only decides the fallback: an unclassified row
+    in 트럭특장 ("특장기타") is large cargo, while the same name under 트럭 is
+    not counted.
+    """
     if not model_name:
         return None
     name = str(model_name).upper()
-    if "EXPORT" in name or "FCEV" in name:
-        return None
+
+    if "EXPORT" in name:
+        return None                     # 5T EXPORT, 대형트럭 EXPORT
+    if "FCEV" in name:
+        return "EV"                     # 대형트럭 FCEV — no cargo/tractor split
+    if "MIXER" in name:
+        return "Mixer"
     if "PULL CARGO" in name:
-        return None
+        return None                     # trailer puller; counting it as cargo double counts
     if "TRACTOR" in name:
         return "Tractor"
+
     if "8X4 DUMP" in name or " DUMP" in f" {name}":
-        # Filter tiny dumpers (<5T) — usually marked as e.g. "8T DUMP"
-        m = re.search(r"^(\d+(?:\.\d+)?)\s*T", name)
-        if m and float(m.group(1)) < 5:
-            return None
+        t = _leading_tonnage(name)
+        if t is not None and t < MIN_TIPPER_TONNAGE:
+            return None                 # 8T DUMP and below
         return "Tipper"
-    m = re.search(r"^(\d+(?:\.\d+)?)\s*T", name)
-    if m and float(m.group(1)) >= 5:
+
+    t = _leading_tonnage(name)
+    if t is not None and t >= 5:
         return "Rigid"
     if "CARGO" in name:
         return "Rigid"
+    if block == _BODY_BLOCK:
+        return "Rigid"                  # 특장기타 — large cargo
     return None
 
 
@@ -128,7 +166,7 @@ def _read_one_monthly(path: Path) -> pd.DataFrame:
             continue
         if model.strip() in _SKIP_LABELS:
             continue
-        seg = classify_kama_model(model)
+        seg = classify_kama_model(model, current_block)
         if not seg:
             continue
         out_rows.append({

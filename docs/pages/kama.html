@@ -94,7 +94,8 @@
         { key: "brand", label: "filter_brand", as: "tiles", colors: KAMA_TILE,
           options: brandOptions(BRANDS, true), default: "ALL" },
         { key: "segment", label: "filter_segment", as: "tiles", colors: SEGMENT_TILE_COLORS,
-          tkind: "segment", options: segmentOptions(["Rigid","Tractor","Tipper"]), default: "ALL" },
+          tkind: "segment",
+          options: segmentOptions(["Rigid","Tractor","Tipper","Mixer","EV"]), default: "ALL" },
       ], render);
       subscribe(render);
       document.addEventListener("langchange", render);

@@ -64,6 +64,10 @@ export const BRAND_TILE_COLORS = {
 };
 export const SEGMENT_TILE_COLORS = {
   ALL: TOKEN.deepTeal, Tractor: TOKEN.mint, Rigid: TOKEN.teal, Tipper: TOKEN.amber,
+  // KAMA-only segments. Mixer takes the warm end of the ramp so it reads as a
+  // body type beside Tipper; EV sits apart in the cool end — it is a drivetrain
+  // split, not a body one.
+  Mixer: TOKEN.burntOrange, EV: TOKEN.deepTeal,
 };
 
 
