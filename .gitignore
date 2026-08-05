@@ -32,3 +32,8 @@ Thumbs.db
 
 # Original snapshot (kept locally as reference, not committed)
 code_snapshot.html
+
+# Pipeline rules reference. Quotes real registration figures to show the scale
+# of each rule, and this repo is public — keep it local unless those numbers
+# are cleared for publication.
+KAIDA_KAMA_집계규칙.html
