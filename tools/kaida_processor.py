@@ -6,6 +6,7 @@ output is dict-of-dicts ready for json.dump().
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -122,15 +123,21 @@ def _kaida_folder(root: Path, year: int) -> Path | None:
     return None
 
 
-# SharePoint splits the archive by report type first, then by year:
-#   KAIDA/KAIDA/{year}/       the main report
-#   KAIDA/KAIDA-Dump/{year}/  the separate tipper workbook (through 2025)
-# Both are also read without the year folder, since the year is in the filename
-# either way ("2017 KAIDA CV ...", "... (Dec 2017)").
-def _kaida_flat_dirs(root: Path) -> tuple[Path | None, Path | None]:
-    main = root / "KAIDA" / "KAIDA"
-    dump = root / "KAIDA" / "KAIDA-Dump"
-    return (main if main.is_dir() else None, dump if dump.is_dir() else None)
+# The archive is filed by report type, then by year. The dump reports have sat
+# in two places, so try both rather than tie the build to one reorganisation:
+#   KAIDA/{year}/  +  KAIDA-Dump/{year}/          current
+#   KAIDA/KAIDA/{year}/  +  KAIDA/KAIDA-Dump/{year}/
+# Each is also read without the year folder — the year is in the filename either
+# way ("2017 KAIDA CV ...", "... (Dec 2017)").
+def _kaida_main_dirs(root: Path) -> list[Path]:
+    return [d for d in (root / "KAIDA" / "KAIDA",) if d.is_dir()]
+
+
+def _kaida_dump_dirs(root: Path) -> list[Path]:
+    return [
+        d for d in (root / "KAIDA-Dump", root / "KAIDA" / "KAIDA-Dump")
+        if d.is_dir()
+    ]
 
 
 _YEAR_RE = re.compile(r"(20\d{2})")
@@ -173,29 +180,38 @@ def find_kaida_files(root: Path, year: int) -> tuple[Path | None, Path | None]:
     From 2026 the importers ship a single unified file that already contains
     Tractor / Cargo / Dump rows, so dump_path is often None.
 
-    Handles both layouts: a per-year folder holding every report for that year,
-    and SharePoint's split by report type (KAIDA/KAIDA + KAIDA/KAIDA-Dump) where
-    the year is in the filename.
+    The two reports are located independently, because the dump workbook does
+    not always live beside the main one: a year folder may hold both (the old
+    layout, told apart by "dump" in the filename), or the dumps may be filed
+    under their own KAIDA-Dump tree.
 
     Returns (cv_path, dump_path). Either may be None if missing.
     """
+    cv = dump = None
+
     folder = _kaida_folder(root, year)
-    if folder is None:
-        main_dir, dump_dir = _kaida_flat_dirs(root)
-        return _latest_for_year(main_dir, year), _latest_for_year(dump_dir, year)
-    cv_candidates = []
-    dump_candidates = []
-    for p in folder.glob("*.xlsx"):
-        if p.name.startswith("~$"):
-            continue
-        name_low = p.name.lower()
-        is_dump = "dump" in name_low
-        if is_dump:
-            dump_candidates.append(p)
-        else:
-            cv_candidates.append(p)
-    cv = max(cv_candidates, key=_file_month_index) if cv_candidates else None
-    dump = max(dump_candidates, key=_file_month_index) if dump_candidates else None
+    if folder is not None:
+        cv_candidates = []
+        dump_candidates = []
+        for p in folder.glob("*.xlsx"):
+            if p.name.startswith("~$"):
+                continue
+            (dump_candidates if "dump" in p.name.lower() else cv_candidates).append(p)
+        cv = max(cv_candidates, key=_file_month_index) if cv_candidates else None
+        dump = max(dump_candidates, key=_file_month_index) if dump_candidates else None
+
+    if cv is None:
+        for d in _kaida_main_dirs(root):
+            cv = _latest_for_year(d, year)
+            if cv is not None:
+                break
+
+    if dump is None:
+        for d in _kaida_dump_dirs(root):
+            dump = _latest_for_year(d, year)
+            if dump is not None:
+                break
+
     return cv, dump
 
 
@@ -358,6 +374,18 @@ def load_kaida_year(root: Path, year: int) -> pd.DataFrame:
     has_tipper = False
     if cv_path:
         cv = _parse_kaida_excel(cv_path)
+        # A main report that yields nothing is a corrupt or restructured file,
+        # not an empty year. Left quiet it is worse than a crash: the dump
+        # workbook still parses, so the year builds with real tipper volumes
+        # beside zeroed tractor and cargo — a plausible-looking wrong answer.
+        if cv.empty:
+            print(
+                f"  !! {year}: main report parsed to 0 rows — {cv_path.name}\n"
+                f"     Importer blocks close with a '<name>-Total' row; check that "
+                f"the file still uses a hyphen there (a '0' in its place means the "
+                f"source was mangled by a find-replace).",
+                file=sys.stderr,
+            )
         has_tipper = not cv.empty and (cv["SegmentNorm"] == "Tipper").any()
         frames.append(cv)
     if dump_path and not has_tipper:
@@ -382,11 +410,9 @@ def get_available_kaida_years(root: Path) -> list[int]:
             m = re.search(r"(\d{4})", p.name)
             if m:
                 years.append(int(m.group(1)))
-    # SharePoint layout. Only the main folder counts — a year with a dump
-    # workbook but no main report has no tractor/cargo volumes and would build
-    # an empty year.
-    main_dir, _ = _kaida_flat_dirs(root)
-    if main_dir is not None:
+    # Only the MAIN report folders count — a year with just a dump workbook has
+    # no tractor/cargo volumes and would build an all-but-empty year.
+    for main_dir in _kaida_main_dirs(root):
         for p in main_dir.iterdir():
             if p.is_dir() and re.fullmatch(r"\d{4}", p.name):
                 years.append(int(p.name))
