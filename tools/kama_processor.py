@@ -7,6 +7,7 @@ monthly + YTD volumes.
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -62,10 +63,42 @@ def classify_kama_model(model_name: str) -> str | None:
     return None
 
 
+def _pick_model_sheet(sheet_names: list[str]) -> str:
+    """The 업체별·모델별 sheet — the only one with per-model rows.
+
+    Its section number has moved over the years: '2-4업체별.모델별 …' in the
+    older books (which carry just two sheets), '1-4업체별.모델별 …' in the
+    current ones. Match the name, not the number — keying on '1-4' silently fell
+    back to sheet 0 ('1-1전체총괄', a summary with no model rows), which parses
+    to nothing and looks exactly like a year with no data.
+    """
+    for s in sheet_names:
+        flat = str(s).replace(" ", "")
+        if "업체별" in flat and "모델별" in flat:
+            return s
+    for s in sheet_names:               # legacy fallback
+        if "1-4" in str(s):
+            return s
+    return sheet_names[0]
+
+
+def _num(row, col: int) -> int:
+    """Cell -> int, with blanks and dashes read as 0.
+
+    A blank month cell is a real thing in these books (a model with no
+    registrations that month). `pd.to_numeric(...) or 0` did NOT catch it: NaN
+    is truthy, so the NaN flowed through to int() and killed the whole year.
+    """
+    if col >= len(row):
+        return 0
+    v = pd.to_numeric(row.iloc[col], errors="coerce")
+    return 0 if pd.isna(v) else int(v)
+
+
 def _read_one_monthly(path: Path) -> pd.DataFrame:
-    """Read a single Monthly{YYYY}-{MM}.xlsx — sheet whose name contains '1-4'."""
+    """Read a single Monthly{YYYY}-{MM}.xlsx — the 업체별·모델별 sheet."""
     xls = pd.ExcelFile(path, engine="openpyxl")
-    sheet = next((s for s in xls.sheet_names if "1-4" in s), xls.sheet_names[0])
+    sheet = _pick_model_sheet(xls.sheet_names)
     raw = pd.read_excel(path, sheet_name=sheet, header=None, engine="openpyxl")
 
     out_rows = []
@@ -98,14 +131,12 @@ def _read_one_monthly(path: Path) -> pd.DataFrame:
         seg = classify_kama_model(model)
         if not seg:
             continue
-        month_val = row.iloc[_COL_MONTH] if _COL_MONTH < len(row) else 0
-        ytd_val = row.iloc[_COL_YTD] if _COL_YTD < len(row) else 0
         out_rows.append({
             "Brand": current_company,
             "Model": model.strip(),
             "Segment": seg,
-            "Month": pd.to_numeric(month_val, errors="coerce") or 0,
-            "YTD": pd.to_numeric(ytd_val, errors="coerce") or 0,
+            "Month": _num(row, _COL_MONTH),
+            "YTD": _num(row, _COL_YTD),
         })
     return pd.DataFrame(out_rows)
 
@@ -138,6 +169,12 @@ def load_kama_year(root: Path, year: int) -> pd.DataFrame:
         if not 1 <= mm <= 12:
             continue
         df = _read_one_monthly(path)
+        # A monthly book that yields nothing means the sheet or column layout
+        # moved, not that nobody registered a truck that month.
+        if df.empty:
+            print(f"  !! {path.name}: 0 rows from sheet "
+                  f"'{_pick_model_sheet(pd.ExcelFile(path, engine='openpyxl').sheet_names)}'",
+                  file=sys.stderr)
         for _, row in df.iterrows():
             key = (row["Brand"], row["Model"], row["Segment"])
             entry = wide.setdefault(key, {f"M{i:02d}": 0 for i in range(1, 13)})
