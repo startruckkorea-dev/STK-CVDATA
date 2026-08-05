@@ -40,11 +40,6 @@
     </section>
 
     <section class="section">
-      <h2 id="som-title">현대 SoM 추이</h2>
-      <div id="chart-som" class="chart"></div>
-    </section>
-
-    <section class="section">
       <h2>월별 데이터</h2>
       <div id="monthly-table"></div>
     </section>
@@ -58,7 +53,7 @@
   import { renderFilters, syncFilters, yearOptions, monthOptions,
            brandOptions, segmentOptions } from "../js/filters.js";
   import { loadManifest, loadKama } from "../js/data.js";
-  import { groupedBar, stackedBar, lineChart, comboBarLine,
+  import { groupedBar, stackedBar, comboBarLine,
            SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
   import { fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
   import { getState, subscribe } from "../js/state.js";
@@ -117,9 +112,8 @@
     try { py = await loadKama(year - 1); } catch (e) { py = null; }
 
     const seg = s.segment && s.segment !== "ALL" ? s.segment : null;
-    // The brand tiles pick the focus brand for the SoM views; "전체" means Hyundai.
+    // The brand tiles highlight a brand in the table and charts; null = 전체.
     const sel = s.brand && s.brand !== "ALL" ? s.brand : null;
-    const focus = sel || "Hyundai";
 
     const rowOf = (d, b) => (seg
       ? (d && d.by_brand_seg[b] && d.by_brand_seg[b][seg])
@@ -163,17 +157,6 @@
         { name: `${year} ${label}`, values: BRANDS.map(cyOf), color: TOTAL_LINE },
         ...(py ? [{ name: `${year - 1} ${label}`, values: BRANDS.map(pyOf), color: PY_LINE }] : []),
       ],
-    });
-
-    // Focus brand's share of the domestic pair, month by month
-    document.getElementById("som-title").textContent = `${focus} SoM 추이`;
-    const somOf = (vals) => vals.map((v, i) =>
-      i >= lastMonth ? null : (totalMonthly[i] ? (v / totalMonthly[i]) * 100 : 0));
-    lineChart(document.getElementById("chart-som"), {
-      x: MONTHS_KR,
-      series: [{ name: `${SHORT[focus]} SoM`, values: somOf(byBrand[focus]), color: KAMA_COLOR[focus] }],
-      yLabel: "%",
-      valueKind: "pct1",
     });
 
     const rows = BRANDS.map(b => {
