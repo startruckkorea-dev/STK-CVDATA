@@ -33,6 +33,10 @@
       "ko": "KAIDA 세그먼트 분석",
       "en": "KAIDA Segment Analysis"
     },
+    "nav_segment_detail": {
+      "ko": "세그먼트별 상세",
+      "en": "Segment Detail"
+    },
     "nav_kama": {
       "ko": "KAMA 국내 상용",
       "en": "KAMA Domestic CV"

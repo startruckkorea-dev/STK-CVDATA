@@ -37,12 +37,6 @@
       </div>
     </section>
 
-    <section class="section">
-      <h2 data-t="section_segment_detail">세그먼트별 상세</h2>
-      <div class="tabs" id="segment-tabs"></div>
-      <div id="segment-panels"></div>
-    </section>
-
     <section class="section" id="hp-section" hidden>
       <h2 data-t="section_tractor_hp">트랙터 마력별 시장분석</h2>
       <div id="hp-kpi" class="kpi-row"></div>
@@ -97,7 +91,7 @@
            shareBandH, comboBarLine,
            BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
   import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
-  import { getState, setState, subscribe } from "../js/state.js";
+  import { getState, subscribe } from "../js/state.js";
 
   const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
   const SEGMENT_ORDER = ["Tractor", "Rigid", "Tipper"];
@@ -190,8 +184,9 @@
     // which always need a single brand and fall back to MB.
     const scope = s.brand && s.brand !== "ALL" ? s.brand : null;
     const brand = scope || "MB";
-    // The segment tiles and the detail tabs share one state key, so they can
-    // never disagree. "전체" leaves the detail on the first segment.
+    // The per-segment views below need one segment; "전체" leaves them on the
+    // first one. The detail page reads the same state key, so a selection made
+    // here carries over to it.
     const segSel = s.segment && s.segment !== "ALL" ? s.segment : SEGMENT_ORDER[0];
 
     const period = monthSel === "YTD" ? `YTD (~${MONTHS_KR[monthIdx - 1]})` : MONTHS_KR[monthIdx - 1];
@@ -202,7 +197,6 @@
     renderSummary(cur, prev, monthIdx, scope);
     renderMonthlyMix(cur, scope);
     renderYtdMix(cur, monthIdx, scope);
-    renderTabs(cur, prev, monthIdx, segSel, brand);
     renderHpSection(cur, prev, monthIdx, segSel, brand);
     await renderSegmentMarket(cur, prev, monthIdx, segSel, brand);
   }
@@ -623,109 +617,6 @@
   }
 
   const SEG_COLOR = { Tractor: TOKEN.mint, Rigid: TOKEN.teal, Tipper: TOKEN.amber };
-
-  function renderTabs(cur, prev, monthIdx, active, brand) {
-    document.getElementById("segment-tabs").innerHTML = SEGMENT_ORDER.map(seg =>
-      `<button type="button" data-seg="${seg}" class="${seg === active ? "active" : ""}">${tdata(seg, "segment")}</button>`
-    ).join("");
-    // Tabs write the same state key as the segment tiles — one selection, two
-    // ways to reach it.
-    document.querySelectorAll("#segment-tabs button").forEach(btn => {
-      btn.addEventListener("click", () => setState({ segment: btn.dataset.seg }));
-    });
-
-    document.getElementById("segment-panels").innerHTML = `
-      <div class="chart-row">
-        <div id="seg-brand-bar" class="chart"></div>
-        <div id="seg-som" class="chart"></div>
-      </div>
-      <div id="seg-trend" class="chart"></div>
-      <div id="seg-table"></div>`;
-
-    renderSegmentPanel(cur, prev, monthIdx, active, brand);
-  }
-
-  function renderSegmentPanel(cur, prev, monthIdx, seg, brand = "MB") {
-    // Brand volumes, current vs previous year, through the selected month
-    const rows = BRAND_ORDER.map(b => ({
-      brand: b,
-      cy: sumThrough(brandSegRow(cur, b, seg), monthIdx),
-      py: prev ? sumThrough(brandSegRow(prev, b, seg), monthIdx) : 0,
-    })).sort((a, b) => b.cy - a.cy);
-
-    groupedBar(document.getElementById("seg-brand-bar"), {
-      categories: rows.map(r => r.brand),
-      series: [
-        { name: `${cur.year} YTD`, values: rows.map(r => r.cy), color: TOKEN.teal },
-        { name: prev ? `${prev.year} YTD` : "PY", values: rows.map(r => r.py), color: TOKEN.mint },
-      ],
-    });
-
-    // Focus brand's cumulative share of the segment: volume through month N
-    // over market volume through month N, so the line converges on the YTD
-    // figure instead of swinging with each month's small volumes.
-    const somOf = (data) => {
-      let mb = 0, mkt = 0;
-      return MONTHS.map(m => {
-        mb += brandSegRow(data, brand, seg)[m] || 0;
-        mkt += segRow(data, seg)[m] || 0;
-        return mkt ? (mb / mkt) * 100 : 0;
-      });
-    };
-    const last = cur.last_data_month || 12;
-    const somSeries = [
-      { name: `${cur.year} ${brand} YTD SoM`, values: trim(somOf(cur), last), color: TOKEN.deepTeal },
-    ];
-    if (prev) somSeries.push({
-      name: `${prev.year} ${brand} YTD SoM`,
-      values: trim(somOf(prev), prev.last_data_month || 12),
-      color: TOKEN.mint,
-    });
-    lineChart(document.getElementById("seg-som"), {
-      x: MONTHS_KR, series: somSeries, yLabel: "%", valueKind: "pct1",
-    });
-
-    // Monthly volume by brand within the segment
-    lineChart(document.getElementById("seg-trend"), {
-      x: MONTHS_KR,
-      series: BRAND_ORDER.map(b => ({
-        name: b,
-        values: trim(MONTHS.map(m => brandSegRow(cur, b, seg)[m] || 0), last),
-      })),
-    });
-
-    const totCy = rows.reduce((a, r) => a + r.cy, 0);
-    const totPy = rows.reduce((a, r) => a + r.py, 0);
-    document.getElementById("seg-table").innerHTML = `
-      <table class="data">
-        <thead>
-          <tr>
-            <th class="label" data-t="filter_brand">Brand</th>
-            <th tabindex="0" data-hint="${t("hint_ytd")}">${cur.year} YTD</th>
-            <th tabindex="0" data-hint="${t("hint_ytd_py")}">${prev ? prev.year + " YTD" : "PY"}</th>
-            <th tabindex="0" data-hint="${t("hint_yoy_ytd")}">YoY</th>
-            <th tabindex="0" class="hint-end" data-hint="${t("hint_ytd_share")}">Share</th>
-            <th tabindex="0" class="hint-end" data-hint="${t("hint_dpp")}">Δpp</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows.map((r, i) => {
-            const share = totCy ? (r.cy / totCy) * 100 : 0;
-            const sharePy = totPy ? (r.py / totPy) * 100 : 0;
-            return `
-              <tr${r.brand === brand ? ' class="highlight"' : ""}>
-                <td class="label">${i + 1}. ${r.brand}</td>
-                <td class="num">${fmtNum(r.cy)}</td>
-                <td class="num">${fmtNum(r.py)}</td>
-                <td class="num">${deltaSpan(calcYoY(r.cy, r.py))}</td>
-                <td class="num">${fmtPct(share)}</td>
-                <td class="num">${deltaSpan(share - sharePy, { suffix: "pp" })}</td>
-              </tr>`;
-          }).join("")}
-        </tbody>
-      </table>`;
-    applyT(document.getElementById("seg-table"));
-  }
 
   bootstrap().catch(e => {
     console.error(e);

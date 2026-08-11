@@ -9,6 +9,9 @@ const NAV = [
     items: [
       { href: "/", key: "nav_market_insight" },
       { href: "/pages/segment.html", key: "nav_segment" },
+      // Reached from KAIDA 세그먼트 분석 — its own page because the brand detail
+      // made that one too long to scroll.
+      { href: "/pages/segment-detail.html", key: "nav_segment_detail", sub: true },
       { href: "/pages/kama.html", key: "nav_kama" },
     ],
   },
@@ -54,7 +57,8 @@ export function renderSidebar(activeHref = null) {
         <ul>
           ${grp.items.map(it => `
             <li>
-              <a href="${root}${it.href}" class="${isActive(it.href) ? "active" : ""}"
+              <a href="${root}${it.href}"
+                 class="${it.sub ? "sub " : ""}${isActive(it.href) ? "active" : ""}"
                  data-t="${it.key}">${it.key}</a>
             </li>
           `).join("")}

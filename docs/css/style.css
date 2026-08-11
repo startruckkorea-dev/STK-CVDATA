@@ -113,6 +113,21 @@ a:hover { text-decoration: underline; }
   color: var(--text);
   font-size: 0.88rem;
 }
+/* A page that belongs under the one above it — indented, with a tick marking
+   where it hangs off its parent. */
+.sidebar .nav-group li a.sub {
+  padding-left: 26px;
+  font-size: 0.84rem;
+  color: var(--muted);
+  position: relative;
+}
+.sidebar .nav-group li a.sub::before {
+  content: "└";
+  position: absolute;
+  left: 10px;
+  color: var(--border);
+}
+.sidebar .nav-group li a.sub.active { color: var(--accent); }
 .sidebar .nav-group li a:hover { background: #eef1f5; text-decoration: none; }
 .sidebar .nav-group li a.active {
   background: var(--accent-soft);
@@ -535,7 +550,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
-  font-size: 0.76rem;
+  font-size: 1.05rem;
   color: var(--muted);
 }
 .brand-legend .lg { display: inline-flex; align-items: center; gap: 4px; }
@@ -575,7 +590,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
 }
 /* The verdict, stated in words so the card does not have to be decoded. */
 .scard-badge {
-  font-size: 0.78rem;
+  font-size: 1.07rem;
   font-weight: 700;
   padding: 6px 16px;
   border-radius: 999px;
@@ -599,7 +614,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
   font-variant-numeric: tabular-nums;
 }
 .scard-cap {
-  font-size: 0.82rem;
+  font-size: 1.11rem;
   color: var(--muted);
   margin-top: 4px;
 }
@@ -609,7 +624,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
 }
 
 .sdelta {
-  font-size: 1rem;
+  font-size: 1.29rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -623,7 +638,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
   grid-template-columns: auto auto minmax(80px, 1.2fr);
   align-items: center;
   gap: 8px 12px;
-  font-size: 0.86rem;
+  font-size: 1.15rem;
 }
 .scard-growth .k { color: var(--muted); }
 .scard-growth .n { font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -648,7 +663,7 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
 }
 .scard-gap {
   margin-top: 12px;
-  font-size: 0.95rem;
+  font-size: 1.24rem;
   font-weight: 700;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
@@ -661,12 +676,12 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  font-size: 0.92rem;
+  font-size: 1.21rem;
   color: var(--text);
 }
 .scard-foot b { font-variant-numeric: tabular-nums; }
 .scard-vol {
-  font-size: 0.82rem;
+  font-size: 1.11rem;
   color: var(--muted);
   margin-top: 3px;
 }

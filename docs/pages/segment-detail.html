@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_segment_detail">세그먼트별 상세 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="../vendor/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <script src="../vendor/msal-browser.min.js"></script>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar"></aside>
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_segment_detail">세그먼트별 상세</h1>
+      <div class="page-sub" id="page-sub"></div>
+
+      <section class="filter-bar" id="filters"></section>
+    </div>
+
+    <section class="section">
+      <div class="tabs" id="segment-tabs"></div>
+      <div id="segment-panels"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT, t, tdata } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { renderFilters, syncFilters, yearOptions, monthOptions,
+           brandOptions, segmentOptions } from "../js/filters.js";
+  import { loadManifest, loadKaidaPair } from "../js/data.js";
+  import { groupedBar, lineChart,
+           BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
+  import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
+  import { getState, setState, subscribe } from "../js/state.js";
+
+  const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
+  const SEGMENT_ORDER = ["Tractor", "Rigid", "Tipper"];
+
+  let _years = [];
+
+  async function bootstrap() {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+
+    let manifest;
+    try {
+      manifest = await loadManifest();
+    } catch (e) {
+      return banner("error", e.message);
+    }
+    _years = manifest.kaida_years || [];
+    if (!_years.length) return banner("warn", `${t("no_data")} (KAIDA)`);
+
+    renderFilters(document.getElementById("filters"), [
+      { key: "year", label: "filter_year", options: yearOptions(_years), default: _years[0] },
+      { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
+      { key: "brand", label: "filter_brand", as: "tiles", colors: BRAND_TILE_COLORS,
+        options: brandOptions(BRAND_ORDER, true), default: "ALL" },
+      { key: "segment", label: "filter_segment", tkind: "segment", as: "tiles",
+        colors: SEGMENT_TILE_COLORS, options: segmentOptions(SEGMENT_ORDER, true), default: "ALL" },
+    ], render);
+
+    document.addEventListener("langchange", render);
+    subscribe(render);
+    render();
+  }
+
+  function banner(kind, msg) {
+    document.querySelector(".main").insertAdjacentHTML("afterbegin",
+      `<div class="banner ${kind}">${msg}</div>`);
+  }
+
+  // ---- shared accessors -----------------------------------------------------
+
+  function zeros() { const o = {}; for (const m of MONTHS) o[m] = 0; o.Total = 0; return o; }
+
+  function sumThrough(row, lastIdx) {
+    let total = 0;
+    for (let i = 0; i < lastIdx; i++) total += row[MONTHS[i]] || 0;
+    return total;
+  }
+
+  const segRow = (data, seg) => (data && data.by_segment[seg]) || zeros();
+  const brandSegRow = (data, brand, seg) =>
+    (data && data.by_brand_seg[brand] && data.by_brand_seg[brand][seg]) || zeros();
+
+  /** Blank out months the year has no data for yet, so the line stops there
+   *  instead of plunging to zero for the rest of the year. */
+  const trim = (values, last) => values.map((v, i) => (i < last ? v : null));
+
+  // ---- render ---------------------------------------------------------------
+
+  async function render() {
+    const s = getState();
+    syncFilters();
+    const year = parseInt(s.year, 10) || _years[0];
+    const monthSel = s.month || "YTD";
+
+    let cur = null, prev = null;
+    try {
+      ({ cur, prev } = await loadKaidaPair(year));
+    } catch (e) {
+      console.error(e);
+    }
+    if (!cur) return banner("warn", t("no_data"));
+
+    const monthIdx = monthSel === "YTD"
+      ? (cur.last_data_month || 12)
+      : parseInt(monthSel, 10);
+
+    // The focus brand for the share-of-market view always needs a single brand
+    // and falls back to MB; the tiles and the detail tabs share one state key,
+    // so "전체" leaves the detail on the first segment.
+    const brand = s.brand && s.brand !== "ALL" ? s.brand : "MB";
+    const segSel = s.segment && s.segment !== "ALL" ? s.segment : SEGMENT_ORDER[0];
+
+    const period = monthSel === "YTD" ? `YTD (~${MONTHS_KR[monthIdx - 1]})` : MONTHS_KR[monthIdx - 1];
+    document.getElementById("page-sub").textContent =
+      `${year} · ${period} · ${tdata(segSel, "segment")}`;
+
+    renderTabs(cur, prev, monthIdx, segSel, brand);
+  }
+
+  function renderTabs(cur, prev, monthIdx, active, brand) {
+    document.getElementById("segment-tabs").innerHTML = SEGMENT_ORDER.map(seg =>
+      `<button type="button" data-seg="${seg}" class="${seg === active ? "active" : ""}">${tdata(seg, "segment")}</button>`
+    ).join("");
+    // Tabs write the same state key as the segment tiles — one selection, two
+    // ways to reach it.
+    document.querySelectorAll("#segment-tabs button").forEach(btn => {
+      btn.addEventListener("click", () => setState({ segment: btn.dataset.seg }));
+    });
+
+    document.getElementById("segment-panels").innerHTML = `
+      <div class="chart-row">
+        <div id="seg-brand-bar" class="chart"></div>
+        <div id="seg-som" class="chart"></div>
+      </div>
+      <div id="seg-trend" class="chart"></div>
+      <div id="seg-table"></div>`;
+
+    renderSegmentPanel(cur, prev, monthIdx, active, brand);
+  }
+
+  function renderSegmentPanel(cur, prev, monthIdx, seg, brand = "MB") {
+    // Brand volumes, current vs previous year, through the selected month
+    const rows = BRAND_ORDER.map(b => ({
+      brand: b,
+      cy: sumThrough(brandSegRow(cur, b, seg), monthIdx),
+      py: prev ? sumThrough(brandSegRow(prev, b, seg), monthIdx) : 0,
+    })).sort((a, b) => b.cy - a.cy);
+
+    groupedBar(document.getElementById("seg-brand-bar"), {
+      categories: rows.map(r => r.brand),
+      series: [
+        { name: `${cur.year} YTD`, values: rows.map(r => r.cy), color: TOKEN.teal },
+        { name: prev ? `${prev.year} YTD` : "PY", values: rows.map(r => r.py), color: TOKEN.mint },
+      ],
+    });
+
+    // Focus brand's cumulative share of the segment: volume through month N
+    // over market volume through month N, so the line converges on the YTD
+    // figure instead of swinging with each month's small volumes.
+    const somOf = (data) => {
+      let mb = 0, mkt = 0;
+      return MONTHS.map(m => {
+        mb += brandSegRow(data, brand, seg)[m] || 0;
+        mkt += segRow(data, seg)[m] || 0;
+        return mkt ? (mb / mkt) * 100 : 0;
+      });
+    };
+    const last = cur.last_data_month || 12;
+    const somSeries = [
+      { name: `${cur.year} ${brand} YTD SoM`, values: trim(somOf(cur), last), color: TOKEN.deepTeal },
+    ];
+    if (prev) somSeries.push({
+      name: `${prev.year} ${brand} YTD SoM`,
+      values: trim(somOf(prev), prev.last_data_month || 12),
+      color: TOKEN.mint,
+    });
+    lineChart(document.getElementById("seg-som"), {
+      x: MONTHS_KR, series: somSeries, yLabel: "%", valueKind: "pct1",
+    });
+
+    // Monthly volume by brand within the segment
+    lineChart(document.getElementById("seg-trend"), {
+      x: MONTHS_KR,
+      series: BRAND_ORDER.map(b => ({
+        name: b,
+        values: trim(MONTHS.map(m => brandSegRow(cur, b, seg)[m] || 0), last),
+      })),
+    });
+
+    const totCy = rows.reduce((a, r) => a + r.cy, 0);
+    const totPy = rows.reduce((a, r) => a + r.py, 0);
+    document.getElementById("seg-table").innerHTML = `
+      <table class="data">
+        <thead>
+          <tr>
+            <th class="label" data-t="filter_brand">Brand</th>
+            <th tabindex="0" data-hint="${t("hint_ytd")}">${cur.year} YTD</th>
+            <th tabindex="0" data-hint="${t("hint_ytd_py")}">${prev ? prev.year + " YTD" : "PY"}</th>
+            <th tabindex="0" data-hint="${t("hint_yoy_ytd")}">YoY</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_ytd_share")}">Share</th>
+            <th tabindex="0" class="hint-end" data-hint="${t("hint_dpp")}">Δpp</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r, i) => {
+            const share = totCy ? (r.cy / totCy) * 100 : 0;
+            const sharePy = totPy ? (r.py / totPy) * 100 : 0;
+            return `
+              <tr${r.brand === brand ? ' class="highlight"' : ""}>
+                <td class="label">${i + 1}. ${r.brand}</td>
+                <td class="num">${fmtNum(r.cy)}</td>
+                <td class="num">${fmtNum(r.py)}</td>
+                <td class="num">${deltaSpan(calcYoY(r.cy, r.py))}</td>
+                <td class="num">${fmtPct(share)}</td>
+                <td class="num">${deltaSpan(share - sharePy, { suffix: "pp" })}</td>
+              </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    applyT(document.getElementById("seg-table"));
+  }
+
+  bootstrap().catch(e => {
+    console.error(e);
+    banner("error", e.message);
+  });
+</script>
+</body>
+</html>

@@ -117,8 +117,11 @@ function mergeLayout(extra = {}) {
 }
 
 // Every chart prints its values on the marks — the reports these pages replace
-// are read on screen and in print, where hovering is not an option.
-const LABEL_FONT = { size: 10 };
+// are read on screen and in print, where hovering is not an option, so the
+// labels are sized to be read at arm's length rather than to fit the densest
+// chart.
+const LABEL_SIZE = 13;
+const LABEL_FONT = { size: LABEL_SIZE };
 
 /** Format a value for an on-chart label. kind: "int" | "pct" | "pct1" */
 export function labelText(v, kind = "int") {
@@ -213,7 +216,7 @@ export function groupedBarH(el, {
     margin: { l: leftMargin, r: 46, t: 6, b: 20 },
     barmode: "group",
     xaxis: { range: [0, max * 1.25], showticklabels: false, showgrid: false, zeroline: false },
-    yaxis: { autorange: "reversed", tickfont: { size: 10 } },
+    yaxis: { autorange: "reversed", tickfont: { size: LABEL_SIZE } },
     uniformtext: { mode: "hide", minsize: 8 },
   }), CONFIG);
 }
@@ -326,7 +329,7 @@ export function comboBarLine(el, {
     marker: { size: l.markerSize || 6, symbol: l.symbol },
     text: labelsFor(l.values, l.valueKind || "pct1"),
     textposition: l.textposition || "top center",
-    textfont: { size: labelSize || 10, color: l.color || "#231F20" },
+    textfont: { size: labelSize || LABEL_SIZE, color: l.color || "#231F20" },
     cliponaxis: false,
   }));
   const useY2 = lines.some(l => l.axis !== "y");

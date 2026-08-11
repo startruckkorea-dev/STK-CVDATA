@@ -83,16 +83,15 @@
   import { renderFilters, syncFilters, yearOptions, monthOptions, segmentOptions } from "./js/filters.js";
   import { loadManifest, loadKaidaPair, loadKama } from "./js/data.js";
   import { shareBandH, comboBarLine, groupedBar, pieChart, lineChart,
-           SEGMENT_TILE_COLORS, TOKEN } from "./js/charts.js";
+           BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "./js/charts.js";
   import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "./js/format.js";
   import { getState, subscribe } from "./js/state.js";
 
   const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
   const SEGMENT_ORDER = ["Tractor", "Rigid", "Tipper"];
-  // Report-deck palette: MB in the corporate teal, competitors in greys.
-  const BRAND_SHADE = {
-    MB: "#136f7b", Volvo: "#6b7075", Scania: "#c3c8cd", MAN: "#dfe3e7", IVECO: "#9aa1a8",
-  };
+  // The Total Market band carries each maker's own identity colour — the same
+  // marks the brand filter tiles use, so a brand reads the same everywhere.
+  const BRAND_SHADE = BRAND_TILE_COLORS;
 
   let _years = [];
 
