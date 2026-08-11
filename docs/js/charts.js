@@ -6,8 +6,10 @@ import { onColor } from "./format.js";
 
 const BASE_LAYOUT = {
   template: "plotly_white",
-  font: { family: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans KR, Roboto, sans-serif", size: 13 },
-  margin: { l: 48, r: 24, t: 20, b: 36 },
+  font: { family: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans KR, Roboto, sans-serif", size: 15 },
+  // Sized for the 15px axis ticks — Plotly clips a tick label at the margin
+  // rather than growing the plot to fit it.
+  margin: { l: 58, r: 24, t: 20, b: 42 },
   legend: { orientation: "h", y: -0.18, x: 0.5, xanchor: "center" },
   paper_bgcolor: "white",
   plot_bgcolor: "white",
@@ -120,7 +122,7 @@ function mergeLayout(extra = {}) {
 // are read on screen and in print, where hovering is not an option, so the
 // labels are sized to be read at arm's length rather than to fit the densest
 // chart.
-const LABEL_SIZE = 13;
+const LABEL_SIZE = 15;
 const LABEL_FONT = { size: LABEL_SIZE };
 
 /** Format a value for an on-chart label. kind: "int" | "pct" | "pct1" */
@@ -149,7 +151,7 @@ export function horizontalBar(el, { categories, values, color, title, valueForma
   };
   plot(el, [trace], mergeLayout({
     title, xaxis: { tickformat: valueFormat }, yaxis: { autorange: "reversed" },
-    margin: { l: 120, r: 60, t: title ? TITLE_MARGIN_TOP : 20, b: 36 },
+    margin: { l: 120, r: 60, t: title ? TITLE_MARGIN_TOP : 20, b: 42 },
   }), CONFIG);
 }
 
@@ -273,7 +275,7 @@ export function shareBandH(el, {
       textposition: "inside",
       insidetextanchor: "middle",
       // White on the pale competitor greys is unreadable — pick per-bar contrast.
-      textfont: { size: 15, color: onColor(fill) },
+      textfont: { size: 17, color: onColor(fill) },
       hovertemplate: `%{y} · ${k}: %{text}<extra></extra>`,
     };
   });
@@ -282,7 +284,7 @@ export function shareBandH(el, {
     x: 100, y: r, xref: "x", yref: "y",
     text: `<b>${labelText(totals[i])}</b>`,
     showarrow: false, xanchor: "left", xshift: 8,
-    font: { size: 16, color: "#1f2328" },
+    font: { size: 18, color: "#1f2328" },
   })) : [];
   plot(el, traces, mergeLayout({
     barmode: "stack",
@@ -290,7 +292,7 @@ export function shareBandH(el, {
     showlegend: false,          // the page renders its own compact brand legend
     margin: { l: 66, r: showRowTotals ? 76 : 16, t: 8, b: 20 },
     xaxis: { range: [0, 100], showticklabels: false, showgrid: false, zeroline: false },
-    yaxis: { autorange: "reversed", tickfont: { size: 15 } },
+    yaxis: { autorange: "reversed", tickfont: { size: 17 } },
     // No uniformtext: it would shrink every label to fit the narrowest slice.
     // Per-bar autoshrink keeps the big segments at full size.
     annotations,
@@ -341,7 +343,7 @@ export function comboBarLine(el, {
     ...(useY2 ? {
       yaxis2: { title: y2Label, overlaying: "y", side: "right", ticksuffix: "%", showgrid: false, rangemode: "tozero" },
     } : {}),
-    margin: { l: 52, r: useY2 ? 56 : 24, t: title ? 40 : 16, b: 36 },
+    margin: { l: 62, r: useY2 ? 66 : 24, t: title ? 40 : 16, b: 42 },
   }), CONFIG);
 }
 
@@ -483,7 +485,7 @@ export function minMaxChart(el, { labels, mins, maxs, means, medians, title }) {
   });
   plot(el, [...range, ...dots], mergeLayout({
     title,
-    margin: { l: 200, r: 40, t: title ? TITLE_MARGIN_TOP : 20, b: 36 },
+    margin: { l: 200, r: 40, t: title ? TITLE_MARGIN_TOP : 20, b: 42 },
     yaxis: { autorange: "reversed" },
   }), CONFIG);
 }
