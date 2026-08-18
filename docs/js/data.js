@@ -14,6 +14,7 @@
 // rendering older figures.
 
 import { graphAvailable, readJsonFile, SP_DATA_PATH } from "./graph.js";
+import { loadingNote, loadingFinish } from "./loading.js";
 
 const _cache = new Map();
 
@@ -79,6 +80,7 @@ async function ready() {
 
   _ready = (async () => {
     let detail = null;
+    loadingNote("SharePoint에서 데이터를 불러오는 중…");
     if (!graphAvailable()) {
       detail = "Microsoft 계정으로 로그인되지 않았습니다";
     } else {
@@ -105,7 +107,9 @@ async function ready() {
         generatedAt: generatedAt(),
       },
     }));
-    if (detail) throw sourceError(detail);
+    // A failure renders a banner, and a banner behind a full-screen overlay is
+    // no better than the blank page this was meant to fix.
+    if (detail) { loadingFinish(); throw sourceError(detail); }
     return true;
   })();
 

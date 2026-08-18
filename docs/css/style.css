@@ -911,3 +911,41 @@ table.data .down { color: var(--danger); font-weight: 600; }
     margin: -16px -16px 16px;
   }
 }
+
+/* Loading overlay ---------------------------------------------------------
+   Static markup at the top of every page's <body>, driven by js/loading.js.
+   It has to stand on its own: the vendor bundles are deferred, so this is on
+   screen well before any of our JavaScript has run. */
+.app-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  transition: opacity .25s ease;
+}
+.app-loading.gone { opacity: 0; pointer-events: none; }
+
+.al-card { text-align: center; padding: 0 24px; max-width: 420px; }
+
+.al-spin {
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 18px;
+  border: 3px solid var(--border);
+  border-top-color: var(--mb);
+  border-radius: 50%;
+  animation: al-spin 0.9s linear infinite;
+}
+@keyframes al-spin { to { transform: rotate(360deg); } }
+/* Respect the OS setting rather than animating regardless — the pulse still
+   reads as "busy" without the rotation. */
+@media (prefers-reduced-motion: reduce) {
+  .al-spin { animation: al-pulse 1.4s ease-in-out infinite; }
+  @keyframes al-pulse { 50% { opacity: .35; } }
+}
+
+.al-msg { font-size: 15px; font-weight: 600; color: var(--text); }
+.al-hint { margin-top: 8px; font-size: 13px; color: var(--muted); line-height: 1.6; }

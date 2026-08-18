@@ -8,10 +8,22 @@
   <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
   <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
   <link rel="stylesheet" href="../css/style.css" />
-  <script src="../vendor/plotly-2.35.2.min.js" charset="utf-8"></script>
-  <script src="../vendor/msal-browser.min.js"></script>
+  <script src="../vendor/plotly-2.35.2.min.js" charset="utf-8" defer></script>
+  <script src="../vendor/msal-browser.min.js" defer></script>
 </head>
 <body>
+
+<!-- Painted before any script runs (the vendor bundles are deferred), so a
+     cold first visit shows this instead of a blank page while ~4.8MB of
+     Plotly + MSAL comes down. Taken away by js/loading.js. Hardcoded Korean:
+     i18n has not loaded this early, same as the login screen. -->
+<div id="app-loading" class="app-loading" role="status" aria-live="polite">
+  <div class="al-card">
+    <div class="al-spin"></div>
+    <div class="al-msg" id="app-loading-msg">불러오는 중…</div>
+    <div class="al-hint">처음 접속하시는 경우 자료를 내려받느라<br />20~30초 정도 걸릴 수 있습니다.</div>
+  </div>
+</div>
 <div class="app">
   <aside class="sidebar"></aside>
   <main class="main">

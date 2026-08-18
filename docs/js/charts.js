@@ -3,6 +3,7 @@
 // Assumes Plotly is loaded globally (from CDN <script> tag in HTML).
 
 import { onColor } from "./format.js";
+import { loadingFinish } from "./loading.js";
 
 const BASE_LAYOUT = {
   template: "plotly_white",
@@ -45,6 +46,9 @@ function keepFitted(el) {
 function plot(el, traces, layout, config) {
   if (!el) return;
   Plotly.newPlot(el, traces, layout, config);
+  // The first chart on the page is the honest signal that the wait is over —
+  // every other chart of that render pass draws in the same tick.
+  loadingFinish();
   keepFitted(el);
 }
 

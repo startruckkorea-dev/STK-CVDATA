@@ -8,6 +8,8 @@
 //     with the dashboard URL added to Redirect URIs.
 //   - msal-browser loaded via <script> in the HTML before this module.
 
+import { loadingNote, loadingFinish } from "./loading.js";
+
 const CLIENT_ID = "9b247088-5afb-4622-9c5e-b5f27142761d";
 const TENANT_ID = "19cab1f5-21f4-44df-8ac6-96d6ca595203";
 
@@ -111,6 +113,7 @@ function _isAllowed(account) {
  * (in which case a login screen is rendered).
  */
 export async function requireLogin() {
+  loadingNote("로그인 확인 중…");
   // Without MSAL there is no token, and without a token there is no data.
   if (typeof msal === "undefined") {
     _renderError("Microsoft 로그인 라이브러리를 불러오지 못했습니다 (네트워크/CDN 차단). 관리자에게 문의하세요.");
@@ -236,6 +239,7 @@ function escapeHtml(s) {
 }
 
 function _renderLoginScreen() {
+  loadingFinish();
   // Rendered before i18n loads, so the name is hardcoded here.
   const root = document.documentElement.dataset.siteRoot || ".";
   document.body.innerHTML = `
@@ -253,6 +257,7 @@ function _renderLoginScreen() {
 }
 
 function _renderForbidden(account) {
+  loadingFinish();
   document.body.innerHTML = `
     <div class="auth-gate">
       <div class="auth-card">
@@ -284,6 +289,7 @@ function _redirectUriHint(e) {
 }
 
 function _renderError(message, hint = "") {
+  loadingFinish();
   document.body.innerHTML = `
     <div class="auth-gate">
       <div class="auth-card">
