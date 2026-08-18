@@ -538,7 +538,7 @@ export function trendLine(el, { x, series, height = 250 }) {
  */
 export function divergingBarH(el, {
   categories, values, height = 250, suffix = "pp",
-  posColor = "#1f883d", negColor = "#d4122a", leftMargin = 96,
+  posColor = "#1f883d", negColor = "#d4122a", leftMargin = 108,
 }) {
   const span = Math.max(0.5, ...values.map(v => Math.abs(v || 0)));
   const trace = {
@@ -559,7 +559,9 @@ export function divergingBarH(el, {
     margin: { l: leftMargin, r: 40, t: 10, b: 26 },
     bargap: 0.42,
     xaxis: {
-      range: [-span * 1.45, span * 1.45], zeroline: true, zerolinecolor: "#8c959f",
+      // Wide enough that the outside label on the longest bar still lands
+      // clear of the category names in the margin.
+      range: [-span * 1.9, span * 1.9], zeroline: true, zerolinecolor: "#8c959f",
       zerolinewidth: 1, tickfont: EXEC_AXIS, ticksuffix: suffix, gridcolor: "#f2f4f7",
     },
     yaxis: { autorange: "reversed", tickfont: { size: 12, color: "#1f2328" } },

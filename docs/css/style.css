@@ -1088,6 +1088,10 @@ table.rank td {
   vertical-align: middle;
 }
 table.rank td.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* The bar is the column that should absorb the extra width — the other three
+   only ever hold a name, a count and a pp move. */
+table.rank th:nth-child(3), table.rank td:nth-child(3) { width: 34%; }
+table.rank td.brand { white-space: nowrap; }
 table.rank tr.mb { background: var(--accent-soft); }
 table.rank tr.mb td.brand { font-weight: 700; }
 table.rank .rk { color: var(--muted); width: 1.2em; display: inline-block; }
