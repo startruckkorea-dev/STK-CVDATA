@@ -503,8 +503,12 @@ export const colors = { BRAND_COLORS, SEGMENT_COLORS, colorFor };
 
 const EXEC_AXIS = { size: 12, color: "#6e7781" };
 
-/** Monthly trend — current year against prior year, plus an optional average.
- *  `series`: { name, values, color, dash, width, fill }. */
+/**
+ * Monthly trend — current year against prior year, plus an optional average.
+ * `series`: { name, values, color, dash, width, markerSize, fill }. A series
+ * with `fill` gets the ground under it shaded, which is what separates the
+ * line being read from the ones it is measured against.
+ */
 export function trendLine(el, { x, series, height = 250 }) {
   const traces = series.map(s => ({
     type: "scatter",
@@ -512,8 +516,9 @@ export function trendLine(el, { x, series, height = 250 }) {
     name: s.name,
     x,
     y: s.values,
-    line: { color: s.color, width: s.width || 2, dash: s.dash },
+    line: { color: s.color, width: s.width || 2, dash: s.dash, shape: "spline", smoothing: 0.5 },
     marker: { size: s.markerSize === 0 ? 0 : s.markerSize || 5 },
+    ...(s.fill ? { fill: "tozeroy", fillcolor: s.fill } : {}),
     connectgaps: false,
     hovertemplate: `${s.name} %{x}: %{y:,}<extra></extra>`,
   }));
@@ -552,13 +557,14 @@ export function divergingBarH(el, {
     height,
     showlegend: false,
     margin: { l: leftMargin, r: 40, t: 10, b: 26 },
-    bargap: 0.45,
+    bargap: 0.42,
     xaxis: {
       range: [-span * 1.45, span * 1.45], zeroline: true, zerolinecolor: "#8c959f",
       zerolinewidth: 1, tickfont: EXEC_AXIS, ticksuffix: suffix, gridcolor: "#f2f4f7",
     },
     yaxis: { autorange: "reversed", tickfont: { size: 12, color: "#1f2328" } },
   }), CONFIG);
+  gradientBars(el, "h", { reverse: [negColor] });
 }
 
 /**
@@ -595,4 +601,90 @@ export function waterfall(el, {
     // zero-based axis would flatten every step into the same nub.
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", gridcolor: "#eef1f5" },
   }), CONFIG);
+  gradientBars(el, "v");
+}
+
+/**
+ * Fade every bar in a rendered plot from its own colour toward white.
+ *
+ * Plotly has no gradient fill for bars — a trace marker takes one flat colour —
+ * so the gradient is painted onto the SVG it produced: one <linearGradient>
+ * per colour, dropped into the plot's own <defs>, then set as each bar's fill.
+ * It re-runs on every redraw (resize, relayout), and if Plotly ever changes the
+ * shape of its output the selector simply matches nothing and the bars stay
+ * flat — which is the old look, not a broken one.
+ *
+ * @param {"v"|"h"} axis - direction the bars grow in.
+ * @param {string[]} reverse - colours whose bars grow the other way (the
+ *   losing half of a diverging chart), so their fade still starts at the
+ *   zero line rather than at the tip.
+ */
+function gradientBars(el, axis = "v", { reverse = [] } = {}) {
+  const flipped = new Set(reverse.map(rgbKey));
+  const NS = "http://www.w3.org/2000/svg";
+
+  const paint = () => {
+    const svg = el.querySelector(".main-svg");
+    if (!svg) return;
+    let defs = svg.querySelector("defs.cv-grad");
+    if (!defs) {
+      defs = document.createElementNS(NS, "defs");
+      defs.setAttribute("class", "cv-grad");
+      svg.appendChild(defs);
+    }
+    const made = new Map();
+
+    el.querySelectorAll(".barlayer .point path, .barlayer .point > path").forEach(path => {
+      const fill = path.style.fill || path.getAttribute("fill");
+      if (!fill || fill.startsWith("url(")) return;   // already faded
+      let id = made.get(fill);
+      if (!id) {
+        const dir = axis === "h" && flipped.has(rgbKey(fill)) ? "h-rev" : axis;
+        id = `cvg-${dir}-${Math.abs(hashColor(fill))}`;
+        if (!defs.querySelector(`#${id}`)) defs.appendChild(makeGradient(NS, id, fill, dir));
+        made.set(fill, id);
+      }
+      path.style.fill = `url(#${id})`;
+    });
+  };
+
+  paint();
+  // newPlot returns before the redraw hooks exist on a first render in some
+  // browsers; the frame delay costs nothing and covers it.
+  requestAnimationFrame(paint);
+  if (el.on) el.on("plotly_afterplot", paint);
+}
+
+/** "#d4122a" and "rgb(212, 18, 42)" are the same colour — compare them as one. */
+function rgbKey(color) {
+  const hex = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(color).trim());
+  if (hex) return hex.slice(1).map(h => parseInt(h, 16)).join(",");
+  const rgb = /rgba?\(([^)]+)\)/i.exec(String(color));
+  if (rgb) return rgb[1].split(",").slice(0, 3).map(n => parseInt(n, 10)).join(",");
+  return String(color);
+}
+
+function hashColor(s) {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return h;
+}
+
+/** A gradient running along the bar: full colour at the base, 55% white at
+ *  the tip. Horizontal bars also grow leftward, so both ends are lightened. */
+function makeGradient(NS, id, color, axis) {
+  const g = document.createElementNS(NS, "linearGradient");
+  g.setAttribute("id", id);
+  const [x1, y1, x2, y2] =
+    axis === "v" ? [0, 1, 0, 0] : axis === "h-rev" ? [1, 0, 0, 0] : [0, 0, 1, 0];
+  g.setAttribute("x1", x1); g.setAttribute("y1", y1);
+  g.setAttribute("x2", x2); g.setAttribute("y2", y2);
+  for (const [offset, opacity] of [["0%", 1], ["100%", 0.45]]) {
+    const stop = document.createElementNS(NS, "stop");
+    stop.setAttribute("offset", offset);
+    stop.setAttribute("stop-color", color);
+    stop.setAttribute("stop-opacity", opacity);
+    g.appendChild(stop);
+  }
+  return g;
 }

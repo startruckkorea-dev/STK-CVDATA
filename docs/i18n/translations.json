@@ -357,10 +357,6 @@
       "ko": "메르세데스-벤츠 점유율",
       "en": "Mercedes-Benz SoM"
     },
-    "exec_kpi_rank": {
-      "ko": "메르세데스-벤츠 순위",
-      "en": "Mercedes-Benz Rank"
-    },
     "exec_kpi_momentum": {
       "ko": "시장 모멘텀",
       "en": "Market Momentum"

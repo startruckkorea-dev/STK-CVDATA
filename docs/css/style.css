@@ -1004,9 +1004,10 @@ table.data .down { color: var(--danger); font-weight: 600; }
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   margin-top: 2px;
 }
+.exec-kpi .k-body > div { min-width: 0; }
 .exec-kpi .k-value {
   font-size: 2rem;
   font-weight: 700;
@@ -1024,18 +1025,27 @@ table.data .down { color: var(--danger); font-weight: 600; }
 .exec-kpi .k-delta small { font-weight: 500; color: var(--muted); }
 .exec-kpi .k-delta.up { color: var(--success); }
 .exec-kpi .k-delta.down { color: var(--danger); }
-.exec-kpi .spark { flex: 0 0 auto; opacity: 0.9; }
+.exec-kpi .spark { flex: 0 0 auto; margin-bottom: 2px; }
 
 /* Card grid — three across, then two, then one. */
 .exec-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 14px;
   margin-top: 14px;
 }
-@media (max-width: 1280px) { .exec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 900px) { .exec-grid { grid-template-columns: 1fr; } }
-.exec-grid > * { min-width: 0; }
+.exec-grid > * { min-width: 0; grid-column: span 4; }
+.exec-grid > .w6 { grid-column: span 6; }
+.exec-grid > .w5 { grid-column: span 5; }
+.exec-grid > .w4 { grid-column: span 4; }
+.exec-grid > .w3 { grid-column: span 3; }
+/* Halfway down, the wide charts take the full row and the narrow panels pair
+   up under them rather than all six squeezing into two columns. */
+@media (max-width: 1280px) {
+  .exec-grid > * { grid-column: span 6; }
+  .exec-grid > .w6, .exec-grid > .w5 { grid-column: span 12; }
+}
+@media (max-width: 900px) { .exec-grid > * { grid-column: span 12; } }
 .exec-card {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1082,9 +1092,12 @@ table.rank tr.mb { background: var(--accent-soft); }
 table.rank tr.mb td.brand { font-weight: 700; }
 table.rank .rk { color: var(--muted); width: 1.2em; display: inline-block; }
 table.rank .bar {
-  height: 9px;
-  border-radius: 2px;
-  min-width: 2px;
+  height: 10px;
+  border-radius: 3px;
+  min-width: 3px;
+  /* --bar is the brand's own colour; the fade runs along the bar so the tip
+     stays light and the rank column reads as a ramp, not five blocks. */
+  background-image: linear-gradient(90deg, var(--bar) 0%, var(--bar-soft) 100%);
 }
 table.rank .pp { font-weight: 600; white-space: nowrap; }
 table.rank .pp.up { color: var(--success); }

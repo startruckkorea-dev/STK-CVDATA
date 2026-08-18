@@ -46,15 +46,15 @@
 
     <!-- WHAT'S HAPPENING — the market's shape, who holds it, who moved. -->
     <div class="exec-grid">
-      <div class="exec-card">
+      <div class="exec-card w6">
         <h3 id="title-trend"></h3>
         <div id="chart-trend" class="chart"></div>
       </div>
-      <div class="exec-card">
+      <div class="exec-card w3">
         <h3 id="title-ranking"></h3>
         <div id="rank-table"></div>
       </div>
-      <div class="exec-card">
+      <div class="exec-card w3">
         <h3 id="title-share-change"></h3>
         <div id="chart-share-change" class="chart"></div>
       </div>
@@ -63,16 +63,16 @@
     <!-- WHY, WHERE, SO WHAT — where the units went, which segment carried
          them, and the three sentences that follow from both. -->
     <div class="exec-grid">
-      <div class="exec-card">
+      <div class="exec-card w5">
         <h3 id="title-contribution"></h3>
         <div id="chart-contribution" class="chart"></div>
         <div class="exec-foot" id="contribution-foot"></div>
       </div>
-      <div class="exec-card">
+      <div class="exec-card w4">
         <h3 id="title-pulse"></h3>
         <div id="pulse-table"></div>
       </div>
-      <div class="exec-card">
+      <div class="exec-card w3">
         <h3 id="title-insight"></h3>
         <div class="insights" id="insight-list"></div>
       </div>
@@ -164,17 +164,34 @@
     return `<span class="pp ${cls}">${mark} ${Math.abs(Math.round(v * 10) / 10).toFixed(1)}${suffix}</span>`;
   }
 
+  const brandInk = (b) => BRAND_TILE_COLORS[b] || TOKEN.teal;
+
+  /** `hex` mixed toward white — the light end of a bar's fade. */
+  function lighten(hex, amount) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return hex;
+    const n = parseInt(m[1], 16);
+    const mix = (c) => Math.round(c + (255 - c) * amount);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
+    return `rgb(${r},${g},${b})`;
+  }
+
   const dir = (v) => {
     if (v === null || v === undefined || Number.isNaN(v) || Math.abs(v) < 0.05) return "";
     return v > 0 ? "up" : "down";
   };
 
   // ---- sparklines -----------------------------------------------------------
-  // Inline SVG rather than a fifth Plotly instance per tile: these carry no
-  // axis, no hover and no legend, and four more plots would cost more to draw
-  // than the whole rest of the page.
+  // Inline SVG rather than four more Plotly instances: these carry no axis, no
+  // hover and no legend, and four more plots would cost more to draw than the
+  // whole rest of the page. Gradient ids have to be unique per tile — the four
+  // sparks share one document.
 
-  function sparkLine(values, { w = 84, h = 30, color = "#1A3A82" } = {}) {
+  let _gradSeq = 0;
+
+  /** Line with the ground under it shaded — the shape reads at a glance even
+   *  where the line itself is only a few pixels tall. */
+  function sparkLine(values, { w = 122, h = 40, color = "#1A3A82" } = {}) {
     const known = values.filter(v => v !== null && v !== undefined);
     if (known.length < 2) return "";
     const min = Math.min(...known), max = Math.max(...known);
@@ -182,32 +199,53 @@
     const pts = [];
     values.forEach((v, i) => {
       if (v === null || v === undefined) return;
-      const x = (i / (values.length - 1)) * (w - 3) + 1.5;
-      const y = h - 2 - ((v - min) / span) * (h - 4);
+      const x = (i / (values.length - 1)) * (w - 4) + 2;
+      // Held off the floor and the ceiling so the fill never collapses to a
+      // hairline at the series minimum.
+      const y = h - 4 - ((v - min) / span) * (h - 10);
       pts.push([x, y]);
     });
     const [lx, ly] = pts[pts.length - 1];
-    const path = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    const line = pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+    const area = `${pts[0][0].toFixed(1)},${h} ${line} ${lx.toFixed(1)},${h}`;
+    const id = `spk${++_gradSeq}`;
     return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
-      <polyline fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"
-                stroke-linecap="round" points="${path}" />
-      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.2" fill="${color}" />
+      <defs>
+        <linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.22" />
+          <stop offset="100%" stop-color="${color}" stop-opacity="0.02" />
+        </linearGradient>
+      </defs>
+      <polygon fill="url(#${id})" points="${area}" />
+      <polyline fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round"
+                stroke-linecap="round" points="${line}" />
+      <circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="2.6" fill="${color}" />
     </svg>`;
   }
 
-  function sparkBars(values, { w = 84, h = 30, color = "#1A3A82" } = {}) {
+  /** Bars fading toward their tips, so a tall bar still reads as one mark. */
+  function sparkBars(values, { w = 122, h = 40, color = "#1A3A82" } = {}) {
     const known = values.filter(v => v !== null && v !== undefined);
     if (!known.length) return "";
     const max = Math.max(...known, 1);
     const step = w / values.length;
-    const bw = Math.max(2, step - 1.6);
+    const bw = Math.max(2.5, step - 2.6);
+    const id = `spk${++_gradSeq}`;
     const bars = values.map((v, i) => {
       if (!v) return "";
-      const bh = Math.max(1, (v / max) * (h - 2));
-      return `<rect x="${(i * step).toFixed(1)}" y="${(h - bh).toFixed(1)}"
-                    width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${color}" />`;
+      const bh = Math.max(2, (v / max) * (h - 3));
+      return `<rect x="${(i * step + (step - bw) / 2).toFixed(1)}" y="${(h - bh).toFixed(1)}"
+                    width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" rx="1.2"
+                    fill="url(#${id})" />`;
     }).join("");
-    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">${bars}</svg>`;
+    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <defs>
+        <linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${color}" stop-opacity="0.45" />
+          <stop offset="100%" stop-color="${color}" stop-opacity="1" />
+        </linearGradient>
+      </defs>${bars}
+    </svg>`;
   }
 
   // ---- render ---------------------------------------------------------------
@@ -246,7 +284,7 @@
 
     const facts = readFacts(cur, prev, monthIdx);
 
-    renderKpis(cur, prevYear, facts, monthIdx);
+    renderKpis(cur, prev, facts, monthIdx);
     renderTrend(cur, prev, monthIdx);
     renderRanking(facts);
     renderShareChange(facts);
@@ -274,7 +312,6 @@
       };
     });
     const ranked = [...brands].sort((a, b) => b.cy - a.cy);
-    const rankedPrev = [...brands].sort((a, b) => b.py - a.py);
 
     const segments = SEGMENT_ORDER.map(seg => {
       const mkt = sumThrough(segRow(cur, seg), monthIdx);
@@ -296,8 +333,6 @@
       marketYoY: calcYoY(total, totalPrev),
       brands, ranked, segments,
       mb: brands.find(b => b.brand === "MB"),
-      mbRank: ranked.findIndex(b => b.brand === "MB") + 1,
-      mbRankPrev: rankedPrev.findIndex(b => b.brand === "MB") + 1,
       maxShare: Math.max(...brands.map(b => b.share), 1),
     };
   }
@@ -318,9 +353,10 @@
       </div>`;
   }
 
-  function renderKpis(cur, prevYear, f, monthIdx) {
+  function renderKpis(cur, prev, f, monthIdx) {
     const totMonths = trim(months(totalRow(cur)), monthIdx);
     const mbMonths = trim(months(brandRow(cur, "MB")), monthIdx);
+    const totPrevMonths = prev ? months(totalRow(prev)) : null;
 
     // Cumulative SoM — the same YTD figure the tile prints, month by month,
     // so the spark ends exactly on the number above it.
@@ -331,10 +367,19 @@
       return ct ? (cm / ct) * 100 : 0;
     });
 
-    // A rank that improves is a smaller number — read the move, not the sign.
-    const rankMove = f.hasPrev && f.mbRankPrev ? f.mbRankPrev - f.mbRank : null;
-    const rankText = rankMove === null ? "-"
-      : rankMove === 0 ? "0" : `${rankMove > 0 ? "▲" : "▼"} ${Math.abs(rankMove)}`;
+    // Momentum walks the same way: YTD-so-far against the same window of last
+    // year, so the last point is the headline figure.
+    let cc = 0, cp = 0;
+    const momentumPath = totMonths.map((v, i) => {
+      if (v === null || !totPrevMonths) return null;
+      cc += v; cp += totPrevMonths[i] || 0;
+      return cp ? ((cc - cp) / cp) * 100 : null;
+    });
+
+    const monthCur = totMonths[monthIdx - 1] || 0;
+    const monthPrev = totPrevMonths ? totPrevMonths[monthIdx - 1] || 0 : 0;
+    const monthYoY = calcYoY(monthCur, monthPrev);
+    const monthLabel = `${t("kpi_month")} (${cur.year}.${String(monthIdx).padStart(2, "0")})`;
 
     document.getElementById("kpi-row").innerHTML = [
       kpiCard(
@@ -342,17 +387,18 @@
         { cls: dir(f.marketYoY), text: `${signed(f.marketYoY)}%` }, "YoY",
         sparkLine(totMonths, { color: "#1A3A82" })),
       kpiCard(
+        monthLabel, fmtNum(monthCur), t("exec_units"),
+        { cls: dir(monthYoY), text: monthYoY === null ? "-" : `${signed(monthYoY)}%` },
+        monthYoY === null ? "" : "YoY",
+        sparkBars(totMonths, { color: "#1A3A82" })),
+      kpiCard(
         t("exec_kpi_som"), fmtPct(f.mb.share), "",
         { cls: dir(f.mb.pp), text: `${signed(f.mb.pp)}pp` }, "YoY",
         sparkLine(somPath, { color: "#231F20" })),
       kpiCard(
-        t("exec_kpi_rank"), `#${f.mbRank}`, "",
-        { cls: dir(rankMove), text: rankText }, t("exec_vs_prev", { year: prevYear }),
-        sparkBars(mbMonths, { color: "#231F20" })),
-      kpiCard(
         t("exec_kpi_momentum"), `${signed(f.marketYoY)}%`, "",
         { cls: "", text: f.marketYoY >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline") }, "",
-        sparkBars(totMonths, { color: "#1A3A82" })),
+        sparkLine(momentumPath, { color: "#1A3A82" })),
     ].join("");
   }
 
@@ -374,11 +420,12 @@
       x: MONTHS_KR,
       series: [
         ...(prevMonths ? [{ name: String(prev.year), values: prevMonths, color: "#b1b8c0", width: 2 }] : []),
-        { name: String(cur.year), values: curMonths, color: "#1A3A82", width: 3 },
+        { name: String(cur.year), values: curMonths, color: "#1A3A82", width: 3,
+          fill: "rgba(26,58,130,0.10)" },
         { name: `${t("exec_ma3")} (${cur.year})`, values: ma, color: "#1A3A82",
           width: 1.6, dash: "dot", markerSize: 0 },
       ],
-      height: 250,
+      height: 290,
     });
   }
 
@@ -399,7 +446,7 @@
               <td class="brand"><span class="rk">${i + 1}</span> ${r.label}</td>
               <td class="num">${fmtNum(r.cy)}</td>
               <td><div class="bar" style="width:${(r.share / f.maxShare * 100).toFixed(1)}%;
-                       background:${BRAND_TILE_COLORS[r.brand] || TOKEN.teal}"></div></td>
+                       --bar:${brandInk(r.brand)};--bar-soft:${lighten(brandInk(r.brand), 0.45)}"></div></td>
               <td class="num">${fmtPct(r.share)} ${f.hasPrev ? ppSpan(r.pp) : ""}</td>
             </tr>`).join("")}
         </tbody>
@@ -412,7 +459,7 @@
     divergingBarH(document.getElementById("chart-share-change"), {
       categories: rows.map(r => r.label),
       values: rows.map(r => Math.round(r.pp * 10) / 10),
-      height: 250,
+      height: 290,
       posColor: POS, negColor: NEG,
     });
   }
@@ -426,7 +473,7 @@
     waterfall(document.getElementById("chart-contribution"), {
       startLabel: `YTD ${prevYear}`, startValue: f.totalPrev,
       endLabel: `YTD ${year}`, endValue: f.total,
-      steps, height: 250, posColor: POS, negColor: NEG,
+      steps, height: 290, posColor: POS, negColor: NEG,
     });
 
     const change = f.total - f.totalPrev;
