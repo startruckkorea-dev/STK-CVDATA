@@ -495,3 +495,104 @@ export function minMaxChart(el, { labels, mins, maxs, means, medians, title }) {
 }
 
 export const colors = { BRAND_COLORS, SEGMENT_COLORS, colorFor };
+
+// ---- Executive dashboard ---------------------------------------------------
+// The executive page reads shape, not digits: the exact numbers live in its
+// KPI tiles and tables, so these three charts drop the on-mark labels the
+// analysis charts carry and keep their frames quiet.
+
+const EXEC_AXIS = { size: 12, color: "#6e7781" };
+
+/** Monthly trend — current year against prior year, plus an optional average.
+ *  `series`: { name, values, color, dash, width, fill }. */
+export function trendLine(el, { x, series, height = 250 }) {
+  const traces = series.map(s => ({
+    type: "scatter",
+    mode: "lines+markers",
+    name: s.name,
+    x,
+    y: s.values,
+    line: { color: s.color, width: s.width || 2, dash: s.dash },
+    marker: { size: s.markerSize === 0 ? 0 : s.markerSize || 5 },
+    connectgaps: false,
+    hovertemplate: `${s.name} %{x}: %{y:,}<extra></extra>`,
+  }));
+  plot(el, traces, mergeLayout({
+    height,
+    margin: { l: 42, r: 12, t: 26, b: 30 },
+    legend: { orientation: "h", y: 1.16, x: 0, xanchor: "left", font: { size: 12 } },
+    xaxis: { tickfont: EXEC_AXIS, showgrid: false },
+    yaxis: { tickfont: EXEC_AXIS, tickformat: ",", rangemode: "tozero", gridcolor: "#eef1f5" },
+  }), CONFIG);
+}
+
+/**
+ * Diverging horizontal bars around a shared zero — share gained / lost in
+ * percentage points. Rows arrive already ordered; gains are drawn in the
+ * positive colour, losses in the negative one.
+ */
+export function divergingBarH(el, {
+  categories, values, height = 250, suffix = "pp",
+  posColor = "#1f883d", negColor = "#d4122a", leftMargin = 96,
+}) {
+  const span = Math.max(0.5, ...values.map(v => Math.abs(v || 0)));
+  const trace = {
+    type: "bar",
+    orientation: "h",
+    y: categories,
+    x: values,
+    marker: { color: values.map(v => (v >= 0 ? posColor : negColor)) },
+    text: values.map(v => `${v > 0 ? "+" : ""}${(Math.round(v * 10) / 10).toFixed(1)}${suffix}`),
+    textposition: "outside",
+    textfont: { size: 12 },
+    cliponaxis: false,
+    hoverinfo: "skip",
+  };
+  plot(el, [trace], mergeLayout({
+    height,
+    showlegend: false,
+    margin: { l: leftMargin, r: 40, t: 10, b: 26 },
+    bargap: 0.45,
+    xaxis: {
+      range: [-span * 1.45, span * 1.45], zeroline: true, zerolinecolor: "#8c959f",
+      zerolinewidth: 1, tickfont: EXEC_AXIS, ticksuffix: suffix, gridcolor: "#f2f4f7",
+    },
+    yaxis: { autorange: "reversed", tickfont: { size: 12, color: "#1f2328" } },
+  }), CONFIG);
+}
+
+/**
+ * Waterfall from a prior-period total to the current one, one step per brand.
+ * `steps`: { label, value } in the order they should be walked; the two
+ * absolute totals are added as the first and last bar.
+ */
+export function waterfall(el, {
+  startLabel, startValue, endLabel, endValue, steps, height = 250,
+  posColor = "#1f883d", negColor = "#d4122a", totalColor = "#d8dee4",
+}) {
+  const trace = {
+    type: "waterfall",
+    orientation: "v",
+    measure: ["absolute", ...steps.map(() => "relative"), "total"],
+    x: [startLabel, ...steps.map(s => s.label), endLabel],
+    y: [startValue, ...steps.map(s => s.value), endValue],
+    text: ["", ...steps.map(s => `${s.value > 0 ? "+" : ""}${Number(s.value).toLocaleString("en-US")}`), ""],
+    textposition: "outside",
+    textfont: { size: 12 },
+    increasing: { marker: { color: posColor } },
+    decreasing: { marker: { color: negColor } },
+    totals: { marker: { color: totalColor } },
+    connector: { line: { color: "#c9d1d9", width: 1, dash: "dot" } },
+    cliponaxis: false,
+    hovertemplate: "%{x}: %{y:,}<extra></extra>",
+  };
+  plot(el, [trace], mergeLayout({
+    height,
+    showlegend: false,
+    margin: { l: 46, r: 12, t: 24, b: 34 },
+    xaxis: { tickfont: { size: 11, color: "#6e7781" }, showgrid: false },
+    // The bars only ever move a few hundred units around a ~2,000 base, so a
+    // zero-based axis would flatten every step into the same nub.
+    yaxis: { tickfont: EXEC_AXIS, tickformat: ",", gridcolor: "#eef1f5" },
+  }), CONFIG);
+}

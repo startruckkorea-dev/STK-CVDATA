@@ -5,6 +5,15 @@ import { refresh } from "./data.js";
 
 const NAV = [
   {
+    // The one screen written for management: the whole month in four KPIs,
+    // three charts and three sentences. Everything below it is the analysis
+    // those numbers came from.
+    group: "executive",
+    items: [
+      { href: "/pages/executive.html", key: "nav_exec_overview" },
+    ],
+  },
+  {
     group: "import_cv",
     items: [
       { href: "/", key: "nav_market_insight" },

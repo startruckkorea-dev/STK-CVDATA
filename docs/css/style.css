@@ -949,3 +949,240 @@ table.data .down { color: var(--danger); font-weight: 600; }
 
 .al-msg { font-size: 15px; font-weight: 600; color: var(--text); }
 .al-hint { margin-top: 8px; font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+/* Executive dashboard -----------------------------------------------------
+   One screen for management: four KPIs, three charts, three sentences. It
+   deliberately runs quieter than the analysis pages — brand colours appear
+   only where brands are being compared, and green / amber / red are reserved
+   for the verdict, never for decoration. */
+.exec-title-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+}
+.exec-title-row .page-title { letter-spacing: -0.3px; }
+.exec-period {
+  margin-left: auto;
+  text-align: right;
+  line-height: 1.25;
+}
+.exec-period .now {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--deep-teal);
+  letter-spacing: 0.3px;
+}
+.exec-period .vs { font-size: 0.8rem; color: var(--muted); }
+
+/* KPI tiles — value, delta and a 12-month sparkline on one line. */
+.exec-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+@media (max-width: 1100px) { .exec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.exec-kpi {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 10px 14px 11px;
+  min-width: 0;
+}
+.exec-kpi .k-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.exec-kpi .k-body {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+.exec-kpi .k-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.exec-kpi .k-value small { font-size: 0.5em; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.exec-kpi .k-delta {
+  font-size: 0.86rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: var(--muted);
+}
+.exec-kpi .k-delta small { font-weight: 500; color: var(--muted); }
+.exec-kpi .k-delta.up { color: var(--success); }
+.exec-kpi .k-delta.down { color: var(--danger); }
+.exec-kpi .spark { flex: 0 0 auto; opacity: 0.9; }
+
+/* Card grid — three across, then two, then one. */
+.exec-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+@media (max-width: 1280px) { .exec-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 900px) { .exec-grid { grid-template-columns: 1fr; } }
+.exec-grid > * { min-width: 0; }
+.exec-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 12px 14px 14px;
+  display: flex;
+  flex-direction: column;
+}
+.exec-card > h3 {
+  margin: 0 0 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--deep-teal);
+}
+.exec-card > h3 span { color: var(--muted); font-weight: 500; letter-spacing: 0.3px; }
+/* The plots draw their own frame-less canvas inside the card. */
+.exec-card .chart { border: none; border-radius: 0; min-height: 0; }
+
+/* Share ranking — brand, units, share bar, pp move. */
+table.rank {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+table.rank th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 6px 5px;
+  border-bottom: 1px solid var(--border);
+}
+table.rank td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #eef1f5;
+  vertical-align: middle;
+}
+table.rank td.num { text-align: right; font-variant-numeric: tabular-nums; }
+table.rank tr.mb { background: var(--accent-soft); }
+table.rank tr.mb td.brand { font-weight: 700; }
+table.rank .rk { color: var(--muted); width: 1.2em; display: inline-block; }
+table.rank .bar {
+  height: 9px;
+  border-radius: 2px;
+  min-width: 2px;
+}
+table.rank .pp { font-weight: 600; white-space: nowrap; }
+table.rank .pp.up { color: var(--success); }
+table.rank .pp.down { color: var(--danger); }
+table.rank .pp.flat { color: var(--muted); }
+
+/* Segment pulse — one row per segment, ending in a traffic light. */
+table.pulse {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+table.pulse th {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--muted);
+  text-align: right;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--border);
+}
+table.pulse th:first-child { text-align: left; }
+table.pulse td {
+  padding: 11px 6px;
+  text-align: right;
+  border-bottom: 1px solid #eef1f5;
+  font-variant-numeric: tabular-nums;
+}
+table.pulse td:first-child { text-align: left; font-weight: 600; }
+table.pulse tr:last-child td { border-bottom: none; }
+table.pulse a { color: inherit; }
+table.pulse .up { color: var(--success); font-weight: 600; }
+table.pulse .down { color: var(--danger); font-weight: 600; }
+.signal {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+}
+.signal.good { background: var(--success); }
+.signal.warn { background: var(--amber); }
+.signal.bad  { background: var(--danger); }
+
+/* Executive insight — three sentences, each led by its verdict colour. */
+.insights { display: flex; flex-direction: column; gap: 14px; }
+.insight { display: grid; grid-template-columns: 13px 1fr; gap: 9px; }
+.insight .dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  margin-top: 5px;
+}
+.insight .dot.good { background: var(--success); }
+.insight .dot.warn { background: var(--amber); }
+.insight .dot.bad  { background: var(--danger); }
+.insight h4 { margin: 0 0 3px; font-size: 0.92rem; font-weight: 700; }
+.insight p { margin: 0; font-size: 0.84rem; line-height: 1.55; color: #4a5259; }
+
+/* Quick links to the analysis pages the numbers above came from. */
+.quick-links {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 1280px) { .quick-links { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .quick-links { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.qlink {
+  display: block;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 14px 12px;
+  text-align: center;
+  color: var(--text);
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.qlink:hover {
+  text-decoration: none;
+  border-color: var(--deep-teal);
+  box-shadow: 0 3px 10px -6px rgba(0, 0, 0, 0.5);
+}
+.qlink .ql-mark { color: var(--deep-teal); display: block; margin-bottom: 7px; }
+.qlink .ql-name { font-size: 0.88rem; font-weight: 700; }
+.qlink .ql-sub { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
+/* Footer line under the waterfall — the one number the bars add up to. */
+.exec-foot {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #eef1f5;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+.exec-foot:empty { display: none; }
+.exec-foot .cf-label { color: var(--muted); }
+.exec-foot .cf-value { font-weight: 700; font-variant-numeric: tabular-nums; }
+.exec-foot .cf-value.up { color: var(--success); }
+.exec-foot .cf-value.down { color: var(--danger); }

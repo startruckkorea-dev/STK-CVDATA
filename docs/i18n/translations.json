@@ -328,6 +328,186 @@
     "action_refreshing": {
       "ko": "불러오는 중…",
       "en": "Refreshing…"
+    },
+    "group_executive": {
+      "ko": "경영진",
+      "en": "Executive"
+    },
+    "nav_exec_overview": {
+      "ko": "경영 대시보드",
+      "en": "Market Overview"
+    },
+    "exec_title": {
+      "ko": "Executive Market Intelligence",
+      "en": "Executive Market Intelligence"
+    },
+    "exec_subtitle": {
+      "ko": "한국 수입 상용차 시장",
+      "en": "Korea Imported Commercial Vehicles"
+    },
+    "exec_vs_prev": {
+      "ko": "vs {year} YTD",
+      "en": "vs YTD {year}"
+    },
+    "exec_kpi_total": {
+      "ko": "전체 시장 (YTD)",
+      "en": "Total Market (YTD)"
+    },
+    "exec_kpi_som": {
+      "ko": "메르세데스-벤츠 점유율",
+      "en": "Mercedes-Benz SoM"
+    },
+    "exec_kpi_rank": {
+      "ko": "메르세데스-벤츠 순위",
+      "en": "Mercedes-Benz Rank"
+    },
+    "exec_kpi_momentum": {
+      "ko": "시장 모멘텀",
+      "en": "Market Momentum"
+    },
+    "exec_units": {
+      "ko": "대",
+      "en": "units"
+    },
+    "exec_yoy_decline": {
+      "ko": "YoY 감소",
+      "en": "YoY Decline"
+    },
+    "exec_yoy_growth": {
+      "ko": "YoY 성장",
+      "en": "YoY Growth"
+    },
+    "exec_trend": {
+      "ko": "시장 추이 (월별 등록)",
+      "en": "Market Trend (Monthly Registration)"
+    },
+    "exec_ranking": {
+      "ko": "브랜드 점유율 순위 (YTD)",
+      "en": "Market Share Ranking (YTD)"
+    },
+    "exec_share_change": {
+      "ko": "점유율 변화 vs {year} YTD (pp)",
+      "en": "Share Change vs YTD {year} (pp)"
+    },
+    "exec_contribution": {
+      "ko": "시장 변화 기여도 (YTD)",
+      "en": "Contribution to Market Change (YTD)"
+    },
+    "exec_total_change": {
+      "ko": "전체 시장 변화",
+      "en": "Total Market Change"
+    },
+    "exec_segment_pulse": {
+      "ko": "세그먼트 펄스 (YTD)",
+      "en": "Segment Pulse (YTD)"
+    },
+    "exec_insight": {
+      "ko": "경영 인사이트",
+      "en": "Executive Insight"
+    },
+    "exec_quick_links": {
+      "ko": "상세 분석 바로가기",
+      "en": "Quick Links to Analysis"
+    },
+    "exec_ma3": {
+      "ko": "3개월 이동평균",
+      "en": "3M MA"
+    },
+    "col_units": {
+      "ko": "등록",
+      "en": "Units"
+    },
+    "col_share": {
+      "ko": "점유율",
+      "en": "Share"
+    },
+    "col_vs_ly": {
+      "ko": "전년 대비 (pp)",
+      "en": "vs LY (pp)"
+    },
+    "col_market_units": {
+      "ko": "시장 (대)",
+      "en": "Market (units)"
+    },
+    "col_mb_som": {
+      "ko": "MB 점유율",
+      "en": "MB SoM"
+    },
+    "col_share_delta": {
+      "ko": "점유율 변화 (pp)",
+      "en": "Δ Share (pp)"
+    },
+    "col_signal": {
+      "ko": "신호",
+      "en": "Signal"
+    },
+    "exec_insight_mb_under_title": {
+      "ko": "MB, 시장 대비 부진",
+      "en": "MB underperformed the market"
+    },
+    "exec_insight_mb_over_title": {
+      "ko": "MB, 시장 대비 선전",
+      "en": "MB outperformed the market"
+    },
+    "exec_insight_mb_body": {
+      "ko": "MB YTD 등록은 {mb} 변동해 시장 {mkt} 대비 {gap}pp 차이를 보였고, 점유율은 {som}pp 이동했습니다.",
+      "en": "MB YTD registrations changed {mb} against a {mkt} market — a {gap}pp gap — moving share by {som}pp."
+    },
+    "exec_insight_gainer_title": {
+      "ko": "{brand}, 점유율 최대 확대",
+      "en": "{brand} gained the most share"
+    },
+    "exec_insight_gainer_body": {
+      "ko": "{brand} 등록이 {yoy} 변동하며 점유율을 {pp}pp 확대했습니다.",
+      "en": "{brand} registrations changed {yoy} and share expanded by {pp}pp."
+    },
+    "exec_insight_segment_title": {
+      "ko": "{segment} 주시 필요",
+      "en": "Watch {segment}"
+    },
+    "exec_insight_segment_body": {
+      "ko": "{segment} 세그먼트의 {change}대 변동이 전체 시장 변화의 {share}를 차지합니다.",
+      "en": "{segment} accounts for {share} of the total market change ({change} units)."
+    },
+    "exec_link_tractor": {
+      "ko": "트랙터 분석",
+      "en": "Tractor Analysis"
+    },
+    "exec_link_rigid": {
+      "ko": "카고 분석",
+      "en": "Rigid Analysis"
+    },
+    "exec_link_tipper": {
+      "ko": "덤프 분석",
+      "en": "Tipper Analysis"
+    },
+    "exec_link_brand": {
+      "ko": "브랜드 비교",
+      "en": "Brand Comparison"
+    },
+    "exec_link_model": {
+      "ko": "베스트셀링 모델",
+      "en": "Model Analysis"
+    },
+    "exec_link_price": {
+      "ko": "가격 분석",
+      "en": "Pricing Analysis"
+    },
+    "exec_link_seg_sub": {
+      "ko": "시장 및 MB 성과 분석",
+      "en": "Market & MB performance"
+    },
+    "exec_link_brand_sub": {
+      "ko": "브랜드별 상세 분석",
+      "en": "Brand-level detail"
+    },
+    "exec_link_model_sub": {
+      "ko": "베스트셀링 모델 분석",
+      "en": "Best-selling models"
+    },
+    "exec_link_price_sub": {
+      "ko": "가격 및 거래 동향 분석",
+      "en": "Price & transaction trends"
     }
   },
   "enum": {
