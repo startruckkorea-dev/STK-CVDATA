@@ -10,13 +10,13 @@ const NAV = [
     // those numbers came from.
     group: "executive",
     items: [
-      { href: "/pages/executive.html", key: "nav_exec_overview" },
+      { href: "/", key: "nav_exec_overview" },
     ],
   },
   {
     group: "import_cv",
     items: [
-      { href: "/", key: "nav_market_insight" },
+      { href: "/pages/insight.html", key: "nav_market_insight" },
       { href: "/pages/segment.html", key: "nav_segment" },
       // Reached from KAIDA 세그먼트 분석 — its own page because the brand detail
       // made that one too long to scroll.
@@ -53,7 +53,9 @@ export function renderSidebar(activeHref = null) {
 
   const isActive = (href) => {
     if (!activeHref) return false;
-    return activeHref === href || (href !== "/" && activeHref.endsWith(href));
+    // "/index.html" and "/" are the same page — the executive dashboard.
+    const path = activeHref.replace(/\/index\.html$/, "/");
+    return path === href || (href !== "/" && path.endsWith(href));
   };
 
   const html = `
