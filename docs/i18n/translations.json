@@ -61,6 +61,10 @@
       "ko": "특장업체 분석",
       "en": "Bodybuilder Analysis"
     },
+    "nav_monthly": {
+      "ko": "월간 갱신",
+      "en": "Monthly Update"
+    },
     "nav_publish": {
       "ko": "데이터 발행",
       "en": "Publish Data"

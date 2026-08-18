@@ -12,6 +12,7 @@
 // real security boundary.
 
 import { getAccessToken, isSignedIn } from "./auth.js";
+import { loadingBegin, loadingEnd } from "./loading.js";
 
 const GRAPH = "https://graph.microsoft.com/v1.0";
 
@@ -35,15 +36,22 @@ function encPath(p) {
 }
 
 async function gFetch(path, options = {}) {
-  const token = await getAccessToken();
-  const url = path.startsWith("http") ? path : `${GRAPH}${path}`;
-  return fetch(url, {
-    ...options,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  // Every Graph call runs through here, so this is the one place that knows
+  // whether the page is still waiting on the network.
+  loadingBegin();
+  try {
+    const token = await getAccessToken();
+    const url = path.startsWith("http") ? path : `${GRAPH}${path}`;
+    return await fetch(url, {
+      ...options,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(options.headers || {}),
+      },
+    });
+  } finally {
+    loadingEnd();
+  }
 }
 
 export async function getSiteId() {
@@ -65,6 +73,18 @@ export async function readJsonFile(filename, folder = SP_FOLDER_PATH) {
   const text = await res.text();
   try { return JSON.parse(text); }
   catch (e) { throw new Error(`${path} is not valid JSON: ${e.message}`); }
+}
+
+/** GET a file's raw bytes. Returns null if it doesn't exist.
+ *  The monthly refresh reads the source xlsx straight out of SharePoint with
+ *  this — no local copy, so anyone with folder access can run the update. */
+export async function readFileBytes(filename, folder = SP_FOLDER_PATH) {
+  const siteId = await getSiteId();
+  const path = `${folder}/${filename}`;
+  const res = await gFetch(`/sites/${siteId}/drive/root:/${encPath(path)}:/content`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`read ${path} failed: ${res.status}`);
+  return res.arrayBuffer();
 }
 
 /** PUT a JSON file to SharePoint (creates or overwrites). */

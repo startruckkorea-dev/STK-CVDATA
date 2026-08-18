@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_monthly">월간 갱신 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="../vendor/msal-browser.min.js" defer></script>
+  <script src="../vendor/xlsx-0.20.3.min.js" defer></script>
+  <style>
+    /* Admin form, not a dashboard — same corrections publish.html makes. */
+    .main .page-head { position: static; box-shadow: none; }
+    .main .page-head .page-title { display: block; margin: 0 0 6px; }
+    .main .page-head .page-sub { display: block; max-width: 78ch; }
+    .main .panel-title { text-align: left; }
+    .main .panel { padding-bottom: 18px; }
+
+    .desc { color: var(--muted); font-size: .88rem; margin: 0 0 14px; max-width: 76ch; line-height: 1.55; }
+    .actions { margin: 14px 0 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .actions button {
+      padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg);
+    }
+    .actions button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .actions button[disabled] { opacity: .5; cursor: not-allowed; }
+    .actions select { padding: 7px 10px; border-radius: 6px; border: 1px solid var(--border); font-size: .9rem; }
+    .log { font-size: .84rem; font-family: ui-monospace, Consolas, monospace; line-height: 1.7; }
+    .log .ok { color: var(--success); }
+    .log .bad { color: var(--danger); }
+    .log .skip { color: var(--muted); }
+    table.diff { border-collapse: collapse; width: 100%; font-size: .84rem; }
+    table.diff th, table.diff td { border-bottom: 1px solid var(--border); padding: 6px 10px; text-align: right; }
+    table.diff th:first-child, table.diff td:first-child { text-align: left; }
+    table.diff thead th { background: var(--bg-soft); font-weight: 600; }
+    td.num { font-family: ui-monospace, Consolas, monospace; }
+    .up { color: var(--success); font-weight: 600; }
+    .same { color: var(--muted); }
+    .new-row td { background: #f0fbf3; }
+  </style>
+</head>
+<body>
+
+<!-- Painted before any script runs (the vendor bundles are deferred), so a
+     cold first visit shows this instead of a blank page while ~4.8MB of
+     Plotly + MSAL comes down. Taken away by js/loading.js. Hardcoded Korean:
+     i18n has not loaded this early, same as the login screen. -->
+<div id="app-loading" class="app-loading" role="status" aria-live="polite">
+  <div class="al-card">
+    <div class="al-spin"></div>
+    <div class="al-msg" id="app-loading-msg">불러오는 중…</div>
+    <div class="al-hint">처음 접속하시는 경우 자료를 내려받느라<br />20~30초 정도 걸릴 수 있습니다.</div>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar"></aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_monthly">월간 갱신</h1>
+      <div class="page-sub">SharePoint의 원본 xlsx를 이 화면에서 바로 집계해 발행합니다 — PC에 내려받거나 Python을 돌릴 필요가 없습니다.</div>
+    </div>
+
+    <section class="panel">
+      <div class="panel-title">1. 원본 확인</div>
+      <p class="desc">
+        SharePoint <code>mbtruck-cvdata</code> 아래의 <code>KAIDA/{연도}</code> 와
+        <code>KAMA/{연도}</code> 폴더에서 그 해의 최신 파일을 찾습니다.
+        KAIDA 월간 보고서는 누적이라 가장 늦은 달 파일 하나만 쓰고, KAMA는 월별 파일을 전부 합칩니다.
+      </p>
+      <div class="actions">
+        <label for="year-sel">연도</label>
+        <select id="year-sel"></select>
+        <button id="btn-scan" type="button">원본 찾기</button>
+      </div>
+      <div class="log" id="scan-log"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">2. 집계</div>
+      <p class="desc">
+        브라우저에서 xlsx를 읽어 집계합니다. 이 결과를 현재 발행된 값과 비교해 보여주므로,
+        발행 전에 무엇이 얼마나 달라지는지 확인할 수 있습니다. KAMA 12개월치는 30초 정도 걸립니다.
+      </p>
+      <div class="actions">
+        <button id="btn-build" type="button" disabled>집계 실행</button>
+      </div>
+      <div class="log" id="build-log"></div>
+      <div id="diff-area"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">3. 발행</div>
+      <p class="desc">
+        집계 결과를 <code>site_data/</code> 에 씁니다. 발행하는 순간 모든 사용자의 화면이 바뀝니다.
+        폴더 <strong>쓰기 권한</strong>이 필요합니다 (없으면 Graph 403).
+      </p>
+      <div class="actions">
+        <button id="btn-publish" class="primary" type="button" disabled>발행</button>
+      </div>
+      <div class="log" id="publish-log"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireLogin } from "../js/auth.js";
+  import { loadTranslations, applyT } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { listFolder, readFileBytes, readJsonFile, writeJsonFile,
+           ensureFolder, SP_FOLDER_PATH, SP_DATA_PATH } from "../js/graph.js";
+  import { pickKaidaFiles, parseKaidaWorkbook, aggregateKaida,
+           detectLastDataMonth, MONTHS } from "../js/kaida-build.js";
+  import { parseKamaWorkbook, aggregateKama, combineKamaYear,
+           kamaMonthFromName } from "../js/kama-build.js";
+  import { loadingFinish } from "../js/loading.js";
+
+  // Where the source workbooks can sit. The dump reports have been filed in two
+  // places over the years and the KAIDA tree is sometimes nested one deeper, so
+  // try each rather than tie this page to one reorganisation.
+  const KAIDA_DIRS = y => [`${SP_FOLDER_PATH}/KAIDA/${y}`, `${SP_FOLDER_PATH}/KAIDA/KAIDA/${y}`];
+  const DUMP_DIRS  = y => [`${SP_FOLDER_PATH}/KAIDA-Dump/${y}`, `${SP_FOLDER_PATH}/KAIDA/KAIDA-Dump/${y}`];
+  const KAMA_DIRS  = y => [`${SP_FOLDER_PATH}/KAMA/${y}`];
+
+  let found = null;      // { year, kaida:{dir,cv,dump}, kama:{dir,files[]} }
+  let built = null;      // { year, kaida, kama }
+
+  const $ = id => document.getElementById(id);
+  const line = (target, cls, msg) => {
+    $(target).insertAdjacentHTML("beforeend", `<div class="${cls}">${msg}</div>`);
+  };
+
+  async function bootstrap() {
+    if (!(await requireLogin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    loadingFinish();
+
+    const sel = $("year-sel");
+    const now = new Date().getFullYear();
+    for (let y = now; y >= now - 2; y--) {
+      sel.insertAdjacentHTML("beforeend", `<option value="${y}">${y}</option>`);
+    }
+
+    $("btn-scan").addEventListener("click", scan);
+    $("btn-build").addEventListener("click", build);
+    $("btn-publish").addEventListener("click", publish);
+  }
+
+  /** First of `dirs` that lists anything, with its file names. */
+  async function firstNonEmpty(dirs) {
+    for (const dir of dirs) {
+      let items;
+      try { items = await listFolder(dir); }
+      catch { continue; }                       // 403/404 on one layout is fine
+      const names = items.filter(i => !i.folder).map(i => i.name);
+      if (names.length) return { dir, names };
+    }
+    return null;
+  }
+
+  // ---- step 1: locate ------------------------------------------------------
+
+  async function scan() {
+    const year = parseInt($("year-sel").value, 10);
+    $("scan-log").innerHTML = "";
+    $("build-log").innerHTML = "";
+    $("diff-area").innerHTML = "";
+    $("btn-build").disabled = true;
+    $("btn-publish").disabled = true;
+    found = null;
+
+    const kaidaHit = await firstNonEmpty(KAIDA_DIRS(year));
+    if (!kaidaHit) {
+      line("scan-log", "bad", `KAIDA ${year}: 폴더를 찾지 못했습니다 (${KAIDA_DIRS(year).join(" · ")})`);
+      return;
+    }
+    const picked = pickKaidaFiles(kaidaHit.names);
+    if (!picked.cv) {
+      line("scan-log", "bad", `KAIDA ${year}: ${kaidaHit.dir} 에 xlsx 가 없습니다`);
+      return;
+    }
+    line("scan-log", "ok", `KAIDA ${year} · 본 보고서 &nbsp;<b>${picked.cv}</b>`);
+
+    // Through 2025 tipper volumes arrived in a separate "(Dump)" workbook; from
+    // 2026 they are rows inside the main file. Only look for it when the main
+    // folder has no dump of its own.
+    let dumpDir = kaidaHit.dir;
+    if (!picked.dump) {
+      const dumpHit = await firstNonEmpty(DUMP_DIRS(year));
+      if (dumpHit) {
+        const d = pickKaidaFiles(dumpHit.names);
+        picked.dump = d.dump || d.cv;
+        dumpDir = dumpHit.dir;
+      }
+    }
+    line("scan-log", picked.dump ? "ok" : "skip",
+         picked.dump ? `KAIDA ${year} · Dump 보고서 &nbsp;<b>${picked.dump}</b>`
+                     : `KAIDA ${year} · Dump 보고서 없음 (2026부터 본 파일에 통합)`);
+
+    const kamaHit = await firstNonEmpty(KAMA_DIRS(year));
+    const kamaFiles = (kamaHit ? kamaHit.names : [])
+      .filter(n => /\.xlsx$/i.test(n) && !n.startsWith("~$") && kamaMonthFromName(n))
+      .sort((a, b) => kamaMonthFromName(a) - kamaMonthFromName(b));
+    if (kamaFiles.length) {
+      line("scan-log", "ok",
+           `KAMA ${year} · ${kamaFiles.length}개 월 (${kamaFiles.map(kamaMonthFromName).join(", ")}월)`);
+    } else {
+      line("scan-log", "skip", `KAMA ${year}: 파일 없음 — KAIDA만 갱신합니다`);
+    }
+
+    found = {
+      year,
+      kaida: { dir: kaidaHit.dir, dumpDir, cv: picked.cv, dump: picked.dump },
+      kama: { dir: kamaHit ? kamaHit.dir : null, files: kamaFiles },
+    };
+    $("btn-build").disabled = false;
+  }
+
+  // ---- step 2: aggregate ---------------------------------------------------
+
+  async function build() {
+    if (!found) return;
+    const { year } = found;
+    $("btn-build").disabled = true;
+    $("build-log").innerHTML = "";
+    $("diff-area").innerHTML = "";
+    built = null;
+
+    try {
+      // KAIDA
+      line("build-log", "skip", `${found.kaida.cv} 읽는 중…`);
+      let detail = parseKaidaWorkbook(await readFileBytes(found.kaida.cv, found.kaida.dir));
+      const hasTipper = detail.some(r => r.SegmentNorm === "Tipper");
+      // A main report that yields nothing is a corrupt or restructured file,
+      // not an empty year — say so rather than publishing a hollow year.
+      if (!detail.length) throw new Error(
+        `${found.kaida.cv} 가 0행으로 읽혔습니다. 수입사 블록이 '<이름>-Total' 행으로 ` +
+        `끝나는지 확인하세요 (하이픈이 '0' 으로 치환된 파일이 원인인 적이 있습니다).`);
+
+      if (found.kaida.dump && !hasTipper) {
+        line("build-log", "skip", `${found.kaida.dump} 읽는 중…`);
+        const dump = parseKaidaWorkbook(await readFileBytes(found.kaida.dump, found.kaida.dumpDir));
+        for (const r of dump) r.SegmentNorm = "Tipper";
+        detail = detail.concat(dump);
+      }
+      const kaida = aggregateKaida(detail);
+      kaida.year = year;
+      kaida.last_data_month = detectLastDataMonth(kaida);
+      line("build-log", "ok",
+           `KAIDA ${year} 집계 완료 — ${detail.length}행, 최신 데이터 ${kaida.last_data_month}월, ` +
+           `YTD ${kaida.monthly_totals.Total.toLocaleString()}대`);
+
+      // KAMA — one workbook per month, so report progress as it goes.
+      let kama = null;
+      if (found.kama.files.length) {
+        const books = [];
+        for (const name of found.kama.files) {
+          const month = kamaMonthFromName(name);
+          const rows = parseKamaWorkbook(await readFileBytes(name, found.kama.dir));
+          if (!rows.length) line("build-log", "bad", `${name}: 0행 — 시트/열 구성이 바뀐 것 같습니다`);
+          books.push({ month, rows });
+          line("build-log", "skip", `${name} · ${rows.length}행`);
+        }
+        kama = aggregateKama(combineKamaYear(books));
+        kama.year = year;
+        line("build-log", "ok",
+             `KAMA ${year} 집계 완료 — YTD ${kama.monthly_totals.YTD.toLocaleString()}대`);
+      }
+
+      built = { year, kaida, kama };
+      await renderDiff();
+      $("btn-publish").disabled = false;
+    } catch (e) {
+      line("build-log", "bad", `실패: ${e.message}`);
+      console.error(e);
+    } finally {
+      $("btn-build").disabled = false;
+    }
+  }
+
+  /** Side-by-side of what is published now vs what was just aggregated, so the
+   *  publish step is a decision rather than a leap. */
+  async function renderDiff() {
+    const { year, kaida } = built;
+    let published = null;
+    try { published = await readJsonFile(`kaida_${year}.json`, SP_DATA_PATH); }
+    catch { /* not published yet — every month reads as new */ }
+
+    const cur = published && published.monthly_totals ? published.monthly_totals : {};
+    const rows = MONTHS.map(m => {
+      const before = cur[m] || 0;
+      const after = kaida.monthly_totals[m] || 0;
+      return { m, before, after };
+    }).filter(r => r.before || r.after);
+
+    const cell = r => {
+      if (r.before === r.after) return `<td class="num same">±0</td>`;
+      const d = r.after - r.before;
+      return `<td class="num up">${d > 0 ? "+" : ""}${d.toLocaleString()}</td>`;
+    };
+
+    $("diff-area").innerHTML = `
+      <div class="panel-title" style="margin-top:18px">현재 발행값 대비</div>
+      <table class="diff">
+        <thead><tr><th>월</th><th>현재</th><th>집계 결과</th><th>차이</th></tr></thead>
+        <tbody>
+          ${rows.map(r => `
+            <tr class="${r.before === 0 && r.after > 0 ? "new-row" : ""}">
+              <td>${r.m}</td>
+              <td class="num">${r.before.toLocaleString()}</td>
+              <td class="num">${r.after.toLocaleString()}</td>
+              ${cell(r)}
+            </tr>`).join("")}
+          <tr>
+            <th>YTD</th>
+            <th class="num">${(cur.Total || 0).toLocaleString()}</th>
+            <th class="num">${kaida.monthly_totals.Total.toLocaleString()}</th>
+            <th class="num">${(kaida.monthly_totals.Total - (cur.Total || 0)).toLocaleString()}</th>
+          </tr>
+        </tbody>
+      </table>`;
+  }
+
+  // ---- step 3: publish -----------------------------------------------------
+
+  async function publish() {
+    if (!built) return;
+    const { year, kaida, kama } = built;
+    $("btn-publish").disabled = true;
+    $("publish-log").innerHTML = "";
+    try {
+      await ensureFolder(SP_DATA_PATH);
+
+      await writeJsonFile(`kaida_${year}.json`, kaida, SP_DATA_PATH);
+      line("publish-log", "ok", `kaida_${year}.json 발행 완료`);
+
+      if (kama) {
+        await writeJsonFile(`kama_${year}.json`, kama, SP_DATA_PATH);
+        line("publish-log", "ok", `kama_${year}.json 발행 완료`);
+      }
+
+      // The manifest is what every page reads first: it carries the freshness
+      // stamp shown in the sidebar and the year lists the filters are built
+      // from. Merge rather than rewrite — the historical years and the CV_DATA
+      // list are still owned by the Python build.
+      const manifest = (await readJsonFile("manifest.json", SP_DATA_PATH)) || {};
+      manifest.generated_at = new Date().toISOString();
+      const withYear = (list) =>
+        [...new Set([...(list || []), year])].sort((a, b) => b - a);
+      manifest.kaida_years = withYear(manifest.kaida_years);
+      if (kama) manifest.kama_years = withYear(manifest.kama_years);
+      await writeJsonFile("manifest.json", manifest, SP_DATA_PATH);
+      line("publish-log", "ok", "manifest.json 갱신 완료");
+
+      line("publish-log", "ok",
+           "발행됐습니다. 각 화면에서 <b>데이터 새로 고침</b>을 누르면 바로 반영됩니다.");
+    } catch (e) {
+      const hint = /403/.test(e.message) ? " — 이 폴더에 쓰기 권한이 없습니다" : "";
+      line("publish-log", "bad", `실패: ${e.message}${hint}`);
+      console.error(e);
+    } finally {
+      $("btn-publish").disabled = false;
+    }
+  }
+
+  bootstrap().catch(e => {
+    console.error(e);
+    line("scan-log", "bad", e.message);
+    loadingFinish();
+  });
+</script>
+</body>
+</html>

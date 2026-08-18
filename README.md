@@ -7,6 +7,7 @@
 - 인증: **브라우저 MSAL** (Entra SPA, 기존 앱 `9b247088-…` 재사용)
 - 데이터: **SharePoint 전용** — 브라우저가 로그인 사용자 권한으로 Graph 호출
 - 차트: **Plotly.js** (self-host, 사내망 CDN 차단 대응)
+- 집계: 과거 연도는 **Python**(`tools/`), 당해년도 월간 갱신은 **브라우저**(SheetJS)
 - 다국어: 한국어 / English 토글 (`docs/i18n/translations.json`)
 - 필터 상태: URL query string에 보존 (공유 가능한 링크)
 
@@ -63,6 +64,7 @@ CV_data_git/
 │   ├─ pages/                  # segment · kama · overview · bestselling
 │   │                          #  · cargo · price · body
 │   │                          #  · publish (데이터 발행) · translate
+│   │                          #  · refresh (월간 갱신)
 │   ├─ css/style.css
 │   ├─ js/
 │   │   ├─ auth.js             # MSAL 로그인 게이트 + 토큰 broker
@@ -71,9 +73,12 @@ CV_data_git/
 │   │   ├─ i18n.js             # 다국어 toggle + t()/tdata()
 │   │   ├─ state.js            # URL query 기반 필터 state
 │   │   ├─ charts.js           # Plotly.js 차트 헬퍼
+│   ├─ kaida-build.js      # KAIDA xlsx 집계 (kaida_processor.py 이식)
+│   ├─ kama-build.js       # KAMA xlsx 집계 (kama_processor.py 이식)
+│   ├─ loading.js          # 첫 방문 로딩 오버레이
 │   │   ├─ sidebar.js          # 공용 사이드바
 │   │   └─ format.js           # 숫자/퍼센트 포매터
-│   ├─ vendor/                 # plotly · msal-browser (self-host)
+│   ├─ vendor/                 # plotly · msal-browser · xlsx (self-host)
 │   ├─ assets/                 # MB 로고 · favicon
 │   ├─ i18n/translations.json  # ko/en 번역
 │   ├─ CNAME                   # mbtruck-cvdata.startruckkorea.com
@@ -84,7 +89,37 @@ CV_data_git/
 
 ---
 
-## 데이터 갱신 (관리자)
+## 매달 갱신 — 사이트에서 (권장)
+
+당해년도 KAIDA · KAMA 는 **브라우저가 SharePoint 원본을 직접 읽어** 집계한다.
+PC 에 파일을 내려받을 필요도, Python 을 돌릴 필요도 없다.
+
+1. SharePoint `mbtruck-cvdata/KAIDA/{연도}/` 에 그 달 xlsx 를 올린다
+   (KAMA 는 `KAMA/{연도}/Monthly{연도}-{MM}.xlsx`)
+2. 사이트 → **관리 → 월간 갱신** → 연도 선택 → `원본 찾기` → `집계 실행`
+3. 현재 발행값과의 차이를 확인하고 → `발행`
+
+집계 로직은 [docs/js/kaida-build.js](docs/js/kaida-build.js) ·
+[docs/js/kama-build.js](docs/js/kama-build.js) 로, `tools/` 의 Python 파서를
+이식한 것이다. 두 구현은 2017–2026 전 연도에서 **동일한 JSON** 을 낸다.
+어느 한쪽을 고치면 다른 쪽도 같이 고쳐야 한다.
+
+필요 권한은 `mbtruck-cvdata` 폴더 **쓰기** 뿐이므로, 관리자 PC 설정 없이
+여러 명이 나눠 맡을 수 있다.
+
+> KAIDA 워크북 중에는 dimension 레코드가 실제보다 작게 적힌 파일이 있다
+> (2026-07 본 파일은 103행짜리 시트에 `A1:V9` 로 기록됨). SheetJS 는 그 값을
+>믿기 때문에 `sheetGrid()` 가 실제 셀 범위를 다시 계산한다 — openpyxl 은
+> 셀을 훑으므로 Python 쪽에서는 드러나지 않던 문제다.
+
+---
+
+## 전체 재빌드 (Python — 과거 연도 / CV_DATA)
+
+CV_DATA 는 연 1회라 아래 경로를 그대로 쓰고, 과거 연도를 다시 만들 때도
+마찬가지다.
+
+### 데이터 갱신 (관리자)
 
 ### 원본 xlsx 가져오기
 

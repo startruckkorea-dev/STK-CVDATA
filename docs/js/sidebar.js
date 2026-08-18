@@ -28,6 +28,9 @@ const NAV = [
   {
     group: "admin",
     items: [
+      // The monthly update runs from SharePoint in the browser; the older
+      // drag-and-drop publish page stays for full rebuilds out of Python.
+      { href: "/pages/refresh.html", key: "nav_monthly" },
       { href: "/pages/publish.html", key: "nav_publish" },
       { href: "/pages/translate.html", key: "nav_translate" },
     ],
