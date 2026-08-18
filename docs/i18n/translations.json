@@ -18,8 +18,8 @@
       "en": "Import CV (KAIDA / KAMA)"
     },
     "group_cv_data": {
-      "ko": "CV DATA (등록원본)",
-      "en": "CV DATA (Registration)"
+      "ko": "CV DATA (테스트 버전)",
+      "en": "CV DATA (Test version)"
     },
     "group_admin": {
       "ko": "관리",
