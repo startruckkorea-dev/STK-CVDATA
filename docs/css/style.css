@@ -1057,6 +1057,7 @@ table.data .down { color: var(--danger); font-weight: 600; }
   margin-top: 14px;
 }
 .exec-grid > * { min-width: 0; grid-column: span 4; }
+.exec-grid > .w12 { grid-column: span 12; }
 .exec-grid > .w6 { grid-column: span 6; }
 .exec-grid > .w5 { grid-column: span 5; }
 .exec-grid > .w4 { grid-column: span 4; }
@@ -1065,7 +1066,7 @@ table.data .down { color: var(--danger); font-weight: 600; }
    up under them rather than all six squeezing into two columns. */
 @media (max-width: 1280px) {
   .exec-grid > * { grid-column: span 6; }
-  .exec-grid > .w6, .exec-grid > .w5 { grid-column: span 12; }
+  .exec-grid > .w12, .exec-grid > .w6, .exec-grid > .w5 { grid-column: span 12; }
 }
 @media (max-width: 900px) { .exec-grid > * { grid-column: span 12; } }
 .exec-card {

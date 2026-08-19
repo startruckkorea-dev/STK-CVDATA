@@ -78,6 +78,15 @@
       </div>
     </div>
 
+    <!-- HOW THE YEAR IS TRACKING — the same glide path the insight page
+         carries, at management width. -->
+    <div class="exec-grid">
+      <div class="exec-card w12">
+        <h3 id="title-glide"></h3>
+        <div id="chart-glide" class="chart"></div>
+      </div>
+    </div>
+
     <section class="section">
       <h2 data-t="exec_quick_links">상세 분석 바로가기</h2>
       <div class="quick-links" id="quick-links"></div>
@@ -91,7 +100,7 @@
   import { renderSidebar } from "./js/sidebar.js";
   import { renderFilters, syncFilters, yearOptions, monthOptions } from "./js/filters.js";
   import { loadManifest, loadKaidaPair } from "./js/data.js";
-  import { trendLine, divergingBarH, waterfall, BRAND_TILE_COLORS, TOKEN } from "./js/charts.js";
+  import { trendLine, divergingBarH, waterfall, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./js/charts.js";
   import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY } from "./js/format.js";
   import { getState, subscribe } from "./js/state.js";
 
@@ -291,7 +300,40 @@
     renderContribution(facts, year, prevYear);
     renderPulse(facts);
     renderInsights(facts);
+    renderGlide(cur, prev, year, monthIdx);
     renderQuickLinks(year, s.month);
+  }
+
+  /**
+   * MB volume by month against last year, with the cumulative share riding the
+   * right axis. Same shape as the insight page's glide path, trimmed to the
+   * month this page is reading and with no table under it.
+   */
+  function renderGlide(cur, prev, year, monthIdx) {
+    document.getElementById("title-glide").textContent = `MB – ${year} SoM Glide path`;
+
+    const mbCur = months(brandRow(cur, "MB"));
+    const mbPrev = prev ? months(brandRow(prev, "MB")) : MONTHS.map(() => 0);
+    const totCur = months(totalRow(cur));
+
+    let cm = 0, ct = 0;
+    const somYtd = mbCur.map((v, i) => {
+      cm += v; ct += totCur[i];
+      return ct ? (cm / ct) * 100 : 0;
+    });
+
+    comboBarLine(document.getElementById("chart-glide"), {
+      x: MONTHS_KR,
+      bars: [
+        { name: `MB ${year}`, values: trim(mbCur, monthIdx), color: TOKEN.teal },
+        { name: prev ? `MB ${prev.year}` : "PY", values: mbPrev, color: TOKEN.mint },
+      ],
+      lines: [
+        { name: "YTD SoM", values: trim(somYtd, monthIdx), color: TOKEN.deepTeal, width: 3 },
+      ],
+      height: 320,
+      yLabel: "units",
+    });
   }
 
   /** Every number the six panels share, computed once against the same window. */
