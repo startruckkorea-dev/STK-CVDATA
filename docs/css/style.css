@@ -1058,6 +1058,8 @@ table.data .down { color: var(--danger); font-weight: 600; }
 }
 .exec-grid > * { min-width: 0; grid-column: span 4; }
 .exec-grid > .w12 { grid-column: span 12; }
+.exec-grid > .w8 { grid-column: span 8; }
+.exec-grid > .w7 { grid-column: span 7; }
 .exec-grid > .w6 { grid-column: span 6; }
 .exec-grid > .w5 { grid-column: span 5; }
 .exec-grid > .w4 { grid-column: span 4; }
@@ -1066,7 +1068,8 @@ table.data .down { color: var(--danger); font-weight: 600; }
    up under them rather than all six squeezing into two columns. */
 @media (max-width: 1280px) {
   .exec-grid > * { grid-column: span 6; }
-  .exec-grid > .w12, .exec-grid > .w6, .exec-grid > .w5 { grid-column: span 12; }
+  .exec-grid > .w12, .exec-grid > .w8, .exec-grid > .w7,
+  .exec-grid > .w6, .exec-grid > .w5 { grid-column: span 12; }
 }
 @media (max-width: 900px) { .exec-grid > * { grid-column: span 12; } }
 .exec-card {
@@ -1295,4 +1298,40 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
 }
 @media (max-width: 880px) {
   .sidebar { border-bottom-color: var(--sb-border); }
+}
+
+/* ---------------------------------------------------------------------------
+   Segment pages (Tractor / Cargo / Dump) — js/segment-page.js.
+   They reuse the executive card grid; what follows is only what the executive
+   dashboard has no equivalent for.
+--------------------------------------------------------------------------- */
+/* The segment the page is reading, sitting beside the shared page title. */
+.seg-scope {
+  color: var(--deep-teal);
+  font-weight: 600;
+  margin-left: 8px;
+}
+/* Market-weight tile: the ring sits at the right of the tile, the figure keeps
+   the left column so the row still reads as five numbers. */
+.kpi-card.weight { position: relative; padding-right: 74px; }
+.kpi-card.weight .kpi-ring {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+/* Power-class panels borrow the ranking table, minus the fixed bar column the
+   five-brand ranking sizes for. */
+table.rank.hp td.brand { width: 30%; color: var(--text); }
+table.rank.hp th:nth-child(3), table.rank.hp td:nth-child(3) { width: auto; }
+table.rank.hp td small { color: var(--muted); }
+/* ppSpan is used outside the ranking table on these pages too. */
+.pp { font-weight: 600; white-space: nowrap; }
+.pp.up { color: var(--success); }
+.pp.down { color: var(--danger); }
+.pp.flat { color: var(--muted); }
+.page-foot {
+  margin: 18px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
 }

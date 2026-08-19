@@ -504,6 +504,110 @@
     "exec_link_price_sub": {
       "ko": "가격 및 거래 동향 분석",
       "en": "Price & transaction trends"
+    },
+    "group_market_analysis": {
+      "ko": "시장 분석",
+      "en": "Market Analysis"
+    },
+    "nav_seg_tractor": {
+      "ko": "트랙터",
+      "en": "Tractor"
+    },
+    "nav_seg_cargo": {
+      "ko": "카고",
+      "en": "Cargo"
+    },
+    "nav_seg_tipper": {
+      "ko": "덤프",
+      "en": "Dump"
+    },
+    "seg_page_title": {
+      "ko": "세그먼트별 상세 분석",
+      "en": "Segment Detail Analysis"
+    },
+    "seg_page_sub": {
+      "ko": "수입 상용차 시장 세그먼트 심층 분석",
+      "en": "In-depth analysis of the imported CV market by segment"
+    },
+    "seg_kpi_ytd": {
+      "ko": "YTD 등록",
+      "en": "YTD registrations"
+    },
+    "seg_kpi_ytd_share": {
+      "ko": "YTD 점유율",
+      "en": "YTD share"
+    },
+    "seg_kpi_month": {
+      "ko": "당월 등록",
+      "en": "Month registrations"
+    },
+    "seg_kpi_month_share": {
+      "ko": "당월 점유율",
+      "en": "Month share"
+    },
+    "seg_kpi_market_weight": {
+      "ko": "시장 비중",
+      "en": "Market weight"
+    },
+    "seg_kpi_market_weight_sub": {
+      "ko": "(전체 시장 대비)",
+      "en": "(of the whole market)"
+    },
+    "seg_panel_brand_ytd": {
+      "ko": "브랜드별 YTD 등록 현황",
+      "en": "YTD registrations by brand"
+    },
+    "seg_panel_monthly": {
+      "ko": "월별 등록 추이",
+      "en": "Monthly registration trend"
+    },
+    "seg_panel_hp": {
+      "ko": "파워클래스 (hp) 분포",
+      "en": "Power class (hp) mix"
+    },
+    "seg_panel_hp_yoy": {
+      "ko": "파워클래스 증감 (YoY)",
+      "en": "Power class change (YoY)"
+    },
+    "seg_panel_brand_table": {
+      "ko": "브랜드 성과 요약",
+      "en": "Brand performance summary"
+    },
+    "seg_insight": {
+      "ko": "Insight",
+      "en": "Insight"
+    },
+    "seg_insight_growth": {
+      "ko": "성장 요인",
+      "en": "Growth driver"
+    },
+    "seg_insight_warn": {
+      "ko": "주의 요인",
+      "en": "Watch out"
+    },
+    "seg_insight_implication": {
+      "ko": "시사점",
+      "en": "Implication"
+    },
+    "seg_insight_growth_body": {
+      "ko": "{name}이(가) {yoy} ({delta}대) 늘며 세그먼트 성장을 이끌었습니다.",
+      "en": "{name} grew {yoy} ({delta} units), leading the segment."
+    },
+    "seg_insight_warn_body": {
+      "ko": "{name}은(는) {yoy} ({delta}대)로 가장 큰 감소를 기록했습니다.",
+      "en": "{name} fell {yoy} ({delta} units) — the largest decline."
+    },
+    "seg_insight_implication_body": {
+      "ko": "MB는 {seg} 세그먼트에서 {share} 점유율로 {rank}위, 전년 대비 {pp}입니다.",
+      "en": "MB holds {share} of the {seg} segment at rank {rank}, {pp} vs last year."
+    },
+    "seg_footnote": {
+      "ko": "* MoM : 전월 대비, YoY : 전년 동기 대비, pp : 퍼센트 포인트 · Source: KAIDA (수입차협회)",
+      "en": "* MoM: vs prior month, YoY: vs same period last year, pp: percentage points · Source: KAIDA"
+    },
+    "month_suffix": {
+      "ko": "월",
+      "en": "M"
     }
   },
   "enum": {

@@ -1,0 +1,449 @@
+// One segment, one page — Tractor / Cargo (Rigid) / Dump (Tipper).
+//
+// The three pages differ only in which segment they read, so they share this
+// module and pass their segment in. Everything here is KAIDA: the imported-CV
+// registration aggregate the rest of the report is built on.
+import { requireLogin } from "./auth.js";
+import { loadTranslations, applyT, t, tdata, getLang } from "./i18n.js";
+import { renderSidebar } from "./sidebar.js";
+import { renderFilters, syncFilters, yearOptions, monthOptions } from "./filters.js";
+import { loadManifest, loadKaidaPair } from "./data.js";
+import { groupedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
+import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "./format.js";
+import { getState, subscribe } from "./state.js";
+
+const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
+// Management reads the maker's name; the ticker stays in the analysis pages.
+const BRAND_LABEL = { MB: "Mercedes-Benz" };
+
+const HP_ORDER = ["<500", "500-549", "550-599", "600-699", "700+"];
+const HP_LABEL = {
+  "<500": "~499hp", "500-549": "500–549hp", "550-599": "550–599hp",
+  "600-699": "600–699hp", "700+": "700hp+",
+};
+
+let _years = [];
+let _segment = "Tractor";
+
+// ---- accessors --------------------------------------------------------------
+
+function zeros() { const o = {}; for (const m of MONTHS) o[m] = 0; o.Total = 0; return o; }
+const months = (row) => MONTHS.map(m => row[m] || 0);
+const sumThrough = (vals, last) => vals.slice(0, last).reduce((a, b) => a + (b || 0), 0);
+const trim = (vals, last) => vals.map((v, i) => (i < last ? v : null));
+
+const segRow = (d) => (d && d.by_segment && d.by_segment[_segment]) || zeros();
+const brandSegRow = (d, b) =>
+  (d && d.by_brand_seg && d.by_brand_seg[b] && d.by_brand_seg[b][_segment]) || zeros();
+const marketRow = (d) => (d && d.monthly_totals) || zeros();
+const hpRow = (d, band) => (d && d.tractor_by_hp && d.tractor_by_hp[band]) || zeros();
+
+const signed = (v, digits = 1) => {
+  if (v === null || v === undefined || Number.isNaN(v)) return "-";
+  const p = 10 ** digits;
+  return `${v > 0 ? "+" : ""}${(Math.round(v * p) / p).toFixed(digits)}`;
+};
+const label = (b) => BRAND_LABEL[b] || b;
+const monthsWithData = (vals) => vals.reduce((n, v, i) => (v ? i + 1 : n), 0);
+
+/** `hex` mixed toward white — the light end of a bar's fade. */
+function lighten(hex, amount) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
+  return `rgb(${r},${g},${b})`;
+}
+
+/** pp move with the up / down mark the rest of the report uses. */
+function ppSpan(v, suffix = "pp") {
+  if (v === null || v === undefined || Number.isNaN(v)) return `<span class="pp flat">-</span>`;
+  const cls = v > 0.05 ? "up" : v < -0.05 ? "down" : "flat";
+  const mark = v > 0.05 ? "▲" : v < -0.05 ? "▼" : "·";
+  return `<span class="pp ${cls}">${mark} ${Math.abs(Math.round(v * 10) / 10).toFixed(1)}${suffix}</span>`;
+}
+
+// ---- boot -------------------------------------------------------------------
+
+export async function initSegmentPage({ segment }) {
+  _segment = segment;
+  if (!(await requireLogin())) return;
+  await loadTranslations();
+  renderSidebar(window.location.pathname);
+  applyT();
+
+  let manifest;
+  try {
+    manifest = await loadManifest();
+  } catch (e) {
+    return banner("error", e.message);
+  }
+  _years = manifest.kaida_years || [];
+  if (!_years.length) return banner("warn", `${t("no_data")} (KAIDA)`);
+
+  renderFilters(document.getElementById("filters"), [
+    { key: "year", label: "filter_year", options: yearOptions(_years), default: _years[0] },
+    { key: "month", label: "filter_month", options: monthOptions(), default: "YTD" },
+    {
+      key: "brand", label: "filter_brand", as: "tiles",
+      options: [{ value: "ALL", label: t("filter_all") },
+                ...BRAND_ORDER.map(b => ({ value: b, label: b }))],
+      colors: BRAND_TILE_COLORS, default: "ALL",
+    },
+  ], render);
+
+  document.addEventListener("langchange", render);
+  subscribe(render);
+  render();
+}
+
+function banner(kind, msg) {
+  document.querySelector(".main").insertAdjacentHTML("afterbegin",
+    `<div class="banner ${kind}">${msg}</div>`);
+}
+
+// ---- render -----------------------------------------------------------------
+
+async function render() {
+  const s = { month: "YTD", brand: "ALL", ...getState() };
+  syncFilters();
+  const year = parseInt(s.year, 10) || _years[0];
+
+  let cur = null, prev = null;
+  try {
+    ({ cur, prev } = await loadKaidaPair(year));
+  } catch (e) { console.error(e); }
+  if (!cur) {
+    document.getElementById("kpi-row").innerHTML = `<div class="banner warn">${t("no_data")}</div>`;
+    return;
+  }
+
+  const last = cur.last_data_month || 12;
+  const monthIdx = Math.min(s.month === "YTD" ? last : parseInt(s.month, 10) || last, last);
+  const brand = BRAND_ORDER.includes(s.brand) ? s.brand : "ALL";
+
+  document.getElementById("page-sub").textContent = t("seg_page_sub");
+  document.getElementById("seg-scope").textContent = tdata(_segment, "segment");
+
+  const f = readFacts(cur, prev, monthIdx, brand);
+
+  document.getElementById("title-brand-ytd").textContent = t("seg_panel_brand_ytd");
+  document.getElementById("title-monthly").textContent = t("seg_panel_monthly");
+  document.getElementById("title-hp-mix").textContent = t("seg_panel_hp");
+  document.getElementById("title-hp-yoy").textContent = t("seg_panel_hp_yoy");
+  document.getElementById("title-brand-table").textContent =
+    `${t("seg_panel_brand_table")} (${tdata(_segment, "segment")})`;
+  document.getElementById("title-insight").textContent = t("seg_insight");
+
+  renderKpis(f, monthIdx);
+  renderBrandYtd(f, year, f.prevYear);
+  renderMonthly(f, year, f.prevYear);
+  renderHp(cur, prev, monthIdx, brand);
+  renderBrandTable(f, year, f.prevYear, monthIdx);
+  renderInsights(f);
+  applyT(document.querySelector(".main"));
+}
+
+/**
+ * Every figure the panels share, over one window.
+ *
+ * `brand` is what the page is reading — the whole segment, or one brand inside
+ * it. Share is measured against whatever contains that scope: the segment sits
+ * in the market, a brand sits in the segment.
+ */
+function readFacts(cur, prev, monthIdx, brand) {
+  const hasPrev = !!prev;
+  const scopeMonths = (d) => (brand === "ALL" ? months(segRow(d)) : months(brandSegRow(d, brand)));
+  const baseMonths = (d) => (brand === "ALL" ? months(marketRow(d)) : months(segRow(d)));
+
+  const curScope = scopeMonths(cur);
+  const prevScope = hasPrev ? scopeMonths(prev) : MONTHS.map(() => 0);
+  const curBase = baseMonths(cur);
+  const prevBase = hasPrev ? baseMonths(prev) : MONTHS.map(() => 0);
+
+  const ytd = sumThrough(curScope, monthIdx);
+  const ytdPrev = sumThrough(prevScope, monthIdx);
+  const baseYtd = sumThrough(curBase, monthIdx);
+  const baseYtdPrev = sumThrough(prevBase, monthIdx);
+
+  const mth = curScope[monthIdx - 1] || 0;
+  const mthPrevMonth = monthIdx > 1 ? curScope[monthIdx - 2] || 0 : null;
+  const baseMth = curBase[monthIdx - 1] || 0;
+  const basePrevMonth = monthIdx > 1 ? curBase[monthIdx - 2] || 0 : null;
+
+  const share = baseYtd ? (ytd / baseYtd) * 100 : 0;
+  const sharePrev = baseYtdPrev ? (ytdPrev / baseYtdPrev) * 100 : null;
+  const mthShare = baseMth ? (mth / baseMth) * 100 : 0;
+  const mthSharePrev = basePrevMonth ? ((mthPrevMonth || 0) / basePrevMonth) * 100 : null;
+
+  // The segment's own weight in the whole imported market — the same number in
+  // every brand view, so the tile keeps its meaning when a brand is picked.
+  const segYtd = sumThrough(months(segRow(cur)), monthIdx);
+  const marketYtd = sumThrough(months(marketRow(cur)), monthIdx);
+
+  // Cumulative share month by month, for the line over the monthly bars.
+  let cs = 0, cb = 0;
+  const sharePath = curScope.map((v, i) => {
+    cs += v; cb += curBase[i];
+    return cb ? (cs / cb) * 100 : 0;
+  });
+
+  const segTotal = segYtd;
+  const segTotalPrev = hasPrev ? sumThrough(months(segRow(prev)), monthIdx) : 0;
+  const brands = BRAND_ORDER.map(b => {
+    const bm = months(brandSegRow(cur, b));
+    const cy = sumThrough(bm, monthIdx);
+    const py = hasPrev ? sumThrough(months(brandSegRow(prev, b)), monthIdx) : 0;
+    const sh = segTotal ? (cy / segTotal) * 100 : 0;
+    const shPrev = segTotalPrev ? (py / segTotalPrev) * 100 : null;
+    const mo = bm[monthIdx - 1] || 0;
+    const moPrev = monthIdx > 1 ? bm[monthIdx - 2] || 0 : null;
+    return {
+      brand: b, label: label(b), cy, py, yoy: hasPrev ? calcYoY(cy, py) : null,
+      share: sh, sharePrev: shPrev, pp: shPrev === null ? null : sh - shPrev,
+      delta: cy - py, month: mo, mom: moPrev === null ? null : calcYoY(mo, moPrev),
+    };
+  }).sort((a, b) => b.cy - a.cy);
+
+  return {
+    hasPrev, brand, prevYear: prev ? prev.year : null,
+    curScope, prevScope, sharePath,
+    ytd, ytdPrev, yoy: hasPrev ? calcYoY(ytd, ytdPrev) : null,
+    share, sharePrev, pp: sharePrev === null ? null : share - sharePrev,
+    mth, mom: mthPrevMonth === null ? null : calcYoY(mth, mthPrevMonth),
+    mthShare, mthSharePp: mthSharePrev === null ? null : mthShare - mthSharePrev,
+    segWeight: marketYtd ? (segYtd / marketYtd) * 100 : 0,
+    segTotal, segTotalPrev, brands,
+  };
+}
+
+// ---- KPI tiles --------------------------------------------------------------
+
+function kpiTile(title, value, unit, deltaHtml, sub) {
+  return `
+    <div class="kpi-card">
+      <div class="title">${title}</div>
+      <div class="value">${value}${unit ? `<small>${unit}</small>` : ""}</div>
+      <div class="delta">${deltaHtml}${sub ? ` <small>${sub}</small>` : ""}</div>
+    </div>`;
+}
+
+/** Donut ring for the market-weight tile — one arc, no Plotly instance. */
+function ring(pct) {
+  const r = 24, c = 2 * Math.PI * r;
+  const on = Math.max(0, Math.min(100, pct)) / 100 * c;
+  return `
+    <svg class="kpi-ring" width="58" height="58" viewBox="0 0 58 58" aria-hidden="true">
+      <circle cx="29" cy="29" r="${r}" fill="none" stroke="#e6ecf2" stroke-width="8" />
+      <circle cx="29" cy="29" r="${r}" fill="none" stroke="${TOKEN.deepTeal}" stroke-width="8"
+              stroke-dasharray="${on.toFixed(1)} ${(c - on).toFixed(1)}"
+              transform="rotate(-90 29 29)" />
+    </svg>`;
+}
+
+function renderKpis(f, monthIdx) {
+  const mo = `${monthIdx}${t("month_suffix")}`;
+  document.getElementById("kpi-row").innerHTML = [
+    kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), " units",
+            f.hasPrev ? deltaSpan(f.yoy) : "-", "YoY"),
+    kpiTile(t("seg_kpi_ytd_share"), fmtPct(f.share), "",
+            f.pp === null ? "-" : ppSpan(f.pp), "YoY"),
+    kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), " units",
+            f.mom === null ? "-" : deltaSpan(f.mom), "MoM"),
+    kpiTile(`${t("seg_kpi_month_share")} (${mo})`, fmtPct(f.mthShare), "",
+            f.mthSharePp === null ? "-" : ppSpan(f.mthSharePp), "MoM"),
+    `<div class="kpi-card weight">
+       <div class="title">${t("seg_kpi_market_weight")}</div>
+       <div class="value">${fmtPct(f.segWeight)}</div>
+       <div class="delta"><small>${t("seg_kpi_market_weight_sub")}</small></div>
+       ${ring(f.segWeight)}
+     </div>`,
+  ].join("");
+}
+
+// ---- charts -----------------------------------------------------------------
+
+function renderBrandYtd(f, year, prevYear) {
+  const rows = f.brands;
+  groupedBar(document.getElementById("chart-brand-ytd"), {
+    categories: rows.map(r => r.label),
+    series: [
+      { name: `${year} YTD`, values: rows.map(r => r.cy), color: TOKEN.teal },
+      ...(f.hasPrev
+        ? [{ name: `${prevYear} YTD`, values: rows.map(r => r.py), color: "#d8dee4" }]
+        : []),
+    ],
+    height: 300,
+    labelSize: 13,
+  });
+}
+
+function renderMonthly(f, year, prevYear) {
+  comboBarLine(document.getElementById("chart-monthly"), {
+    x: MONTHS_KR,
+    bars: [
+      { name: String(year), values: f.curScope, color: TOKEN.teal },
+      ...(f.hasPrev ? [{ name: String(prevYear), values: f.prevScope, color: "#d8dee4" }] : []),
+    ],
+    lines: [
+      {
+        name: `${year} ${t("col_share")}`,
+        values: trim(f.sharePath, monthsWithData(f.curScope)),
+        color: TOKEN.deepTeal, width: 3,
+      },
+    ],
+    height: 300,
+    yLabel: "units",
+    labelSize: 12,
+  });
+}
+
+// ---- power class (tractor only) ---------------------------------------------
+
+function renderHp(cur, prev, monthIdx, brand) {
+  const row = document.getElementById("hp-row");
+  // Only the tractor sheets carry a horsepower rating — rigids and tippers vary
+  // by body, not by engine, so the two panels stay hidden there.
+  const hasHp = _segment === "Tractor" && cur.tractor_by_hp
+    && Object.keys(cur.tractor_by_hp).length > 0;
+  row.hidden = !hasHp;
+  if (!hasHp) return;
+
+  const pick = (d, band) => {
+    if (brand === "ALL") return hpRow(d, band);
+    const byBrand = d && d.tractor_by_hp_brand && d.tractor_by_hp_brand[brand];
+    return (byBrand && byBrand[band]) || zeros();
+  };
+  const bands = HP_ORDER.filter(b =>
+    sumThrough(months(pick(cur, b)), monthIdx) > 0 ||
+    (prev && sumThrough(months(pick(prev, b)), monthIdx) > 0));
+
+  const rows = bands.map(b => {
+    const cy = sumThrough(months(pick(cur, b)), monthIdx);
+    const py = prev ? sumThrough(months(pick(prev, b)), monthIdx) : 0;
+    return {
+      label: HP_LABEL[b], cy, py,
+      yoy: prev ? calcYoY(cy, py) : null, delta: cy - py,
+    };
+  });
+  const total = rows.reduce((a, r) => a + r.cy, 0);
+  const max = Math.max(1, ...rows.map(r => r.cy));
+  const en = getLang() === "en";
+
+  document.getElementById("hp-mix").innerHTML = `
+    <table class="rank hp">
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td class="brand">${r.label}</td>
+            <td><div class="bar" style="width:${(r.cy / max * 100).toFixed(1)}%;
+                     --bar:${TOKEN.teal};--bar-soft:${lighten(TOKEN.teal, 0.5)}"></div></td>
+            <td class="num">${fmtNum(r.cy)}
+              <small>(${fmtPct(total ? r.cy / total * 100 : 0)})</small></td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+
+  document.getElementById("hp-yoy").innerHTML = `
+    <table class="rank hp">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="num">${en ? "Cur" : "당해"}</th>
+          <th class="num">${en ? "Prev" : "전년"}</th>
+          <th class="num">YoY</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td class="brand">${r.label}</td>
+            <td class="num">${fmtNum(r.cy)}</td>
+            <td class="num">${prev ? fmtNum(r.py) : "-"}</td>
+            <td class="num">${prev
+              ? `${ppSpan(r.delta, "")} <small>${r.yoy === null ? "" : `${signed(r.yoy)}%`}</small>`
+              : "-"}</td>
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+// ---- brand table ------------------------------------------------------------
+
+function renderBrandTable(f, year, prevYear, monthIdx) {
+  const py = f.hasPrev ? prevYear : "-";
+  document.getElementById("brand-table").innerHTML = `
+    <div class="table-scroll">
+      <table class="data compact">
+        <thead>
+          <tr>
+            <th class="label" data-t="filter_brand">브랜드</th>
+            <th>YTD ${year}</th>
+            <th>YTD ${py}</th>
+            <th>YoY</th>
+            <th>SHARE ${year}</th>
+            <th>SHARE ${py}</th>
+            <th>Δ SHARE</th>
+            <th>${monthIdx}${t("month_suffix")}</th>
+            <th>MoM</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${f.brands.map(r => `
+            <tr class="${r.brand === "MB" ? "highlight" : ""}">
+              <td class="label">${r.label}</td>
+              <td class="num">${fmtNum(r.cy)}</td>
+              <td class="num">${f.hasPrev ? fmtNum(r.py) : "-"}</td>
+              <td class="num">${r.yoy === null ? "-" : deltaSpan(r.yoy)}</td>
+              <td class="num">${fmtPct(r.share)}</td>
+              <td class="num">${r.sharePrev === null ? "-" : fmtPct(r.sharePrev)}</td>
+              <td class="num">${r.pp === null ? "-" : ppSpan(r.pp)}</td>
+              <td class="num">${fmtNum(r.month)}</td>
+              <td class="num">${r.mom === null ? "-" : deltaSpan(r.mom)}</td>
+            </tr>`).join("")}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ---- insights ---------------------------------------------------------------
+
+function insightCard(kind, title, body) {
+  return `
+    <div class="insight">
+      <span class="dot ${kind}"></span>
+      <div><h4>${title}</h4><p>${body}</p></div>
+    </div>`;
+}
+
+function renderInsights(f) {
+  const el = document.getElementById("insight-list");
+  if (!f.hasPrev) { el.innerHTML = `<p class="ql-sub">${t("no_data")}</p>`; return; }
+
+  const out = [];
+  const byDelta = [...f.brands].sort((a, b) => b.delta - a.delta);
+  const up = byDelta[0], down = byDelta[byDelta.length - 1];
+
+  if (up && up.delta > 0) {
+    out.push(insightCard("good", t("seg_insight_growth"), t("seg_insight_growth_body", {
+      name: up.label, yoy: `${signed(up.yoy)}%`, delta: signed(up.delta, 0),
+    })));
+  }
+  if (down && down.delta < 0) {
+    out.push(insightCard("bad", t("seg_insight_warn"), t("seg_insight_warn_body", {
+      name: down.label, yoy: `${signed(down.yoy)}%`, delta: signed(down.delta, 0),
+    })));
+  }
+  const rank = f.brands.findIndex(b => b.brand === "MB");
+  if (rank >= 0) {
+    const mb = f.brands[rank];
+    out.push(insightCard("warn", t("seg_insight_implication"), t("seg_insight_implication_body", {
+      seg: tdata(_segment, "segment"),
+      share: fmtPct(mb.share),
+      rank: String(rank + 1),
+      pp: mb.pp === null ? "-" : `${signed(mb.pp)}pp`,
+    })));
+  }
+  el.innerHTML = out.join("");
+}

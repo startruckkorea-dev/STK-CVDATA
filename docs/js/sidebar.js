@@ -14,13 +14,19 @@ const NAV = [
     ],
   },
   {
+    // One page per segment, each reading the same KAIDA aggregate through
+    // js/segment-page.js. Replaces the old insight / segment / segment-detail
+    // trio, which split one segment's story across three screens.
+    group: "market_analysis",
+    items: [
+      { href: "/pages/seg-tractor.html", key: "nav_seg_tractor" },
+      { href: "/pages/seg-cargo.html", key: "nav_seg_cargo" },
+      { href: "/pages/seg-tipper.html", key: "nav_seg_tipper" },
+    ],
+  },
+  {
     group: "import_cv",
     items: [
-      { href: "/pages/insight.html", key: "nav_market_insight" },
-      { href: "/pages/segment.html", key: "nav_segment" },
-      // Reached from KAIDA 세그먼트 분석 — its own page because the brand detail
-      // made that one too long to scroll.
-      { href: "/pages/segment-detail.html", key: "nav_segment_detail", sub: true },
       { href: "/pages/kama.html", key: "nav_kama" },
     ],
   },

@@ -653,10 +653,10 @@
     // executive numbers were read from.
     const q = `?year=${year}&month=${month}`;
     document.getElementById("quick-links").innerHTML = [
-      qlink(`pages/segment.html${q}&segment=Tractor`, "tractor", t("exec_link_tractor"), t("exec_link_seg_sub")),
-      qlink(`pages/segment.html${q}&segment=Rigid`, "rigid", t("exec_link_rigid"), t("exec_link_seg_sub")),
-      qlink(`pages/segment.html${q}&segment=Tipper`, "tipper", t("exec_link_tipper"), t("exec_link_seg_sub")),
-      qlink(`pages/segment-detail.html${q}`, "bars", t("exec_link_brand"), t("exec_link_brand_sub")),
+      qlink(`pages/seg-tractor.html${q}`, "tractor", t("exec_link_tractor"), t("exec_link_seg_sub")),
+      qlink(`pages/seg-cargo.html${q}`, "rigid", t("exec_link_rigid"), t("exec_link_seg_sub")),
+      qlink(`pages/seg-tipper.html${q}`, "tipper", t("exec_link_tipper"), t("exec_link_seg_sub")),
+      qlink(`pages/kama.html${q}`, "bars", t("nav_kama"), t("exec_link_brand_sub")),
       qlink(`pages/bestselling.html${q}`, "list", t("exec_link_model"), t("exec_link_model_sub")),
       qlink(`pages/price.html${q}`, "tag", t("exec_link_price"), t("exec_link_price_sub")),
     ].join("");
