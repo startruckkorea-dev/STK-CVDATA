@@ -501,7 +501,7 @@ export const colors = { BRAND_COLORS, SEGMENT_COLORS, colorFor };
 // KPI tiles and tables, so these three charts drop the on-mark labels the
 // analysis charts carry and keep their frames quiet.
 
-const EXEC_AXIS = { size: 14, color: "#6e7781" };
+const EXEC_AXIS = { size: 12, color: "#6e7781" };
 
 /**
  * Monthly trend — current year against prior year, plus an optional average.
@@ -509,7 +509,7 @@ const EXEC_AXIS = { size: 14, color: "#6e7781" };
  * with `fill` gets the ground under it shaded, which is what separates the
  * line being read from the ones it is measured against.
  */
-export function trendLine(el, { x, series, height = 250 }) {
+export function trendLine(el, { x, series, height = 210 }) {
   const traces = series.map(s => ({
     type: "scatter",
     mode: "lines+markers",
@@ -524,9 +524,11 @@ export function trendLine(el, { x, series, height = 250 }) {
   }));
   plot(el, traces, mergeLayout({
     height,
-    margin: { l: 42, r: 12, t: 26, b: 30 },
-    legend: { orientation: "h", y: 1.16, x: 0, xanchor: "left", font: { size: 14 } },
-    xaxis: { tickfont: EXEC_AXIS, showgrid: false },
+    margin: { l: 44, r: 12, t: 30, b: 28 },
+    legend: { orientation: "h", y: 1.2, x: 0, xanchor: "left", font: { size: 12 } },
+    // tickangle 0: let the labels drop out rather than tip on their side and
+    // run past the bottom of the card.
+    xaxis: { tickfont: EXEC_AXIS, tickangle: 0, showgrid: false, automargin: false },
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", rangemode: "tozero", gridcolor: "#eef1f5" },
   }), CONFIG);
 }
@@ -537,8 +539,8 @@ export function trendLine(el, { x, series, height = 250 }) {
  * positive colour, losses in the negative one.
  */
 export function divergingBarH(el, {
-  categories, values, height = 250, suffix = "pp",
-  posColor = "#1f883d", negColor = "#d4122a", leftMargin = 108,
+  categories, values, height = 210, suffix = "pp",
+  posColor = "#1f883d", negColor = "#d4122a", leftMargin = 120,
 }) {
   const span = Math.max(0.5, ...values.map(v => Math.abs(v || 0)));
   const trace = {
@@ -549,7 +551,7 @@ export function divergingBarH(el, {
     marker: { color: values.map(v => (v >= 0 ? posColor : negColor)) },
     text: values.map(v => `${v > 0 ? "+" : ""}${(Math.round(v * 10) / 10).toFixed(1)}${suffix}`),
     textposition: "outside",
-    textfont: { size: 14 },
+    textfont: { size: 13 },
     cliponaxis: false,
     hoverinfo: "skip",
   };
@@ -561,10 +563,10 @@ export function divergingBarH(el, {
     xaxis: {
       // Wide enough that the outside label on the longest bar still lands
       // clear of the category names in the margin.
-      range: [-span * 1.9, span * 1.9], zeroline: true, zerolinecolor: "#8c959f",
+      range: [-span * 2.2, span * 2.2], zeroline: true, zerolinecolor: "#8c959f",
       zerolinewidth: 1, tickfont: EXEC_AXIS, ticksuffix: suffix, gridcolor: "#f2f4f7",
     },
-    yaxis: { autorange: "reversed", tickfont: { size: 14, color: "#1f2328" } },
+    yaxis: { autorange: "reversed", tickfont: { size: 13, color: "#1f2328" } },
   }), CONFIG);
   gradientBars(el, "h", { reverse: [negColor] });
 }
@@ -575,7 +577,7 @@ export function divergingBarH(el, {
  * absolute totals are added as the first and last bar.
  */
 export function waterfall(el, {
-  startLabel, startValue, endLabel, endValue, steps, height = 250,
+  startLabel, startValue, endLabel, endValue, steps, height = 210,
   posColor = "#1f883d", negColor = "#d4122a", totalColor = "#d8dee4",
 }) {
   const trace = {
@@ -586,7 +588,7 @@ export function waterfall(el, {
     y: [startValue, ...steps.map(s => s.value), endValue],
     text: ["", ...steps.map(s => `${s.value > 0 ? "+" : ""}${Number(s.value).toLocaleString("en-US")}`), ""],
     textposition: "outside",
-    textfont: { size: 14 },
+    textfont: { size: 13 },
     increasing: { marker: { color: posColor } },
     decreasing: { marker: { color: negColor } },
     totals: { marker: { color: totalColor } },
@@ -597,8 +599,8 @@ export function waterfall(el, {
   plot(el, [trace], mergeLayout({
     height,
     showlegend: false,
-    margin: { l: 46, r: 12, t: 24, b: 34 },
-    xaxis: { tickfont: { size: 13, color: "#6e7781" }, showgrid: false },
+    margin: { l: 46, r: 12, t: 24, b: 30 },
+    xaxis: { tickfont: { size: 12, color: "#6e7781" }, tickangle: 0, showgrid: false },
     // The bars only ever move a few hundred units around a ~2,000 base, so a
     // zero-based axis would flatten every step into the same nub.
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", gridcolor: "#eef1f5" },

@@ -428,7 +428,7 @@
         { name: `${t("exec_ma3")} (${cur.year})`, values: ma, color: "#1A3A82",
           width: 1.6, dash: "dot", markerSize: 0 },
       ],
-      height: 290,
+      height: 240,
     });
   }
 
@@ -462,7 +462,7 @@
     divergingBarH(document.getElementById("chart-share-change"), {
       categories: rows.map(r => r.label),
       values: rows.map(r => Math.round(r.pp * 10) / 10),
-      height: 290,
+      height: 240,
       posColor: POS, negColor: NEG,
     });
   }
@@ -476,7 +476,7 @@
     waterfall(document.getElementById("chart-contribution"), {
       startLabel: `YTD ${prevYear}`, startValue: f.totalPrev,
       endLabel: `YTD ${year}`, endValue: f.total,
-      steps, height: 290, posColor: POS, negColor: NEG,
+      steps, height: 240, posColor: POS, negColor: NEG,
     });
 
     const change = f.total - f.totalPrev;
