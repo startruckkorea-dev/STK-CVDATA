@@ -7,7 +7,7 @@ import { loadingFinish } from "./loading.js";
 
 const BASE_LAYOUT = {
   template: "plotly_white",
-  font: { family: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans KR, Roboto, sans-serif", size: 15 },
+  font: { family: "-apple-system, BlinkMacSystemFont, Segoe UI, Noto Sans KR, Roboto, sans-serif", size: 17 },
   // Sized for the 15px axis ticks — Plotly clips a tick label at the margin
   // rather than growing the plot to fit it.
   margin: { l: 58, r: 24, t: 20, b: 42 },
@@ -126,7 +126,7 @@ function mergeLayout(extra = {}) {
 // are read on screen and in print, where hovering is not an option, so the
 // labels are sized to be read at arm's length rather than to fit the densest
 // chart.
-const LABEL_SIZE = 15;
+const LABEL_SIZE = 17;
 const LABEL_FONT = { size: LABEL_SIZE };
 
 /** Format a value for an on-chart label. kind: "int" | "pct" | "pct1" */
@@ -279,7 +279,7 @@ export function shareBandH(el, {
       textposition: "inside",
       insidetextanchor: "middle",
       // White on the pale competitor greys is unreadable — pick per-bar contrast.
-      textfont: { size: 17, color: onColor(fill) },
+      textfont: { size: 19, color: onColor(fill) },
       hovertemplate: `%{y} · ${k}: %{text}<extra></extra>`,
     };
   });
@@ -288,7 +288,7 @@ export function shareBandH(el, {
     x: 100, y: r, xref: "x", yref: "y",
     text: `<b>${labelText(totals[i])}</b>`,
     showarrow: false, xanchor: "left", xshift: 8,
-    font: { size: 18, color: "#1f2328" },
+    font: { size: 20, color: "#1f2328" },
   })) : [];
   plot(el, traces, mergeLayout({
     barmode: "stack",
@@ -296,7 +296,7 @@ export function shareBandH(el, {
     showlegend: false,          // the page renders its own compact brand legend
     margin: { l: 66, r: showRowTotals ? 76 : 16, t: 8, b: 20 },
     xaxis: { range: [0, 100], showticklabels: false, showgrid: false, zeroline: false },
-    yaxis: { autorange: "reversed", tickfont: { size: 17 } },
+    yaxis: { autorange: "reversed", tickfont: { size: 19 } },
     // No uniformtext: it would shrink every label to fit the narrowest slice.
     // Per-bar autoshrink keeps the big segments at full size.
     annotations,
@@ -501,7 +501,7 @@ export const colors = { BRAND_COLORS, SEGMENT_COLORS, colorFor };
 // KPI tiles and tables, so these three charts drop the on-mark labels the
 // analysis charts carry and keep their frames quiet.
 
-const EXEC_AXIS = { size: 12, color: "#6e7781" };
+const EXEC_AXIS = { size: 14, color: "#6e7781" };
 
 /**
  * Monthly trend — current year against prior year, plus an optional average.
@@ -525,7 +525,7 @@ export function trendLine(el, { x, series, height = 250 }) {
   plot(el, traces, mergeLayout({
     height,
     margin: { l: 42, r: 12, t: 26, b: 30 },
-    legend: { orientation: "h", y: 1.16, x: 0, xanchor: "left", font: { size: 12 } },
+    legend: { orientation: "h", y: 1.16, x: 0, xanchor: "left", font: { size: 14 } },
     xaxis: { tickfont: EXEC_AXIS, showgrid: false },
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", rangemode: "tozero", gridcolor: "#eef1f5" },
   }), CONFIG);
@@ -549,7 +549,7 @@ export function divergingBarH(el, {
     marker: { color: values.map(v => (v >= 0 ? posColor : negColor)) },
     text: values.map(v => `${v > 0 ? "+" : ""}${(Math.round(v * 10) / 10).toFixed(1)}${suffix}`),
     textposition: "outside",
-    textfont: { size: 12 },
+    textfont: { size: 14 },
     cliponaxis: false,
     hoverinfo: "skip",
   };
@@ -564,7 +564,7 @@ export function divergingBarH(el, {
       range: [-span * 1.9, span * 1.9], zeroline: true, zerolinecolor: "#8c959f",
       zerolinewidth: 1, tickfont: EXEC_AXIS, ticksuffix: suffix, gridcolor: "#f2f4f7",
     },
-    yaxis: { autorange: "reversed", tickfont: { size: 12, color: "#1f2328" } },
+    yaxis: { autorange: "reversed", tickfont: { size: 14, color: "#1f2328" } },
   }), CONFIG);
   gradientBars(el, "h", { reverse: [negColor] });
 }
@@ -586,7 +586,7 @@ export function waterfall(el, {
     y: [startValue, ...steps.map(s => s.value), endValue],
     text: ["", ...steps.map(s => `${s.value > 0 ? "+" : ""}${Number(s.value).toLocaleString("en-US")}`), ""],
     textposition: "outside",
-    textfont: { size: 12 },
+    textfont: { size: 14 },
     increasing: { marker: { color: posColor } },
     decreasing: { marker: { color: negColor } },
     totals: { marker: { color: totalColor } },
@@ -598,7 +598,7 @@ export function waterfall(el, {
     height,
     showlegend: false,
     margin: { l: 46, r: 12, t: 24, b: 34 },
-    xaxis: { tickfont: { size: 11, color: "#6e7781" }, showgrid: false },
+    xaxis: { tickfont: { size: 13, color: "#6e7781" }, showgrid: false },
     // The bars only ever move a few hundred units around a ~2,000 base, so a
     // zero-based axis would flatten every step into the same nub.
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", gridcolor: "#eef1f5" },
