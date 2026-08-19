@@ -1225,3 +1225,73 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
 .exec-foot .cf-value { font-weight: 700; font-variant-numeric: tabular-nums; }
 .exec-foot .cf-value.up { color: var(--success); }
 .exec-foot .cf-value.down { color: var(--danger); }
+
+/* ---------------------------------------------------------------------------
+   Dark sidebar. The nav sits on black so the Mercedes-Benz mark (white 1C
+   version, assets/mb-logo-white.svg) reads the way the brand sheet intends.
+   Scoped tokens rather than edits to the rules above, so the light page body
+   keeps using the global --text/--border/--muted unchanged.
+--------------------------------------------------------------------------- */
+.sidebar {
+  --sb-bg: #121212;
+  --sb-border: #2d3136;
+  --sb-text: #eceff2;
+  --sb-muted: #98a2ad;
+  --sb-hover: #202429;
+  --sb-accent: #7fa8ff;
+
+  background: var(--sb-bg);
+  border-right-color: var(--sb-border);
+  color: var(--sb-text);
+}
+.sidebar .brand { border-bottom-color: var(--sb-border); }
+.sidebar h1 { color: var(--sb-text); }
+.sidebar .subtitle,
+.sidebar .nav-group > summary { color: var(--sb-muted); }
+.sidebar .nav-group li a { color: var(--sb-text); }
+.sidebar .nav-group li a.sub { color: var(--sb-muted); }
+.sidebar .nav-group li a.sub::before { color: #4a5058; }
+.sidebar .nav-group li a:hover { background: var(--sb-hover); }
+.sidebar .nav-group li a.active,
+.sidebar .nav-group li a.sub.active {
+  background: rgba(127, 168, 255, 0.16);
+  color: var(--sb-accent);
+}
+.sidebar .lang-toggle { border-top-color: var(--sb-border); }
+.sidebar .lang-toggle button {
+  background: transparent;
+  border-color: var(--sb-border);
+  color: var(--sb-muted);
+}
+.sidebar .lang-toggle button:hover { background: var(--sb-hover); }
+.sidebar .lang-toggle button.active {
+  background: var(--sb-accent);
+  border-color: var(--sb-accent);
+  color: #111417;
+}
+.sidebar .user-chip { border-top-color: var(--sb-border); }
+.sidebar .user-chip .user-name { color: var(--sb-text); }
+.sidebar .user-chip .user-mail { color: var(--sb-muted); }
+.sidebar .user-chip button.signout {
+  background: transparent;
+  border-color: var(--sb-border);
+  color: var(--sb-muted);
+}
+.sidebar .user-chip button.signout:hover { color: #ff7b8a; border-color: #ff7b8a; }
+.sidebar .data-box { border-top-color: var(--sb-border); }
+.sidebar .data-age,
+.sidebar .data-source { color: var(--sb-muted); }
+.sidebar .data-source.live { color: #6ee7a8; }
+.sidebar .data-source.failed { color: #ff7b8a; }
+.sidebar .data-refresh {
+  background: transparent;
+  border-color: var(--sb-border);
+  color: var(--sb-muted);
+}
+.sidebar .data-refresh:hover:not([disabled]) {
+  color: var(--sb-accent);
+  border-color: var(--sb-accent);
+}
+@media (max-width: 880px) {
+  .sidebar { border-bottom-color: var(--sb-border); }
+}
