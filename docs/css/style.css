@@ -762,20 +762,38 @@ table.data .down { color: var(--danger); font-weight: 600; }
 
 /* Auth gate (login / forbidden screens) */
 .auth-gate {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f6f8fa 0%, #e6ecf2 100%);
+  /* Layered: an optional photo (assets/login-bg.jpg) on top, the branded
+     SVG below it, the old gradient last. Drop in the jpg and it takes over;
+     leave it out and the SVG shows. */
+  background-image: url("../assets/login-bg.jpg"),
+                    url("../assets/login-bg.svg"),
+                    linear-gradient(135deg, #f6f8fa 0%, #e6ecf2 100%);
+  background-size: cover, cover, auto;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+/* Scrim: keeps the card readable over a bright or busy photo. */
+.auth-gate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(0,0,0,0.45), rgba(0,0,0,0.25));
 }
 .auth-card {
+  position: relative;
   max-width: 420px;
   width: 90vw;
   padding: 36px 32px;
-  background: white;
+  background: rgba(255,255,255,0.94);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--border);
   border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+  box-shadow: 0 18px 48px rgba(0,0,0,0.28);
   text-align: center;
 }
 .auth-card .auth-logo {
