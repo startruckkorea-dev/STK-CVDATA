@@ -765,8 +765,12 @@ table.data .down { color: var(--danger); font-weight: 600; }
   position: relative;
   min-height: 100vh;
   display: flex;
-  align-items: center;
+  /* Card sits near the top so the trucks along the bottom of the photo
+     stay visible; the padding keeps it clear on short viewports. */
+  align-items: flex-start;
   justify-content: center;
+  padding: 7vh 16px 40px;
+  box-sizing: border-box;
   /* Layered: an optional photo (assets/login-bg.jpg) on top, the branded
      SVG below it, the old gradient last. Drop in the jpg and it takes over;
      leave it out and the SVG shows. */
