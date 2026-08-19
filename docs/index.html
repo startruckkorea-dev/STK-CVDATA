@@ -340,13 +340,15 @@
   // ---- KPI tiles ------------------------------------------------------------
 
   function kpiCard(title, value, unit, delta, deltaLabel, spark) {
+    // Same up/down marks as ppSpan, so a tile and the ranking table read alike.
+    const mark = delta.cls === "up" ? "▲ " : delta.cls === "down" ? "▼ " : "";
     return `
       <div class="exec-kpi">
         <div class="k-title">${title}</div>
         <div class="k-body">
           <div>
             <div class="k-value">${value}${unit ? `<small>${unit}</small>` : ""}</div>
-            <div class="k-delta ${delta.cls}">${delta.text}${deltaLabel ? ` <small>${deltaLabel}</small>` : ""}</div>
+            <div class="k-delta ${delta.cls}">${mark}${delta.text}${deltaLabel ? ` <small>${deltaLabel}</small>` : ""}</div>
           </div>
           ${spark}
         </div>
@@ -397,7 +399,8 @@
         sparkLine(somPath, { color: "#231F20" })),
       kpiCard(
         t("exec_kpi_momentum"), `${signed(f.marketYoY)}%`, "",
-        { cls: "", text: f.marketYoY >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline") }, "",
+        { cls: dir(f.marketYoY),
+          text: f.marketYoY >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline") }, "",
         sparkLine(momentumPath, { color: "#1A3A82" })),
     ].join("");
   }
