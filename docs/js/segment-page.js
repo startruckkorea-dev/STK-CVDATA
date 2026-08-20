@@ -8,7 +8,7 @@ import { loadTranslations, applyT, t, tdata } from "./i18n.js";
 import { renderSidebar } from "./sidebar.js";
 import { renderFilters, syncFilters, yearOptions, monthOptions } from "./filters.js";
 import { loadManifest, loadKaidaPair } from "./data.js";
-import { groupedBar, stackedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
+import { lineChart, stackedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
 import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "./format.js";
 import { getState, subscribe } from "./state.js";
 
@@ -24,12 +24,25 @@ let _segment = "Tractor";
 function zeros() { const o = {}; for (const m of MONTHS) o[m] = 0; o.Total = 0; return o; }
 const months = (row) => MONTHS.map(m => row[m] || 0);
 const sumThrough = (vals, last) => vals.slice(0, last).reduce((a, b) => a + (b || 0), 0);
-const trim = (vals, last) => vals.map((v, i) => (i < last ? v : null));
 
 const segRow = (d) => (d && d.by_segment && d.by_segment[_segment]) || zeros();
 const brandSegRow = (d, b) =>
   (d && d.by_brand_seg && d.by_brand_seg[b] && d.by_brand_seg[b][_segment]) || zeros();
 const marketRow = (d) => (d && d.monthly_totals) || zeros();
+
+/** One brand's cumulative (YTD) share of the segment, month by month — the
+ *  same number the scorecard's SHARE column shows, traced across the year.
+ *  Months the year has not reached yet come back null so the line stops. */
+function somPath(d, brand) {
+  const bm = months(brandSegRow(d, brand));
+  const seg = months(segRow(d));
+  const last = monthsWithData(seg);
+  let num = 0, den = 0;
+  return bm.map((v, i) => {
+    num += v; den += seg[i];
+    return i < last && den ? (num / den) * 100 : null;
+  });
+}
 
 const signed = (v, digits = 1) => {
   if (v === null || v === undefined || Number.isNaN(v)) return "-";
@@ -111,18 +124,20 @@ async function render() {
 
   const f = readFacts(cur, prev, monthIdx, brand);
 
-  document.getElementById("title-brand-ytd").textContent = t("seg_panel_brand_ytd");
   document.getElementById("title-monthly").textContent = t("seg_panel_monthly");
   document.getElementById("title-hp-points").textContent = t("chart_hp_points");
   document.getElementById("title-brand-table").textContent =
     `${t("seg_panel_brand_table")} (${tdata(_segment, "segment")})`;
   document.getElementById("title-insight").textContent = t("seg_insight");
 
+  document.getElementById("title-som").textContent =
+    t("seg_panel_som", { name: label(f.somBrand) });
+
   renderKpis(f, monthIdx);
   renderBrandTable(f, year, f.prevYear, monthIdx);
   renderInsights(f);
   renderHpPoints(cur, monthIdx);
-  renderBrandYtd(f, year, f.prevYear);
+  renderSom(f, year, f.prevYear);
   renderMonthly(f, year, f.prevYear);
   applyT(document.querySelector(".main"));
 }
@@ -164,13 +179,6 @@ function readFacts(cur, prev, monthIdx, brand) {
   const segYtd = sumThrough(months(segRow(cur)), monthIdx);
   const marketYtd = sumThrough(months(marketRow(cur)), monthIdx);
 
-  // Cumulative share month by month, for the line over the monthly bars.
-  let cs = 0, cb = 0;
-  const sharePath = curScope.map((v, i) => {
-    cs += v; cb += curBase[i];
-    return cb ? (cs / cb) * 100 : 0;
-  });
-
   const segTotal = segYtd;
   const segTotalPrev = hasPrev ? sumThrough(months(segRow(prev)), monthIdx) : 0;
   const brands = BRAND_ORDER.map(b => {
@@ -188,9 +196,15 @@ function readFacts(cur, prev, monthIdx, brand) {
     };
   }).sort((a, b) => b.cy - a.cy);
 
+  // The share chart follows the brand filter, and reads MB while it is off:
+  // the question the page answers first is where MB sits in this segment.
+  const somBrand = brand === "ALL" ? "MB" : brand;
+
   return {
-    hasPrev, brand, prevYear: prev ? prev.year : null,
-    curScope, prevScope, sharePath,
+    hasPrev, brand, somBrand, prevYear: prev ? prev.year : null,
+    curSom: somPath(cur, somBrand),
+    prevSom: hasPrev ? somPath(prev, somBrand) : null,
+    curScope, prevScope,
     ytd, ytdPrev, yoy: hasPrev ? calcYoY(ytd, ytdPrev) : null,
     share, sharePrev, pp: sharePrev === null ? null : share - sharePrev,
     mth, mom: mthPrevMonth === null ? null : calcYoY(mth, mthPrevMonth),
@@ -246,18 +260,21 @@ function renderKpis(f, monthIdx) {
 
 // ---- charts -----------------------------------------------------------------
 
-function renderBrandYtd(f, year, prevYear) {
-  const rows = f.brands;
-  groupedBar(document.getElementById("chart-brand-ytd"), {
-    categories: rows.map(r => r.label),
+/** YTD share of the segment, this year against last — the glide path behind
+ *  the scorecard's SHARE / Δ SHARE columns. */
+function renderSom(f, year, prevYear) {
+  lineChart(document.getElementById("chart-som"), {
+    x: MONTHS_KR,
+    valueKind: "pct1",
+    yLabel: "%",
+    height: 300,
+    labelSize: 12,
     series: [
-      { name: `${year} YTD`, values: rows.map(r => r.cy), color: TOKEN.teal },
+      { name: `${year} ${f.somBrand} YTD SoM`, values: f.curSom, color: TOKEN.deepTeal },
       ...(f.hasPrev
-        ? [{ name: `${prevYear} YTD`, values: rows.map(r => r.py), color: "#d8dee4" }]
+        ? [{ name: `${prevYear} ${f.somBrand} YTD SoM`, values: f.prevSom, color: TOKEN.mint }]
         : []),
     ],
-    height: 300,
-    labelSize: 13,
   });
 }
 
@@ -268,13 +285,8 @@ function renderMonthly(f, year, prevYear) {
       { name: String(year), values: f.curScope, color: TOKEN.teal },
       ...(f.hasPrev ? [{ name: String(prevYear), values: f.prevScope, color: "#d8dee4" }] : []),
     ],
-    lines: [
-      {
-        name: `${year} ${t("col_share")}`,
-        values: trim(f.sharePath, monthsWithData(f.curScope)),
-        color: TOKEN.deepTeal, width: 3,
-      },
-    ],
+    // Volume only: the share line moved to its own panel next door.
+    lines: [],
     height: 300,
     yLabel: "units",
     labelSize: 12,
@@ -333,6 +345,7 @@ function renderBrandTable(f, year, prevYear, monthIdx) {
       <table class="data compact">
         <thead>
           <tr>
+            <th class="rank"></th>
             <th class="label" data-t="filter_brand">브랜드</th>
             <th>YTD ${year}</th>
             <th>YTD ${py}</th>
@@ -345,8 +358,9 @@ function renderBrandTable(f, year, prevYear, monthIdx) {
           </tr>
         </thead>
         <tbody>
-          ${f.brands.map(r => `
+          ${f.brands.map((r, i) => `
             <tr class="${r.brand === "MB" ? "highlight" : ""}">
+              <td class="rank">${i + 1}</td>
               <td class="label">${r.label}</td>
               <td class="num">${fmtNum(r.cy)}</td>
               <td class="num">${f.hasPrev ? fmtNum(r.py) : "-"}</td>

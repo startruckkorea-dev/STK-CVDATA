@@ -554,9 +554,9 @@
       "ko": "(전체 시장 대비)",
       "en": "(of the whole market)"
     },
-    "seg_panel_brand_ytd": {
-      "ko": "브랜드별 YTD 등록 현황",
-      "en": "YTD registrations by brand"
+    "seg_panel_som": {
+      "ko": "{name} 점유율 월별 추이 (YTD 누적)",
+      "en": "{name} share trend (YTD cumulative)"
     },
     "seg_panel_monthly": {
       "ko": "월별 등록 추이",

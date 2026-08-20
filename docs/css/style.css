@@ -481,6 +481,18 @@ table.data th.label {
   font-weight: 500;
   color: var(--text);
 }
+/* Standing in the segment — the scorecard is sorted by volume, so a row's
+   position already carries the ranking; numbering it saves the counting. */
+table.data th.rank,
+table.data td.rank {
+  width: 1.6em;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 4px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+table.data tr.highlight td.rank { color: var(--text); }
 table.data tr:hover td { background: #fafbfc; }
 table.data tr.highlight td { background: var(--accent-soft); font-weight: 600; }
 table.data tr.sub td { color: var(--muted); font-size: 1.08rem; }

@@ -237,7 +237,10 @@ export function stackedBar(el, {
   });
 }
 
-export function lineChart(el, { x, series, title, yLabel, valueKind = "int" }) {
+export function lineChart(el, {
+  x, series, title, yLabel, valueKind = "int", height, labelSize,
+}) {
+  const font = labelSize ? { size: labelSize } : LABEL_FONT;
   const traces = series.map(s => ({
     type: "scatter",
     mode: "lines+markers+text",
@@ -248,12 +251,17 @@ export function lineChart(el, { x, series, title, yLabel, valueKind = "int" }) {
     marker: { size: 6 },
     text: labelsFor(s.values, s.valueKind || valueKind),
     textposition: "top center",
-    textfont: LABEL_FONT,
+    textfont: { ...font, color: s.color || colorFor(s.name) },
     cliponaxis: false,
+    connectgaps: false,
   }));
+  const pct = valueKind === "pct" || valueKind === "pct1";
   plot(el, traces, mergeLayout({
     title,
-    yaxis: { title: yLabel, tickformat: "," },
+    height,
+    // A percentage axis reads as a share, not as a count: no thousands comma,
+    // and no tick suffix either — every point already carries its own % label.
+    yaxis: pct ? { title: yLabel } : { title: yLabel, tickformat: "," },
   }), CONFIG);
 }
 
