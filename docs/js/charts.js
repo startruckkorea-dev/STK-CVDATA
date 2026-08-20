@@ -194,6 +194,10 @@ export function groupedBar(el, {
   }));
   plot(el, traces, mergeLayout({
     title, barmode, showlegend, height,
+    // Plotly flips the legend for stacked bars so it matches the stack from
+    // the top down. These stacks are read as a brand ranking, not as a
+    // vertical order, so keep the legend in the order the series arrive.
+    legend: { ...BASE_LAYOUT.legend, traceorder: "normal" },
     uniformtext: { mode: "hide", minsize: 8 },
     ...(yaxis ? { yaxis } : {}),
     ...(shapes ? { shapes } : {}),
@@ -553,30 +557,37 @@ export function divergingBarH(el, {
   posColor = "#1f883d", negColor = "#d4122a", leftMargin = 120,
 }) {
   const span = Math.max(0.5, ...values.map(v => Math.abs(v || 0)));
+  const text = (v) => `${v > 0 ? "+" : ""}${(Math.round(v * 10) / 10).toFixed(1)}${suffix}`;
   const trace = {
     type: "bar",
     orientation: "h",
     y: categories,
     x: values,
     marker: { color: values.map(v => (v >= 0 ? posColor : negColor)) },
-    text: values.map(v => `${v > 0 ? "+" : ""}${(Math.round(v * 10) / 10).toFixed(1)}${suffix}`),
-    textposition: "outside",
-    textfont: { size: 13 },
     cliponaxis: false,
     hoverinfo: "skip",
   };
   plot(el, [trace], mergeLayout({
     height,
     showlegend: false,
-    margin: { l: leftMargin, r: 40, t: 10, b: 26 },
+    // Room on the right for the value column; the bars themselves stay inside
+    // the plot, so a narrow card cannot squeeze a label into the names.
+    margin: { l: leftMargin, r: 56, t: 10, b: 26 },
     bargap: 0.42,
     xaxis: {
-      // Wide enough that the outside label on the longest bar still lands
-      // clear of the category names in the margin.
-      range: [-span * 2.2, span * 2.2], zeroline: true, zerolinecolor: "#8c959f",
+      range: [-span * 1.3, span * 1.3], zeroline: true, zerolinecolor: "#8c959f",
       zerolinewidth: 1, tickfont: EXEC_AXIS, ticksuffix: suffix, gridcolor: "#f2f4f7",
     },
     yaxis: { autorange: "reversed", tickfont: { size: 13, color: "#1f2328" } },
+    // A label hung off the end of a bar runs into the category name as soon as
+    // the card is narrow — and the bar pointing left is the one that has the
+    // least room. Read the moves as a column at the right edge instead, where
+    // they line up with each other and cannot collide with anything.
+    annotations: categories.map((c, i) => ({
+      xref: "paper", x: 1, xanchor: "left", xshift: 6,
+      yref: "y", y: c, text: text(values[i]), showarrow: false,
+      font: { size: 13, color: values[i] >= 0 ? posColor : negColor },
+    })),
   }), CONFIG);
   gradientBars(el, "h", { reverse: [negColor] });
 }

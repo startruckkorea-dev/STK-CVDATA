@@ -514,13 +514,33 @@
       "ko": "트랙터",
       "en": "Tractor"
     },
+    "kama_sub": {
+      "ko": "현대 · 타타대우 월별 등록 + SoM",
+      "en": "Hyundai · Tata Daewoo monthly registrations + SoM"
+    },
+    "kama_sec_sales": {
+      "ko": "국내 상용차 판매",
+      "en": "Domestic truck sales"
+    },
+    "kama_sec_share": {
+      "ko": "국내 브랜드 점유율",
+      "en": "Domestic brand market share"
+    },
+    "kama_sec_brand": {
+      "ko": "브랜드 비교",
+      "en": "Brand comparison"
+    },
+    "kama_sec_monthly": {
+      "ko": "월별 데이터",
+      "en": "Monthly data"
+    },
     "nav_seg_cargo": {
       "ko": "카고",
-      "en": "Cargo"
+      "en": "Rigid"
     },
     "nav_seg_tipper": {
       "ko": "덤프",
-      "en": "Dump"
+      "en": "Tipper"
     },
     "seg_page_title": {
       "ko": "세그먼트별 상세 분석",
@@ -612,6 +632,14 @@
     }
   },
   "enum": {
+    "brand": {
+      "Hyundai": { "ko": "현대", "en": "Hyundai" },
+      "Tata Daewoo": { "ko": "타타대우", "en": "Tata Daewoo" }
+    },
+    "brand_short": {
+      "Hyundai": { "ko": "현대", "en": "HD" },
+      "Tata Daewoo": { "ko": "타타대우", "en": "Tata" }
+    },
     "segment": {
       "Tractor": {
         "ko": "Tractor",

@@ -29,7 +29,7 @@
   <main class="main">
     <div class="page-head">
       <h1 class="page-title" data-t="nav_kama">KAMA 국내 상용</h1>
-      <div class="page-sub">현대 · 타타대우 월별 등록 + SoM</div>
+      <div class="page-sub" data-t="kama_sub">현대 · 타타대우 월별 등록 + SoM</div>
 
       <section class="filter-bar" id="filters"></section>
 
@@ -37,22 +37,22 @@
     </div>
 
     <section class="section">
-      <h2>Domestic truck sales</h2>
+      <h2 data-t="kama_sec_sales">국내 상용차 판매</h2>
       <div id="chart-sales" class="chart"></div>
     </section>
 
     <section class="section">
-      <h2>Domestic Brand Market Share</h2>
+      <h2 data-t="kama_sec_share">국내 브랜드 점유율</h2>
       <div id="chart-share" class="chart"></div>
     </section>
 
     <section class="section">
-      <h2>브랜드 비교</h2>
+      <h2 data-t="kama_sec_brand">브랜드 비교</h2>
       <div id="chart-brand" class="chart"></div>
     </section>
 
     <section class="section">
-      <h2>월별 데이터</h2>
+      <h2 data-t="kama_sec_monthly">월별 데이터</h2>
       <div id="monthly-table"></div>
     </section>
   </main>
@@ -60,7 +60,7 @@
 
 <script type="module">
   import { requireLogin } from "../js/auth.js";
-  import { loadTranslations, applyT, t } from "../js/i18n.js";
+  import { loadTranslations, applyT, t, tdata } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
   import { renderFilters, syncFilters, yearOptions, monthOptions,
            brandOptions, segmentOptions } from "../js/filters.js";
@@ -73,9 +73,12 @@
   const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
   const MONTHS_KR = MONTHS.map((_, i) => `${i+1}월`);
 
+  // Keys as the KAMA sheets spell them; what the reader sees comes from the
+  // brand enum, so 현대 / 타타대우 turn into Hyundai / Tata Daewoo with the
+  // language toggle. `brand_short` holds the marks the dense charts use.
   const BRANDS = ["Hyundai", "Tata Daewoo"];
-  // Short marks for the chart legends, as in the source report.
-  const SHORT = { Hyundai: "HD", "Tata Daewoo": "Tata" };
+  const name = (b) => tdata(b, "brand");
+  const short = (b) => tdata(b, "brand_short");
   // The report's own pastel pair — kept identical across every chart here.
   const KAMA_COLOR = { Hyundai: "#6cbfd9", "Tata Daewoo": "#f2914d" };
   const TOTAL_LINE = TOKEN.deepTeal;
@@ -164,7 +167,7 @@
 
     const label = monthIdx === lastMonth ? "YTD" : `~${monthIdx}월`;
     groupedBar(document.getElementById("chart-brand"), {
-      categories: BRANDS,
+      categories: BRANDS.map(name),
       series: [
         { name: `${year} ${label}`, values: BRANDS.map(cyOf), color: TOTAL_LINE },
         ...(py ? [{ name: `${year - 1} ${label}`, values: BRANDS.map(pyOf), color: PY_LINE }] : []),
@@ -173,11 +176,11 @@
 
     const rows = BRANDS.map(b => {
       const vals = byBrand[b];
-      return `<tr${b === sel ? ' class="highlight"' : ""}><td class="label">${b}</td>${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join("")}<td class="num"><strong>${fmtNum(vals.reduce((a, c) => a + c, 0))}</strong></td></tr>`;
+      return `<tr${b === sel ? ' class="highlight"' : ""}><td class="label">${name(b)}</td>${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join("")}<td class="num"><strong>${fmtNum(vals.reduce((a, c) => a + c, 0))}</strong></td></tr>`;
     }).join("");
     document.getElementById("monthly-table").innerHTML = `
       <table class="data">
-        <thead><tr><th class="label">Brand</th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr></thead>
+        <thead><tr><th class="label">${t("filter_brand")}</th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }
@@ -197,7 +200,7 @@
       const share = total ? (cy / total) * 100 : 0;
       cards.push(`
         <div class="kpi-card${sel === b ? " active" : ""}">
-          <div class="title">${b}</div>
+          <div class="title">${name(b)}</div>
           <div class="value">${fmtNum(cy)}</div>
           <div class="delta">${deltaSpan(calcYoY(cy, prev))} <small>YoY · ${fmtPct(share)}</small></div>
         </div>`);
@@ -216,7 +219,7 @@
     comboBarLine(document.getElementById("chart-sales"), {
       x: MONTHS_KR,
       bars: shown.map(b => ({
-        name: SHORT[b], values: trim(byBrand[b]), color: KAMA_COLOR[b],
+        name: short(b), values: trim(byBrand[b]), color: KAMA_COLOR[b],
       })),
       lines: [
         { name: `${year}`, values: trim(totalMonthly), color: TOTAL_LINE,
@@ -240,7 +243,7 @@
         i >= lastMonth || !totalMonthly[i] ? null : (byBrand[b][i] / totalMonthly[i]) * 100);
       const bYtd = byBrand[b].reduce((a, v) => a + v, 0);
       vals.push(ytdTotal ? (bYtd / ytdTotal) * 100 : null);
-      return { name: SHORT[b], values: vals, color: KAMA_COLOR[b] };
+      return { name: short(b), values: vals, color: KAMA_COLOR[b] };
     });
     stackedBar(document.getElementById("chart-share"), {
       categories: cats,
