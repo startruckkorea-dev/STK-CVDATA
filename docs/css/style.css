@@ -134,10 +134,11 @@ a:hover { text-decoration: underline; }
   color: var(--accent);
   font-weight: 600;
 }
+/* Sits directly under the brand block, above the nav — the language a reader
+   wants is chosen before they pick a page, not after scrolling past every
+   group to the foot of the rail. */
 .sidebar .lang-toggle {
-  margin-top: auto;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+  margin: 0 0 16px;
   display: flex;
   gap: 6px;
 }
@@ -1274,7 +1275,6 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
   background: rgba(127, 168, 255, 0.16);
   color: var(--sb-accent);
 }
-.sidebar .lang-toggle { border-top-color: var(--sb-border); }
 .sidebar .lang-toggle button {
   background: transparent;
   border-color: var(--sb-border);

@@ -71,6 +71,10 @@ export function renderSidebar(activeHref = null) {
       <h1 data-t="app_title">한국 상용차 시장 리포트</h1>
       <div class="subtitle" data-t="app_subtitle">상용차 등록·시장 분석</div>
     </a>
+    <div class="lang-toggle">
+      <button data-lang="ko" class="${getLang() === "ko" ? "active" : ""}">한국어</button>
+      <button data-lang="en" class="${getLang() === "en" ? "active" : ""}">English</button>
+    </div>
     ${NAV.map(grp => `
       <details class="nav-group" open>
         <summary data-t="group_${grp.group}">${grp.group}</summary>
@@ -85,10 +89,6 @@ export function renderSidebar(activeHref = null) {
         </ul>
       </details>
     `).join("")}
-    <div class="lang-toggle">
-      <button data-lang="ko" class="${getLang() === "ko" ? "active" : ""}">한국어</button>
-      <button data-lang="en" class="${getLang() === "en" ? "active" : ""}">English</button>
-    </div>
     <div class="data-box">
       <div class="data-source" id="data-source"></div>
       <div class="data-age" id="data-age"></div>
