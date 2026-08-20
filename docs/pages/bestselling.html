@@ -50,7 +50,7 @@
 </div>
 
 <script type="module">
-  import { requireLogin } from "../js/auth.js";
+  import { requireAdmin } from "../js/auth.js";
   import { loadTranslations, applyT, t } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
   import { renderFilters, yearOptions } from "../js/filters.js";
@@ -60,7 +60,7 @@
   import { getState, subscribe } from "../js/state.js";
 
   (async () => {
-    if (!(await requireLogin())) return;
+    if (!(await requireAdmin())) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
     applyT();

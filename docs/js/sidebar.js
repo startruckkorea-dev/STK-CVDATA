@@ -31,7 +31,11 @@ const NAV = [
     ],
   },
   {
+    // Still a test build off the annual CV_DATA workbook, so it stays with the
+    // admins until the numbers are trusted — hidden from read-grade accounts,
+    // and the pages refuse them directly too.
     group: "cv_data",
+    adminOnly: true,
     items: [
       { href: "/pages/overview.html", key: "nav_overview" },
       { href: "/pages/bestselling.html", key: "nav_bestselling" },
@@ -41,8 +45,8 @@ const NAV = [
     ],
   },
   {
-    // Hidden from read-grade accounts (Access sheet H열). The pages behind it
-    // gate themselves too — this only keeps the menu honest.
+    // Hidden from read-grade accounts (Access 명부 H열), like CV DATA above.
+    // The pages behind it gate themselves too — this only keeps the menu honest.
     group: "admin",
     adminOnly: true,
     items: [

@@ -68,7 +68,7 @@
 </div>
 
 <script type="module">
-  import { requireLogin } from "../js/auth.js";
+  import { requireAdmin } from "../js/auth.js";
   import { loadTranslations, applyT, t } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
   import { renderFilters, yearOptions } from "../js/filters.js";
@@ -78,7 +78,7 @@
   import { getState, subscribe } from "../js/state.js";
 
   async function bootstrap() {
-    const account = await requireLogin();
+    const account = await requireAdmin();
     if (!account) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
