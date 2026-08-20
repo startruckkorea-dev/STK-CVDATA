@@ -489,6 +489,18 @@ table.data.compact td { padding: 6px 9px; font-size: 1.07rem; }
 /* Wide summary tables scroll inside their own box instead of the page */
 .table-scroll { overflow-x: auto; }
 .table-scroll table.data { min-width: 980px; }
+/* …unless the table is meant to be read whole. The segment scorecard is the
+   first thing on its page, so its columns are tightened to the card width
+   rather than pushed onto a sideways scrollbar. */
+.table-fit table.data { min-width: 0; width: 100%; }
+.table-fit table.data.compact th,
+.table-fit table.data.compact td {
+  padding: 5px 6px;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+.table-fit table.data.compact td .pp,
+.table-fit table.data.compact td .delta { white-space: nowrap; }
 
 /* ---- Market report panels ------------------------------------------------ */
 /* Mirrors the printed KAIDA market deck: a Total Market band, the segment
@@ -1058,6 +1070,7 @@ table.data .down { color: var(--danger); font-weight: 600; }
 }
 .exec-grid > * { min-width: 0; grid-column: span 4; }
 .exec-grid > .w12 { grid-column: span 12; }
+.exec-grid > .w9 { grid-column: span 9; }
 .exec-grid > .w8 { grid-column: span 8; }
 .exec-grid > .w7 { grid-column: span 7; }
 .exec-grid > .w6 { grid-column: span 6; }
@@ -1068,7 +1081,7 @@ table.data .down { color: var(--danger); font-weight: 600; }
    up under them rather than all six squeezing into two columns. */
 @media (max-width: 1280px) {
   .exec-grid > * { grid-column: span 6; }
-  .exec-grid > .w12, .exec-grid > .w8, .exec-grid > .w7,
+  .exec-grid > .w12, .exec-grid > .w9, .exec-grid > .w8, .exec-grid > .w7,
   .exec-grid > .w6, .exec-grid > .w5 { grid-column: span 12; }
 }
 @media (max-width: 900px) { .exec-grid > * { grid-column: span 12; } }

@@ -39,6 +39,29 @@
       <div id="kpi-row" class="kpi-row"></div>
     </div>
 
+    <!-- The brand scorecard and its reading lead the page: it is the summary
+         management asks for first. The table is sized to fit its column, so
+         the whole row is read without a sideways scroll. -->
+    <div class="exec-grid">
+      <div class="exec-card w9">
+        <h3 id="title-brand-table"></h3>
+        <div id="brand-table"></div>
+      </div>
+      <div class="exec-card w3">
+        <h3 id="title-insight"></h3>
+        <div class="insights" id="insight-list"></div>
+      </div>
+    </div>
+
+    <!-- Tractor only: the horsepower rating lives in the tractor sheets alone,
+         so segment-page.js hides this row on the other two pages. -->
+    <div class="exec-grid" id="hp-row" hidden>
+      <div class="exec-card w12">
+        <h3 id="title-hp-points"></h3>
+        <div id="hp-points" class="chart"></div>
+      </div>
+    </div>
+
     <div class="exec-grid">
       <div class="exec-card w5">
         <h3 id="title-brand-ytd"></h3>
@@ -47,30 +70,6 @@
       <div class="exec-card w7">
         <h3 id="title-monthly"></h3>
         <div id="chart-monthly" class="chart"></div>
-      </div>
-    </div>
-
-    <!-- Tractor only: the horsepower rating lives in the tractor sheets alone,
-         so segment-page.js hides this row on the other two pages. -->
-    <div class="exec-grid" id="hp-row" hidden>
-      <div class="exec-card w6">
-        <h3 id="title-hp-mix"></h3>
-        <div id="hp-mix"></div>
-      </div>
-      <div class="exec-card w6">
-        <h3 id="title-hp-yoy"></h3>
-        <div id="hp-yoy"></div>
-      </div>
-    </div>
-
-    <div class="exec-grid">
-      <div class="exec-card w8">
-        <h3 id="title-brand-table"></h3>
-        <div id="brand-table"></div>
-      </div>
-      <div class="exec-card w4">
-        <h3 id="title-insight"></h3>
-        <div class="insights" id="insight-list"></div>
       </div>
     </div>
 

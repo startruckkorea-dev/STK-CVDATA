@@ -4,23 +4,17 @@
 // module and pass their segment in. Everything here is KAIDA: the imported-CV
 // registration aggregate the rest of the report is built on.
 import { requireLogin } from "./auth.js";
-import { loadTranslations, applyT, t, tdata, getLang } from "./i18n.js";
+import { loadTranslations, applyT, t, tdata } from "./i18n.js";
 import { renderSidebar } from "./sidebar.js";
 import { renderFilters, syncFilters, yearOptions, monthOptions } from "./filters.js";
 import { loadManifest, loadKaidaPair } from "./data.js";
-import { groupedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
+import { groupedBar, stackedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
 import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "./format.js";
 import { getState, subscribe } from "./state.js";
 
 const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
 // Management reads the maker's name; the ticker stays in the analysis pages.
 const BRAND_LABEL = { MB: "Mercedes-Benz" };
-
-const HP_ORDER = ["<500", "500-549", "550-599", "600-699", "700+"];
-const HP_LABEL = {
-  "<500": "~499hp", "500-549": "500–549hp", "550-599": "550–599hp",
-  "600-699": "600–699hp", "700+": "700hp+",
-};
 
 let _years = [];
 let _segment = "Tractor";
@@ -36,7 +30,6 @@ const segRow = (d) => (d && d.by_segment && d.by_segment[_segment]) || zeros();
 const brandSegRow = (d, b) =>
   (d && d.by_brand_seg && d.by_brand_seg[b] && d.by_brand_seg[b][_segment]) || zeros();
 const marketRow = (d) => (d && d.monthly_totals) || zeros();
-const hpRow = (d, band) => (d && d.tractor_by_hp && d.tractor_by_hp[band]) || zeros();
 
 const signed = (v, digits = 1) => {
   if (v === null || v === undefined || Number.isNaN(v)) return "-";
@@ -45,16 +38,6 @@ const signed = (v, digits = 1) => {
 };
 const label = (b) => BRAND_LABEL[b] || b;
 const monthsWithData = (vals) => vals.reduce((n, v, i) => (v ? i + 1 : n), 0);
-
-/** `hex` mixed toward white — the light end of a bar's fade. */
-function lighten(hex, amount) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return hex;
-  const n = parseInt(m[1], 16);
-  const mix = (c) => Math.round(c + (255 - c) * amount);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(mix);
-  return `rgb(${r},${g},${b})`;
-}
 
 /** pp move with the up / down mark the rest of the report uses. */
 function ppSpan(v, suffix = "pp") {
@@ -130,18 +113,17 @@ async function render() {
 
   document.getElementById("title-brand-ytd").textContent = t("seg_panel_brand_ytd");
   document.getElementById("title-monthly").textContent = t("seg_panel_monthly");
-  document.getElementById("title-hp-mix").textContent = t("seg_panel_hp");
-  document.getElementById("title-hp-yoy").textContent = t("seg_panel_hp_yoy");
+  document.getElementById("title-hp-points").textContent = t("chart_hp_points");
   document.getElementById("title-brand-table").textContent =
     `${t("seg_panel_brand_table")} (${tdata(_segment, "segment")})`;
   document.getElementById("title-insight").textContent = t("seg_insight");
 
   renderKpis(f, monthIdx);
-  renderBrandYtd(f, year, f.prevYear);
-  renderMonthly(f, year, f.prevYear);
-  renderHp(cur, prev, monthIdx, brand);
   renderBrandTable(f, year, f.prevYear, monthIdx);
   renderInsights(f);
+  renderHpPoints(cur, monthIdx);
+  renderBrandYtd(f, year, f.prevYear);
+  renderMonthly(f, year, f.prevYear);
   applyT(document.querySelector(".main"));
 }
 
@@ -299,74 +281,47 @@ function renderMonthly(f, year, prevYear) {
   });
 }
 
-// ---- power class (tractor only) ---------------------------------------------
+// ---- power rating (tractor only) --------------------------------------------
 
-function renderHp(cur, prev, monthIdx, brand) {
+/** The exact ratings behind the segment, split by brand — this is where the
+ *  head-to-head model positioning shows (e.g. 500 vs 510 vs 540). Each bar
+ *  carries the rating's share of the segment above it. */
+function renderHpPoints(cur, monthIdx) {
   const row = document.getElementById("hp-row");
   // Only the tractor sheets carry a horsepower rating — rigids and tippers vary
-  // by body, not by engine, so the two panels stay hidden there.
-  const hasHp = _segment === "Tractor" && cur.tractor_by_hp
-    && Object.keys(cur.tractor_by_hp).length > 0;
-  row.hidden = !hasHp;
-  if (!hasHp) return;
+  // by body, not by engine, so the panel stays hidden there.
+  const pts = (_segment === "Tractor" ? cur.tractor_hp_points || [] : [])
+    .map(p => ({
+      hp: p.hp,
+      total: sumThrough(months(p), monthIdx),
+      byBrand: Object.fromEntries(BRAND_ORDER.map(b =>
+        [b, p.by_brand && p.by_brand[b] ? sumThrough(months(p.by_brand[b]), monthIdx) : 0])),
+    }))
+    .filter(p => p.total > 0);
+  row.hidden = !pts.length;
+  if (!pts.length) return;
 
-  const pick = (d, band) => {
-    if (brand === "ALL") return hpRow(d, band);
-    const byBrand = d && d.tractor_by_hp_brand && d.tractor_by_hp_brand[brand];
-    return (byBrand && byBrand[band]) || zeros();
-  };
-  const bands = HP_ORDER.filter(b =>
-    sumThrough(months(pick(cur, b)), monthIdx) > 0 ||
-    (prev && sumThrough(months(pick(prev, b)), monthIdx) > 0));
+  const total = pts.reduce((a, p) => a + p.total, 0);
+  const max = Math.max(1, ...pts.map(p => p.total));
+  const categories = pts.map(p => `${p.hp}hp`);
 
-  const rows = bands.map(b => {
-    const cy = sumThrough(months(pick(cur, b)), monthIdx);
-    const py = prev ? sumThrough(months(pick(prev, b)), monthIdx) : 0;
-    return {
-      label: HP_LABEL[b], cy, py,
-      yoy: prev ? calcYoY(cy, py) : null, delta: cy - py,
-    };
+  stackedBar(document.getElementById("hp-points"), {
+    categories,
+    series: BRAND_ORDER
+      .filter(b => pts.some(p => p.byBrand[b] > 0))
+      .map(b => ({ name: label(b), color: BRAND_TILE_COLORS[b],
+                   values: pts.map(p => p.byBrand[b]) })),
+    // Headroom for the share caption sitting on top of each stack.
+    yaxis: { range: [0, max * 1.2] },
+    annotations: pts.map((p, i) => ({
+      x: categories[i], y: p.total, yshift: 10,
+      text: fmtPct(total ? (p.total / total) * 100 : 0),
+      showarrow: false, xanchor: "center", yanchor: "bottom",
+      font: { size: 13, color: TOKEN.deepTeal },
+    })),
+    height: 360,
+    labelSize: 12,
   });
-  const total = rows.reduce((a, r) => a + r.cy, 0);
-  const max = Math.max(1, ...rows.map(r => r.cy));
-  const en = getLang() === "en";
-
-  document.getElementById("hp-mix").innerHTML = `
-    <table class="rank hp">
-      <tbody>
-        ${rows.map(r => `
-          <tr>
-            <td class="brand">${r.label}</td>
-            <td><div class="bar" style="width:${(r.cy / max * 100).toFixed(1)}%;
-                     --bar:${TOKEN.teal};--bar-soft:${lighten(TOKEN.teal, 0.5)}"></div></td>
-            <td class="num">${fmtNum(r.cy)}
-              <small>(${fmtPct(total ? r.cy / total * 100 : 0)})</small></td>
-          </tr>`).join("")}
-      </tbody>
-    </table>`;
-
-  document.getElementById("hp-yoy").innerHTML = `
-    <table class="rank hp">
-      <thead>
-        <tr>
-          <th></th>
-          <th class="num">${en ? "Cur" : "당해"}</th>
-          <th class="num">${en ? "Prev" : "전년"}</th>
-          <th class="num">YoY</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${rows.map(r => `
-          <tr>
-            <td class="brand">${r.label}</td>
-            <td class="num">${fmtNum(r.cy)}</td>
-            <td class="num">${prev ? fmtNum(r.py) : "-"}</td>
-            <td class="num">${prev
-              ? `${ppSpan(r.delta, "")} <small>${r.yoy === null ? "" : `${signed(r.yoy)}%`}</small>`
-              : "-"}</td>
-          </tr>`).join("")}
-      </tbody>
-    </table>`;
 }
 
 // ---- brand table ------------------------------------------------------------
@@ -374,7 +329,7 @@ function renderHp(cur, prev, monthIdx, brand) {
 function renderBrandTable(f, year, prevYear, monthIdx) {
   const py = f.hasPrev ? prevYear : "-";
   document.getElementById("brand-table").innerHTML = `
-    <div class="table-scroll">
+    <div class="table-scroll table-fit">
       <table class="data compact">
         <thead>
           <tr>

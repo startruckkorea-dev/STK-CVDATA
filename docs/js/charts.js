@@ -177,7 +177,7 @@ export function verticalBar(el, { categories, values, color, title, valueFormat 
 
 export function groupedBar(el, {
   categories, series, title, barmode = "group", valueKind = "int",
-  showlegend = true, height, yaxis, shapes, labelSize,
+  showlegend = true, height, yaxis, shapes, annotations, labelSize,
 }) {
   const inside = barmode === "stack";
   const traces = series.map(s => ({
@@ -197,6 +197,7 @@ export function groupedBar(el, {
     uniformtext: { mode: "hide", minsize: 8 },
     ...(yaxis ? { yaxis } : {}),
     ...(shapes ? { shapes } : {}),
+    ...(annotations ? { annotations } : {}),
   }), CONFIG);
 }
 
@@ -228,10 +229,11 @@ export function groupedBarH(el, {
 }
 
 export function stackedBar(el, {
-  categories, series, title, valueKind = "int", height, yaxis, shapes, labelSize,
+  categories, series, title, valueKind = "int", height, yaxis, shapes, annotations, labelSize,
 }) {
   return groupedBar(el, {
-    categories, series, title, barmode: "stack", valueKind, height, yaxis, shapes, labelSize,
+    categories, series, title, barmode: "stack", valueKind, height, yaxis, shapes,
+    annotations, labelSize,
   });
 }
 
