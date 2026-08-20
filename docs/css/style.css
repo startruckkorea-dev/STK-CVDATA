@@ -1243,7 +1243,7 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg);
-  padding: 14px 12px;
+  padding: 16px 12px;
   text-align: center;
   color: var(--text);
   transition: border-color 0.12s, box-shadow 0.12s;
@@ -1253,27 +1253,7 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
   border-color: var(--deep-teal);
   box-shadow: 0 3px 10px -6px rgba(0, 0, 0, 0.5);
 }
-/* One box for the mark, whether it holds a 28px glyph or a truck drawing, so
-   the four tiles put their captions on the same line. */
-.qlink .ql-figure {
-  height: 74px;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.qlink .ql-mark { color: var(--deep-teal); display: block; }
-.qlink .ql-art {
-  width: 100%;
-  max-width: 220px;
-  height: 100%;
-  object-fit: contain;
-  /* The line art is drawn in a neutral graphite; the tile tints it on hover
-     the way the glyph tiles pick up the accent. */
-  opacity: 0.9;
-  transition: opacity 0.12s;
-}
-.qlink:hover .ql-art { opacity: 1; }
+
 .qlink .ql-name { font-size: 0.88rem; font-weight: 700; }
 .qlink .ql-sub { font-size: 0.74rem; color: var(--muted); margin-top: 2px; }
 /* Footer line under the waterfall — the one number the bars add up to. */
