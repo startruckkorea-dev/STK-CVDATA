@@ -1201,6 +1201,14 @@ table.pulse td {
   font-variant-numeric: tabular-nums;
 }
 table.pulse td:first-child { text-align: left; font-weight: 600; }
+/* Share of the market, riding along with the volume it belongs to — quieter
+   than the figure it qualifies so the column still reads as units. */
+table.pulse .of-market {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 0.86em;
+  margin-left: 3px;
+}
 table.pulse tr:last-child td { border-bottom: none; }
 table.pulse a { color: inherit; }
 table.pulse .up { color: var(--success); font-weight: 600; }

@@ -537,6 +537,8 @@
     return "bad";
   }
 
+  /** The market column carries each segment's weight beside its volume, the
+   *  same figure the segment page shows as 시장 비중. */
   function renderPulse(f) {
     document.getElementById("pulse-table").innerHTML = `
       <table class="pulse">
@@ -554,7 +556,7 @@
           ${f.segments.map(r => `
             <tr>
               <td><a href="pages/segment.html?segment=${r.seg}">${tdata(r.seg, "segment")}</a></td>
-              <td>${fmtNum(r.mkt)}</td>
+              <td>${fmtNum(r.mkt)} <small class="of-market">${fmtPct(pct(r.mkt, f.total))}</small></td>
               <td class="${dir(r.yoy)}">${r.yoy === null ? "-" : `${signed(r.yoy)}%`}</td>
               <td>${fmtPct(r.som)}</td>
               <td class="${dir(r.pp)}">${f.hasPrev ? `${signed(r.pp)}pp` : "-"}</td>

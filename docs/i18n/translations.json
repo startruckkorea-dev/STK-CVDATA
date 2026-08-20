@@ -395,8 +395,8 @@
       "en": "Total Market Change"
     },
     "exec_segment_pulse": {
-      "ko": "세그먼트 펄스 (YTD)",
-      "en": "Segment Pulse (YTD)"
+      "ko": "세그먼트 분석 (YTD)",
+      "en": "Segment analysis (YTD)"
     },
     "exec_insight": {
       "ko": "경영 인사이트",
