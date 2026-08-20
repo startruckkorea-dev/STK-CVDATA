@@ -118,7 +118,7 @@
 </div>
 
 <script type="module">
-  import { requireLogin } from "../js/auth.js";
+  import { requireAdmin } from "../js/auth.js";
   import { loadTranslations, applyT } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
   import { listFolder, writeFile, ensureFolder, SP_DATA_PATH } from "../js/graph.js";
@@ -132,7 +132,7 @@
   let _files = [];
 
   async function bootstrap() {
-    if (!(await requireLogin())) return;
+    if (!(await requireAdmin())) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
     applyT();

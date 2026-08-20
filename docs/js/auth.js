@@ -9,12 +9,20 @@
 //   - msal-browser loaded via <script> in the HTML before this module.
 
 import { loadingNote, loadingFinish } from "./loading.js";
+import { loadAccessList, roleFor, accessError,
+         ROLE_ADMIN, ROLE_NA } from "./access.js";
 
 const CLIENT_ID = "9b247088-5afb-4622-9c5e-b5f27142761d";
 const TENANT_ID = "19cab1f5-21f4-44df-8ac6-96d6ca595203";
 
 const ALLOWED_DOMAINS = ["hyosung.com", "startruckkorea.com"];
 const ALLOWED_USERS = []; // leave empty to allow anyone in the domains
+
+// Who gets in is decided twice: the domain list above (cheap, offline) and then
+// the per-user roster published to site_data/access.json — see js/access.js.
+// Admin / Read / NA come from the H column of the admin-only Access workbook,
+// so access is managed by editing that sheet and re-publishing it from
+// 관리 → 접속 권한, never by editing this file.
 
 // Login is required on EVERY host, localhost included. The dashboard reads its
 // numbers from SharePoint through the signed-in user's Graph token and keeps no
@@ -79,6 +87,7 @@ const GRAPH_SCOPES = ["User.Read", "Sites.ReadWrite.All", "Files.ReadWrite.All"]
 
 let _pca = null;
 let _account = null;
+let _role = null;
 
 function _client() {
   if (_pca) return _pca;
@@ -148,11 +157,46 @@ export async function requireLogin() {
     return null;
   }
 
+  // The account has to be live before the roster read: access.js goes through
+  // graph.js, which asks this module for a token.
   _account = account;
+
+  loadingNote("접근 권한 확인 중…");
+  await loadAccessList();
+  _role = await roleFor(account.username);
+  if (_role === ROLE_NA) {
+    _account = null;
+    _renderNoAccess(account);
+    return null;
+  }
+
   return account;
 }
 
 export function currentAccount() { return _account; }
+
+/** "admin" | "read" — the grade from the Access sheet (H열). Null before the
+ *  gate has run; anyone graded NA never gets past requireLogin(). */
+export function currentRole() { return _role; }
+
+/** True for Access-sheet 관리자 — the only ones shown the 관리 menu. */
+export function isAdmin() { return _role === ROLE_ADMIN; }
+
+/**
+ * Gate for the 관리 pages (발행 · 월간 갱신 · 번역편집). Runs requireLogin()
+ * first, then refuses anyone who is not admin. Returns the account, or null
+ * after rendering the refusal — callers stop on null exactly as they already
+ * do for requireLogin().
+ */
+export async function requireAdmin() {
+  const account = await requireLogin();
+  if (!account) return null;
+  if (!isAdmin()) {
+    _renderNotAdmin(account);
+    return null;
+  }
+  return account;
+}
 
 /** True once requireLogin() has resolved a real (non-stub) account. Lets the
  *  data layer decide whether a Graph call is even worth attempting — on
@@ -224,7 +268,8 @@ export function renderUserChip(target) {
   chip.className = "user-chip";
   chip.innerHTML = `
     <div class="user-info">
-      <div class="user-name">${escapeHtml(name)}</div>
+      <div class="user-name">${escapeHtml(name)}${
+        isAdmin() ? ` <span class="user-role">관리자</span>` : ""}</div>
       <div class="user-mail">${escapeHtml(_account.username)}</div>
     </div>
     <button class="signout" type="button">Sign out</button>
@@ -268,6 +313,41 @@ function _renderForbidden(account) {
       </div>
     </div>`;
   document.getElementById("signout-btn").addEventListener("click", () => signOut());
+}
+
+// Signed in, in an allowed domain, but the published roster grades the account
+// NA — or does not list it at all, which is the same thing (js/access.js).
+function _renderNoAccess(account) {
+  loadingFinish();
+  const err = accessError();
+  document.body.innerHTML = `
+    <div class="auth-gate">
+      <div class="auth-card">
+        <h1>접근 권한 없음</h1>
+        <p><code>${escapeHtml(account.username)}</code> 계정은 이 리포트의
+           접근 권한 목록에 없습니다.</p>
+        <p class="muted">권한이 필요하시면 리포트 관리자에게 요청해 주세요.</p>
+        ${err ? `<p class="muted">접근 목록을 읽지 못했습니다: ${escapeHtml(err)}</p>` : ""}
+        <button id="signout-btn" type="button">다른 계정으로 로그인</button>
+      </div>
+    </div>`;
+  document.getElementById("signout-btn").addEventListener("click", () => signOut());
+}
+
+// Read-graded account opening an admin page — usually a bookmark, since the
+// sidebar hides the 관리 group for them.
+function _renderNotAdmin(account) {
+  loadingFinish();
+  const root = document.documentElement.dataset.siteRoot || ".";
+  document.body.innerHTML = `
+    <div class="auth-gate">
+      <div class="auth-card">
+        <h1>관리자 전용</h1>
+        <p>이 페이지는 관리자 권한이 필요합니다.</p>
+        <p class="muted"><code>${escapeHtml(account.username)}</code> 계정의 권한: 읽기</p>
+        <button onclick="location.href='${root}/'" type="button">리포트로 돌아가기</button>
+      </div>
+    </div>`;
 }
 
 // An unregistered redirect URI is the single most likely reason sign-in fails

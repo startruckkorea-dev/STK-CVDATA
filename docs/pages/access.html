@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko" data-site-root="..">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title data-t="nav_access">접속 권한 · 한국 상용차 시장 리포트</title>
+  <link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+  <link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+  <link rel="apple-touch-icon" href="../assets/favicon-180.png" />
+  <link rel="stylesheet" href="../css/style.css" />
+  <script src="../vendor/msal-browser.min.js" defer></script>
+  <script src="../vendor/xlsx-0.20.3.min.js" defer></script>
+  <style>
+    /* Admin form, not a dashboard — same overrides as the publish page. */
+    .main .page-head { position: static; box-shadow: none; }
+    .main .page-head .page-title { display: block; margin: 0 0 6px; }
+    .main .page-head .page-sub { display: block; max-width: 78ch; }
+    .main .panel-title { text-align: left; }
+    .main .panel { padding-bottom: 18px; }
+
+    .desc {
+      color: var(--muted);
+      font-size: 0.88rem;
+      margin: 0 0 14px;
+      max-width: 76ch;
+      line-height: 1.55;
+    }
+    .actions { margin: 16px 0 4px; display: flex; gap: 10px; align-items: center; }
+    .actions button {
+      padding: 8px 18px; border-radius: 6px; cursor: pointer; font-weight: 600;
+      border: 1px solid var(--border); background: var(--bg);
+    }
+    .actions button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .actions button[disabled] { opacity: .5; cursor: not-allowed; }
+    .log { font-size: .84rem; margin-top: 10px; }
+    .log .ok { color: var(--accent); }
+    .log .bad { color: var(--danger); }
+    td.mono, th.mono { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
+
+    /* Grade counts — the one number set worth reading before publishing. */
+    .tally { display: flex; gap: 10px; flex-wrap: wrap; margin: 0 0 14px; }
+    .tally div {
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 8px 14px; min-width: 92px;
+    }
+    .tally .n { font-size: 1.3rem; font-weight: 700; }
+    .tally .k { font-size: .74rem; color: var(--muted); }
+    .role-admin { color: var(--accent); font-weight: 600; }
+    .role-na { color: var(--muted); }
+    .roster-scroll { max-height: 460px; overflow: auto; }
+  </style>
+</head>
+<body>
+
+<div id="app-loading" class="app-loading" role="status" aria-live="polite">
+  <div class="al-card">
+    <div class="al-spin"></div>
+    <div class="al-msg" id="app-loading-msg">불러오는 중…</div>
+    <div class="al-hint">처음 접속하시는 경우 자료를 내려받느라<br />20~30초 정도 걸릴 수 있습니다.</div>
+  </div>
+</div>
+<div class="app">
+  <aside class="sidebar"></aside>
+
+  <main class="main">
+    <div class="page-head">
+      <h1 class="page-title" data-t="nav_access">접속 권한</h1>
+      <div class="page-sub">
+        관리자만 여는 <code>mbtruck-cvdata/Access</code> 명부(xlsx)를 읽어,
+        로그인 게이트가 쓰는 <code>site_data/access.json</code> 으로 발행합니다.
+        <strong>발행해야 반영됩니다.</strong>
+      </div>
+    </div>
+
+    <div id="gate"></div>
+
+    <section class="panel">
+      <div class="panel-title">1. 현재 적용 중인 권한</div>
+      <div id="current">확인 중…</div>
+    </section>
+
+    <section class="panel" id="loader" hidden>
+      <div class="panel-title">2. 명부 읽기</div>
+      <p class="desc">
+        <code>Access</code> 폴더에서 가장 최근 xlsx 를 읽습니다
+        (C열 이름 · G열 이메일 · H열 권한). 이 폴더는 관리자만 열 수 있고,
+        일반 사용자는 아래에서 발행한 <code>access.json</code> 만 읽습니다 —
+        그 파일에는 이메일도 이름도 들어가지 않고, 이메일의 SHA-256 해시만 담깁니다.
+      </p>
+      <div class="actions">
+        <button class="primary" id="btn-read" type="button">명부 읽기</button>
+        <button id="btn-publish" type="button" disabled>발행</button>
+      </div>
+      <div class="log" id="log"></div>
+      <div id="roster"></div>
+    </section>
+  </main>
+</div>
+
+<script type="module">
+  import { requireAdmin, currentAccount } from "../js/auth.js";
+  import { loadTranslations, applyT } from "../js/i18n.js";
+  import { renderSidebar } from "../js/sidebar.js";
+  import { listFolder, readFileBytes, readJsonFile, writeJsonFile,
+           ensureFolder, SP_DATA_PATH } from "../js/graph.js";
+  import { SP_ACCESS_PATH, ACCESS_FILE, pickWorkbook, parseRoster,
+           buildAccessFile, hashEmail } from "../js/access.js";
+  import { loadingFinish } from "../js/loading.js";
+
+  let _roster = null;   // [{email, name, role}] from the workbook
+  let _source = "";     // workbook file name the roster came from
+
+  const $ = (id) => document.getElementById(id);
+
+  async function bootstrap() {
+    if (!(await requireAdmin())) return;
+    await loadTranslations();
+    renderSidebar(window.location.pathname);
+    applyT();
+    loadingFinish();
+
+    $("loader").hidden = false;
+    $("btn-read").addEventListener("click", readRoster);
+    $("btn-publish").addEventListener("click", publish);
+    showCurrent();
+  }
+
+  function line(html, cls = "") {
+    $("log").insertAdjacentHTML("beforeend", `<div class="${cls}">${html}</div>`);
+  }
+
+  // ---- what is live right now -------------------------------------------------
+
+  async function showCurrent() {
+    const box = $("current");
+    box.textContent = "확인 중…";
+    try {
+      const file = await readJsonFile(ACCESS_FILE, SP_DATA_PATH);
+      if (!file) {
+        box.innerHTML = `<div class="banner warn">아직 발행된 권한 목록이 없습니다
+          (<code>${SP_DATA_PATH}/${ACCESS_FILE}</code>). 발행 전까지는
+          <code>js/access.js</code> 의 비상 관리자 계정만 접속할 수 있습니다.</div>`;
+        return;
+      }
+      const c = file.counts || {};
+      box.innerHTML = `
+        <div class="tally">
+          <div><div class="n">${c.admin ?? "–"}</div><div class="k">관리자</div></div>
+          <div><div class="n">${c.read ?? "–"}</div><div class="k">읽기</div></div>
+          <div><div class="n">${c.na ?? "–"}</div><div class="k">불가(NA)</div></div>
+        </div>
+        <p class="desc">
+          ${file.generated_at ? new Date(file.generated_at).toLocaleString("ko-KR") : "?"} 발행
+          ${file.generated_by ? ` · ${file.generated_by}` : ""}
+          ${file.source ? ` · 원본 <code>${file.source}</code>` : ""}
+        </p>
+        <p class="desc">사용자 브라우저는 이 목록을 최대 1시간 캐시합니다 —
+          방금 바꾼 권한이 즉시 필요하면 해당 사용자가 사이드바의
+          <strong>데이터 새로 고침</strong>을 누르면 됩니다.</p>`;
+    } catch (e) {
+      box.innerHTML = `<div class="banner error">${e.message}</div>`;
+    }
+  }
+
+  // ---- read the workbook ------------------------------------------------------
+
+  async function readRoster() {
+    const btn = $("btn-read");
+    btn.disabled = true;
+    $("log").innerHTML = "";
+    $("roster").innerHTML = "";
+    $("btn-publish").disabled = true;
+    _roster = null;
+
+    try {
+      const items = await listFolder(SP_ACCESS_PATH);
+      const wb = pickWorkbook(items);
+      if (!wb) throw new Error(`${SP_ACCESS_PATH} 에서 xlsx 파일을 찾지 못했습니다`);
+      line(`원본: ${wb.name} (${new Date(wb.lastModifiedDateTime).toLocaleString("ko-KR")})`, "ok");
+
+      const bytes = await readFileBytes(wb.name, SP_ACCESS_PATH);
+      if (!bytes) throw new Error(`${wb.name} 을(를) 읽지 못했습니다`);
+
+      const book = XLSX.read(bytes, { type: "array" });
+      const sheet = book.Sheets[book.SheetNames[0]];
+      if (!sheet) throw new Error("시트가 비어 있습니다");
+      // header:1 + defval keeps blank cells in place, so column C stays column C.
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", blankrows: false });
+
+      const roster = parseRoster(rows);
+      if (!roster.length) {
+        throw new Error("G열에서 이메일을 하나도 찾지 못했습니다 — 열 위치를 확인하세요");
+      }
+      _roster = roster;
+      _source = wb.name;
+      renderRoster();
+      $("btn-publish").disabled = false;
+    } catch (e) {
+      line(`✗ ${e.message}`, "bad");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function renderRoster() {
+    const tally = { admin: 0, read: 0, na: 0 };
+    for (const r of _roster) tally[r.role]++;
+    const label = { admin: "관리자", read: "읽기", na: "불가 (NA)" };
+
+    $("roster").innerHTML = `
+      <div class="tally">
+        <div><div class="n">${tally.admin}</div><div class="k">관리자</div></div>
+        <div><div class="n">${tally.read}</div><div class="k">읽기</div></div>
+        <div><div class="n">${tally.na}</div><div class="k">불가(NA)</div></div>
+      </div>
+      ${tally.admin === 0 ? `<div class="banner warn">관리자가 한 명도 없습니다 —
+        이대로 발행하면 이 화면을 여는 사람이 없어집니다 (비상 관리자 계정 제외).</div>` : ""}
+      <div class="roster-scroll">
+        <table class="data compact">
+          <thead><tr><th class="label">이름</th><th class="label mono">이메일</th><th>권한</th></tr></thead>
+          <tbody>
+            ${_roster.map(r => `
+              <tr>
+                <td class="label">${esc(r.name)}</td>
+                <td class="label mono">${esc(r.email)}</td>
+                <td class="num ${r.role === "admin" ? "role-admin" : r.role === "na" ? "role-na" : ""}">${label[r.role]}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  // ---- publish ----------------------------------------------------------------
+
+  async function publish() {
+    const btn = $("btn-publish");
+    btn.disabled = true;
+    try {
+      const me = currentAccount();
+      const file = await buildAccessFile(_roster, {
+        source: _source,
+        by: me ? me.username : "",
+      });
+      // Refuse to publish a roster that would lock the publisher out — the file
+      // takes precedence over the hard-coded fallback the moment it exists.
+      const mine = me ? file.entries[await hashEmail(me.username)] : null;
+      if (me && mine !== "admin") {
+        throw new Error(`이 명부에서 ${me.username} 의 권한이 관리자가 아닙니다 — ` +
+                        "발행하면 이 화면을 다시 열 수 없습니다. H열을 확인하세요");
+      }
+      await ensureFolder(SP_DATA_PATH);
+      await writeJsonFile(ACCESS_FILE, file, SP_DATA_PATH);
+      line(`✓ ${SP_DATA_PATH}/${ACCESS_FILE} 발행 완료 — ` +
+           `관리자 ${file.counts.admin} · 읽기 ${file.counts.read} · 불가 ${file.counts.na}`, "ok");
+      showCurrent();
+    } catch (e) {
+      line(`✗ 발행 실패 — ${e.message}`, "bad");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  bootstrap().catch(e => {
+    console.error(e);
+    loadingFinish();
+    $("gate").innerHTML = `<div class="banner error">${e.message}</div>`;
+  });
+</script>
+
+</body>
+</html>

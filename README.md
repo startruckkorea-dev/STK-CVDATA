@@ -63,11 +63,13 @@ CV_data_git/
 │   ├─ index.html              # 메인 (시장 인사이트)
 │   ├─ pages/                  # segment · kama · overview · bestselling
 │   │                          #  · cargo · price · body
-│   │                          #  · publish (데이터 발행) · translate
+│   │                          #  · access (접속 권한) · publish (데이터 발행)
+│   │                          #  · translate
 │   │                          #  · refresh (월간 갱신)
 │   ├─ css/style.css
 │   ├─ js/
 │   │   ├─ auth.js             # MSAL 로그인 게이트 + 토큰 broker
+│   │   ├─ access.js           # 권한 등급(Admin/Read/NA) 게이트 + 명부 발행
 │   │   ├─ graph.js            # Graph 래퍼 (SharePoint 읽기/쓰기)
 │   │   ├─ data.js             # SharePoint 전용 데이터 로더
 │   │   ├─ i18n.js             # 다국어 toggle + t()/tdata()
@@ -185,8 +187,51 @@ python -m http.server -d docs 8000
 - 특정 사용자만 허용하려면 `ALLOWED_USERS` 에 이메일을 넣으면 그쪽이 우선한다
 - 리디렉션 URI 는 `window.location.origin` — Entra 등록값과 **글자 단위로** 같아야 한다
 
-> 정적 사이트의 로그인 게이트 자체는 UX 계층이다. 실제 보안 경계는 SharePoint 이며,
-> 레포에 숫자를 커밋하지 않기 때문에 public 레포여도 노출될 데이터가 없다.
+### 권한 등급 — Admin / Read / NA
+
+도메인 통과 후 **개인별 권한**을 다시 확인한다 ([docs/js/access.js](docs/js/access.js)).
+명부는 관리자만 여는 SharePoint 폴더에 있고, 일반 사용자는 그 폴더를 열지 않는다.
+
+```
+(관리자만)  mbtruck-cvdata/Access/*.xlsx      C열 이름 · G열 이메일 · H열 권한
+                     │  관리 → 접속 권한 화면에서 읽어 발행
+                     ↓
+(모든 사용자) mbtruck-cvdata/site_data/access.json   ← 로그인 게이트가 읽는 파일
+```
+
+| H열 | 뜻 | 볼 수 있는 것 |
+|---|---|---|
+| `Admin` · `관리자` | 관리자 | 전체 + **관리** 메뉴(접속 권한 · 데이터 발행 · 월간 갱신 · 번역편집) |
+| `Read` · `읽기` · `일반` | 일반 | 관리 메뉴를 제외한 전 페이지 |
+| `NA` · 빈칸 · **명부에 없음** | 불가 | 사내 계정으로 로그인해도 차단 |
+
+발행되는 `access.json` 에는 **이메일도 이름도 들어가지 않는다** — 주소마다
+`SHA-256(salt|이메일)` 해시와 등급만 담기고, 브라우저는 로그인한 본인 주소를
+같은 방식으로 해시해서 자기 등급을 찾는다. 대시보드를 볼 수 있는 사람이
+`site_data` 를 열어도 직원 명부가 되지 않는다. NA 는 **파일에 없는 것**으로 표현한다.
+
+**권한 바꾸는 절차**
+
+1. `Access` 폴더의 xlsx 를 고친다 (관리자만 접근 가능한 폴더 그대로 둔다)
+2. 사이트 → **관리 → 접속 권한** → `명부 읽기` → 인원수·등급 확인 → `발행`
+3. 사용자 브라우저는 최대 **1시간** 캐시한다(`localStorage`,`cvdata.cache.access`).
+   즉시 반영이 필요하면 해당 사용자가 사이드바 **데이터 새로 고침**을 누르면 된다
+
+발행 화면은 **자기 자신이 관리자가 아닌 명부는 발행을 거부한다** — 그대로 올리면
+그 화면을 다시 열 사람이 없어지기 때문이다. 그래도 막혔을 때를 위해
+`access.js` 의 `FALLBACK_ADMIN_HASHES` 계정은 **`access.json` 이 없을 때만**
+관리자로 들어온다(현재 `sunghan.cho@hyosung.com`). 발행된 파일이 있으면
+그 파일이 우선이므로 상시 백도어가 아니다.
+
+명부 읽기가 일시적으로 실패하면 그 브라우저가 **마지막으로 읽은 목록**을 기한 없이
+재사용한다 — 한 번도 못 읽은 브라우저는 캐시가 없으니 그대로 차단된다.
+
+관리 페이지(`access` · `publish` · `refresh` · `translate`)는 `requireAdmin()` 으로
+스스로도 막으므로, 사이드바에서 메뉴가 숨겨진 것과 별개로 URL 직접 입력도 막힌다.
+
+> 이것도 UX 계층이다. 실제 경계는 여전히 SharePoint 폴더 권한이며, `NA` 로 적어도
+> 그 사람이 `mbtruck-cvdata` 폴더 자체에 권한이 있다면 원본 데이터는 볼 수 있다.
+> 완전히 막으려면 SharePoint 권한도 함께 조정해야 한다.
 
 ---
 

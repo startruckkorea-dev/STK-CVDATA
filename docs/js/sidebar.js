@@ -1,6 +1,6 @@
 // Shared sidebar rendering — ports utils/kaida_processor.py::render_sidebar.
 import { getLang, setLang, t, applyT } from "./i18n.js";
-import { renderUserChip } from "./auth.js";
+import { renderUserChip, isAdmin } from "./auth.js";
 import { refresh } from "./data.js";
 
 const NAV = [
@@ -41,10 +41,14 @@ const NAV = [
     ],
   },
   {
+    // Hidden from read-grade accounts (Access sheet H열). The pages behind it
+    // gate themselves too — this only keeps the menu honest.
     group: "admin",
+    adminOnly: true,
     items: [
       // The monthly update runs from SharePoint in the browser; the older
       // drag-and-drop publish page stays for full rebuilds out of Python.
+      { href: "/pages/access.html", key: "nav_access" },
       { href: "/pages/refresh.html", key: "nav_monthly" },
       { href: "/pages/publish.html", key: "nav_publish" },
       { href: "/pages/translate.html", key: "nav_translate" },
@@ -75,7 +79,7 @@ export function renderSidebar(activeHref = null) {
       <button data-lang="ko" class="${getLang() === "ko" ? "active" : ""}">한국어</button>
       <button data-lang="en" class="${getLang() === "en" ? "active" : ""}">English</button>
     </div>
-    ${NAV.map(grp => `
+    ${NAV.filter(grp => !grp.adminOnly || isAdmin()).map(grp => `
       <details class="nav-group" open>
         <summary data-t="group_${grp.group}">${grp.group}</summary>
         <ul>

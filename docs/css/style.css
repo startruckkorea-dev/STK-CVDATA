@@ -879,6 +879,19 @@ table.data .down { color: var(--danger); font-weight: 600; }
   cursor: pointer;
 }
 .user-chip button.signout:hover { color: var(--danger); border-color: var(--danger); }
+/* Grade badge next to the name — only 관리자 is worth the pixels, since the
+   read grade is what everyone who can see the sidebar already has. */
+.user-chip .user-role {
+  margin-left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  color: inherit;
+}
 
 /* Data freshness block: where the numbers came from, when they were computed,
    and the one control that forgets everything and re-reads SharePoint. */
@@ -1289,6 +1302,7 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
 .sidebar .user-chip { border-top-color: var(--sb-border); }
 .sidebar .user-chip .user-name { color: var(--sb-text); }
 .sidebar .user-chip .user-mail { color: var(--sb-muted); }
+.sidebar .user-chip .user-role { background: rgba(255, 255, 255, 0.16); color: var(--sb-text); }
 .sidebar .user-chip button.signout {
   background: transparent;
   border-color: var(--sb-border);

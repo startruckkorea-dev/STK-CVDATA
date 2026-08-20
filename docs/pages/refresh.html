@@ -107,7 +107,7 @@
 </div>
 
 <script type="module">
-  import { requireLogin } from "../js/auth.js";
+  import { requireAdmin } from "../js/auth.js";
   import { loadTranslations, applyT } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
   import { listFolder, readFileBytes, readJsonFile, writeJsonFile,
@@ -134,7 +134,7 @@
   };
 
   async function bootstrap() {
-    if (!(await requireLogin())) return;
+    if (!(await requireAdmin())) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
     applyT();

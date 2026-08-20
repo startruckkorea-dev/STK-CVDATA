@@ -99,7 +99,7 @@
 </div>
 
 <script type="module">
-  import { requireLogin, currentAccount } from "../js/auth.js";
+  import { requireAdmin, currentAccount } from "../js/auth.js";
   import { loadTranslations, applyT } from "../js/i18n.js";
   import { renderSidebar } from "../js/sidebar.js";
   import { readJsonFile, writeJsonFile } from "../js/graph.js";
@@ -110,7 +110,7 @@
   let _loadedFromSp = false;
 
   (async () => {
-    if (!(await requireLogin())) return;
+    if (!(await requireAdmin())) return;
     await loadTranslations();
     renderSidebar(window.location.pathname);
     applyT();
