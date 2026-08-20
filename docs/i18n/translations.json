@@ -275,7 +275,7 @@
       "en": "Monthly Volume by Power Class"
     },
     "chart_hp_points": {
-      "ko": "마력(정격)별 등록 · 브랜드 구성",
+      "ko": "마력별 등록 · 브랜드 구성",
       "en": "Registrations by Exact Rating · Brand Split"
     },
     "col_hp_band": {
