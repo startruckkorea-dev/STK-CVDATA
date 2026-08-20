@@ -630,17 +630,30 @@
   // ---- quick links ----------------------------------------------------------
 
   const ICON = {
-    tractor: `<path d="M2 17h20M4 17V9h9l3 4h4v4M7 9V6h5v3"/><circle cx="7.5" cy="19" r="2"/><circle cx="17.5" cy="19" r="2"/>`,
-    rigid: `<path d="M2 17h20M3 17V6h13v11M16 10h3l2 4v3M8 6v11"/><circle cx="7.5" cy="19" r="2"/><circle cx="17.5" cy="19" r="2"/>`,
-    tipper: `<path d="M2 18h20M4 18v-5h8M5 13 8 6l9 2-2 5"/><circle cx="7.5" cy="20" r="2"/><circle cx="17.5" cy="20" r="2"/>`,
     bars: `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
   };
 
+  // The three KAIDA segments are drawn rather than iconised — a tractor unit,
+  // a box rigid and a tipper are told apart by their silhouette, which a 24px
+  // glyph cannot carry. Loaded as files so the markup stays readable.
+  const ART = {
+    tractor: "assets/seg-tractor.svg",
+    rigid: "assets/seg-cargo.svg",
+    tipper: "assets/seg-tipper.svg",
+  };
+
+  function qmark(mark) {
+    if (ART[mark]) return `<img class="ql-art" src="${ART[mark]}" alt="" />`;
+    // 44px, not the 28 the icon was drawn at: it shares a row with the truck
+    // drawings and would otherwise read as a smaller kind of tile.
+    return `<svg class="ql-mark" width="44" height="44" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+           stroke-linejoin="round" aria-hidden="true">${ICON[mark]}</svg>`;
+  }
+
   function qlink(href, mark, name, sub) {
     return `<a class="qlink" href="${href}">
-      <svg class="ql-mark" width="28" height="28" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
-           stroke-linejoin="round" aria-hidden="true">${ICON[mark]}</svg>
+      <div class="ql-figure">${qmark(mark)}</div>
       <div class="ql-name">${name}</div>
       <div class="ql-sub">${sub}</div>
     </a>`;

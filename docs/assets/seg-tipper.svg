@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 100" role="img"
+     aria-label="덤프">
+  <!-- Tipper, 6x4 — tipping body with the front wall carried over the cab as
+       a protector, tandem drive. Cab and wheels as seg-tractor. -->
+  <g fill="none" stroke="#3c4650" stroke-width="1.6"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 84 H232" stroke="#c9d1d9" />
+    <!-- chassis -->
+    <path d="M78 58 H212 M78 64 H206 M212 58 V64" />
+    <!-- body -->
+    <path d="M92 14 H212 V52 H98 Z" fill="#fff" />
+    <path d="M92 20 H212 M124 20 V52 M152 20 V52 M180 20 V52" />
+    <!-- cab protector, carried forward off the body's front wall -->
+    <path d="M94 16 C90 6 76 2 52 9 L55 16 C72 12 83 16 87 25 Z" fill="#fff" />
+    <!-- hoist -->
+    <path d="M98 52 L112 60" />
+    <!-- wheels -->
+    <g fill="#fff">
+      <circle cx="44" cy="71" r="13" /><circle cx="150" cy="71" r="13" />
+      <circle cx="184" cy="71" r="13" />
+    </g>
+    <circle cx="44" cy="71" r="5" /><circle cx="150" cy="71" r="5" />
+    <circle cx="184" cy="71" r="5" />
+    <!-- cab -->
+    <path d="M16 64 H31 A13 13 0 0 1 57 64 H78 V16 H26 L16 40 Z" fill="#fff" />
+    <path d="M20 38 L30 20 H48 V38 Z" />
+    <path d="M52 20 V64" />
+    <path d="M56 21 H72 V38 H56 Z" />
+    <path d="M60 44 H66" />
+    <path d="M16 54 H24" />
+    <path d="M18 24 H12 M12 19 V31" />
+  </g>
+</svg>
