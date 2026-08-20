@@ -250,11 +250,15 @@ function renderKpis(f, monthIdx) {
   const el = document.getElementById("kpi-row");
   if (!el) return;
   const mo = `${monthIdx}${t("month_suffix")}`;
+  // With no brand picked the scope is the whole segment, so its YTD share is
+  // the segment's weight in the market — the number the last tile already
+  // carries. The tile only says something once a brand narrows the scope.
+  const byBrand = f.brand !== "ALL";
   el.innerHTML = [
     kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), " units",
             f.hasPrev ? deltaSpan(f.yoy) : "-", "YoY"),
-    kpiTile(t("seg_kpi_ytd_share"), fmtPct(f.share), "",
-            f.pp === null ? "-" : ppSpan(f.pp), "YoY"),
+    kpiTile(t("seg_kpi_ytd_share"), byBrand ? fmtPct(f.share) : "-", "",
+            byBrand && f.pp !== null ? ppSpan(f.pp) : "-", byBrand ? "YoY" : ""),
     kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), " units",
             f.mom === null ? "-" : deltaSpan(f.mom), "MoM"),
     kpiTile(`${t("seg_kpi_month_share")} (${mo})`, fmtPct(f.mthShare), "",
