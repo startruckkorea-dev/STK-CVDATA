@@ -621,7 +621,11 @@ export function waterfall(el, {
     height,
     showlegend: false,
     margin: { l: 46, r: 12, t: 24, b: 30 },
-    xaxis: { tickfont: { size: 12, color: "#6e7781" }, tickangle: 0, showgrid: false },
+    // Seven categories with a maker's full name among them do not fit flat in
+    // a four-column card. Leave the angle to Plotly, which keeps them level
+    // while they fit and tips them only when they would collide, and let the
+    // bottom margin grow to whatever that needs.
+    xaxis: { tickfont: { size: 12, color: "#6e7781" }, showgrid: false, automargin: true },
     // The bars only ever move a few hundred units around a ~2,000 base, so a
     // zero-based axis would flatten every step into the same nub.
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", gridcolor: "#eef1f5" },
