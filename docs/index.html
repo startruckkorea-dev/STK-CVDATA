@@ -634,8 +634,6 @@
     rigid: `<path d="M2 17h20M3 17V6h13v11M16 10h3l2 4v3M8 6v11"/><circle cx="7.5" cy="19" r="2"/><circle cx="17.5" cy="19" r="2"/>`,
     tipper: `<path d="M2 18h20M4 18v-5h8M5 13 8 6l9 2-2 5"/><circle cx="7.5" cy="20" r="2"/><circle cx="17.5" cy="20" r="2"/>`,
     bars: `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
-    list: `<path d="M4 7h1M4 12h1M4 17h1M9 7h11M9 12h11M9 17h11"/>`,
-    tag: `<path d="M3 12V4h8l9 9-8 8-9-9Z"/><circle cx="7.5" cy="7.5" r="1.2"/>`,
   };
 
   function qlink(href, mark, name, sub) {
@@ -657,8 +655,8 @@
       qlink(`pages/seg-cargo.html${q}`, "rigid", t("exec_link_rigid"), t("exec_link_seg_sub")),
       qlink(`pages/seg-tipper.html${q}`, "tipper", t("exec_link_tipper"), t("exec_link_seg_sub")),
       qlink(`pages/kama.html${q}`, "bars", t("nav_kama"), t("exec_link_brand_sub")),
-      qlink(`pages/bestselling.html${q}`, "list", t("exec_link_model"), t("exec_link_model_sub")),
-      qlink(`pages/price.html${q}`, "tag", t("exec_link_price"), t("exec_link_price_sub")),
+      // No 베스트셀링 / 가격 분석 tile: those live under CV DATA, which is
+      // still a test build and is hidden from read-grade accounts.
     ].join("");
   }
 
