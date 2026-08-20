@@ -94,6 +94,15 @@ export async function initSegmentPage({ segment }) {
   render();
 }
 
+/** Panels come and go between deploys, and a browser holding a cached copy of
+ *  the page pairs the old HTML with the new module. Writing into an element
+ *  that is not there would throw halfway through render() and leave every
+ *  panel below it blank — skip it and draw the rest. */
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
 function banner(kind, msg) {
   document.querySelector(".main").insertAdjacentHTML("afterbegin",
     `<div class="banner ${kind}">${msg}</div>`);
@@ -111,7 +120,8 @@ async function render() {
     ({ cur, prev } = await loadKaidaPair(year));
   } catch (e) { console.error(e); }
   if (!cur) {
-    document.getElementById("kpi-row").innerHTML = `<div class="banner warn">${t("no_data")}</div>`;
+    const row = document.getElementById("kpi-row");
+    if (row) row.innerHTML = `<div class="banner warn">${t("no_data")}</div>`;
     return;
   }
 
@@ -119,19 +129,17 @@ async function render() {
   const monthIdx = Math.min(s.month === "YTD" ? last : parseInt(s.month, 10) || last, last);
   const brand = BRAND_ORDER.includes(s.brand) ? s.brand : "ALL";
 
-  document.getElementById("page-sub").textContent = t("seg_page_sub");
-  document.getElementById("seg-scope").textContent = tdata(_segment, "segment");
+  setText("page-sub", t("seg_page_sub"));
+  setText("seg-scope", tdata(_segment, "segment"));
 
   const f = readFacts(cur, prev, monthIdx, brand);
 
-  document.getElementById("title-monthly").textContent = t("seg_panel_monthly");
-  document.getElementById("title-hp-points").textContent = t("chart_hp_points");
-  document.getElementById("title-brand-table").textContent =
-    `${t("seg_panel_brand_table")} (${tdata(_segment, "segment")})`;
-  document.getElementById("title-insight").textContent = t("seg_insight");
-
-  document.getElementById("title-som").textContent =
-    t("seg_panel_som", { name: label(f.somBrand) });
+  setText("title-monthly", t("seg_panel_monthly"));
+  setText("title-hp-points", t("chart_hp_points"));
+  setText("title-brand-table",
+          `${t("seg_panel_brand_table")} (${tdata(_segment, "segment")})`);
+  setText("title-insight", t("seg_insight"));
+  setText("title-som", t("seg_panel_som", { name: label(f.somBrand) }));
 
   renderKpis(f, monthIdx);
   renderBrandTable(f, year, f.prevYear, monthIdx);
@@ -239,8 +247,10 @@ function ring(pct) {
 }
 
 function renderKpis(f, monthIdx) {
+  const el = document.getElementById("kpi-row");
+  if (!el) return;
   const mo = `${monthIdx}${t("month_suffix")}`;
-  document.getElementById("kpi-row").innerHTML = [
+  el.innerHTML = [
     kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), " units",
             f.hasPrev ? deltaSpan(f.yoy) : "-", "YoY"),
     kpiTile(t("seg_kpi_ytd_share"), fmtPct(f.share), "",
@@ -263,7 +273,9 @@ function renderKpis(f, monthIdx) {
 /** YTD share of the segment, this year against last — the glide path behind
  *  the scorecard's SHARE / Δ SHARE columns. */
 function renderSom(f, year, prevYear) {
-  lineChart(document.getElementById("chart-som"), {
+  const el = document.getElementById("chart-som");
+  if (!el) return;
+  lineChart(el, {
     x: MONTHS_KR,
     valueKind: "pct1",
     yLabel: "%",
@@ -279,7 +291,9 @@ function renderSom(f, year, prevYear) {
 }
 
 function renderMonthly(f, year, prevYear) {
-  comboBarLine(document.getElementById("chart-monthly"), {
+  const el = document.getElementById("chart-monthly");
+  if (!el) return;
+  comboBarLine(el, {
     x: MONTHS_KR,
     bars: [
       { name: String(year), values: f.curScope, color: TOKEN.teal },
@@ -300,6 +314,7 @@ function renderMonthly(f, year, prevYear) {
  *  carries the rating's share of the segment above it. */
 function renderHpPoints(cur, monthIdx) {
   const row = document.getElementById("hp-row");
+  if (!row) return;
   // Only the tractor sheets carry a horsepower rating — rigids and tippers vary
   // by body, not by engine, so the panel stays hidden there.
   const pts = (_segment === "Tractor" ? cur.tractor_hp_points || [] : [])
@@ -339,8 +354,10 @@ function renderHpPoints(cur, monthIdx) {
 // ---- brand table ------------------------------------------------------------
 
 function renderBrandTable(f, year, prevYear, monthIdx) {
+  const el = document.getElementById("brand-table");
+  if (!el) return;
   const py = f.hasPrev ? prevYear : "-";
-  document.getElementById("brand-table").innerHTML = `
+  el.innerHTML = `
     <div class="table-scroll table-fit">
       <table class="data compact">
         <thead>
@@ -388,6 +405,7 @@ function insightCard(kind, title, body) {
 
 function renderInsights(f) {
   const el = document.getElementById("insight-list");
+  if (!el) return;
   if (!f.hasPrev) { el.innerHTML = `<p class="ql-sub">${t("no_data")}</p>`; return; }
 
   const out = [];

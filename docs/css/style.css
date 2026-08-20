@@ -1098,6 +1098,10 @@ table.data .down { color: var(--danger); font-weight: 600; }
 .exec-grid > .w12 { grid-column: span 12; }
 .exec-grid > .w9 { grid-column: span 9; }
 .exec-grid > .w8 { grid-column: span 8; }
+/* `display: grid` below outranks the browser's own [hidden] rule, so a row
+   the page hides in markup (the tractor-only power panel) would show as an
+   empty card until JS got to it. */
+.exec-grid[hidden] { display: none; }
 .exec-grid > .w7 { grid-column: span 7; }
 .exec-grid > .w6 { grid-column: span 6; }
 .exec-grid > .w5 { grid-column: span 5; }
