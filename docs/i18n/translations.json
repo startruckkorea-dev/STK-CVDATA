@@ -330,11 +330,11 @@
       "en": "Refreshing…"
     },
     "group_executive": {
-      "ko": "경영진",
-      "en": "Executive"
+      "ko": "대시보드",
+      "en": "Dashboard"
     },
     "nav_exec_overview": {
-      "ko": "경영 대시보드",
+      "ko": "시장 개요",
       "en": "Market Overview"
     },
     "exec_title": {
