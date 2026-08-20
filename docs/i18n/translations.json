@@ -14,8 +14,8 @@
       "en": "Commercial Vehicle Registration Analytics"
     },
     "group_import_cv": {
-      "ko": "수입 상용차 (KAIDA / KAMA)",
-      "en": "Import CV (KAIDA / KAMA)"
+      "ko": "국산 상용차 (KAMA)",
+      "en": "Domestic CV (KAMA)"
     },
     "group_cv_data": {
       "ko": "CV DATA (테스트 버전)",
@@ -506,8 +506,8 @@
       "en": "Price & transaction trends"
     },
     "group_market_analysis": {
-      "ko": "시장 분석",
-      "en": "Market Analysis"
+      "ko": "수입 상용차 (KAIDA)",
+      "en": "Import CV (KAIDA)"
     },
     "nav_seg_tractor": {
       "ko": "트랙터",
