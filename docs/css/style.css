@@ -1077,8 +1077,11 @@ table.data .down { color: var(--danger); font-weight: 600; }
   .kpi-card.weight { padding-right: 10px; }
   .kpi-card.weight .kpi-ring { display: none; }
 
-  /* Charts get the height back that the header gave up. */
-  .chart { min-height: 0; }
+  /* Charts get the height back that the header gave up. `pan-y` tells the
+     browser a vertical drag over a plot is the page scrolling and it need not
+     wait to see what the chart does with it — the plots are static here, but
+     the hint removes the pause before the page moves. */
+  .chart { min-height: 0; touch-action: pan-y; }
   .exec-card { padding: 10px 12px 12px; }
   .exec-card h3 { font-size: 0.92rem; }
 

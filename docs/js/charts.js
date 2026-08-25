@@ -18,6 +18,37 @@ const BASE_LAYOUT = {
 
 const CONFIG = { responsive: true, displaylogo: false, displayModeBar: false };
 
+/**
+ * Plotly reads a drag across a plot as pan-and-zoom. With a mouse that is a
+ * deliberate gesture; with a finger it is indistinguishable from scrolling the
+ * page, so a reader trying to get past a chart rescales it instead and is left
+ * looking at a window onto the data with no way back. Touch-sized screens get
+ * a static plot: no drag, no pinch, no double-tap reset. Nothing is lost with
+ * it — every value these charts carry is printed on the marks, and hover, the
+ * one thing a static plot gives up, does not exist on a touchscreen.
+ */
+function configFor(config) {
+  const base = config || CONFIG;
+  return noDrag() ? { ...base, staticPlot: true, scrollZoom: false } : base;
+}
+
+/** A finger, whatever the window is: a touch tablet held wide still cannot
+ *  drag a plot without meaning to scroll. */
+function isTouch() {
+  try {
+    return !!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches);
+  } catch (_) {
+    return false;
+  }
+}
+function noDrag() { return isNarrow() || isTouch(); }
+
+/** Belt and braces for the same thing: even where a plot is interactive, a
+ *  drag should never be a zoom on a narrow screen. */
+function mobileSafe(layout) {
+  return noDrag() ? { ...layout, dragmode: false } : layout;
+}
+
 // Plotly's `responsive` only listens for WINDOW resizes, so a plot keeps the
 // width it was born with when its container changes underneath it — which it
 // does routinely here: the page grows past one screen and a scrollbar appears,
@@ -45,7 +76,7 @@ function keepFitted(el) {
 /** Render, then keep the plot matched to its container for as long as it lives. */
 function plot(el, traces, layout, config) {
   if (!el) return;
-  Plotly.newPlot(el, traces, layout, config);
+  Plotly.newPlot(el, traces, mobileSafe(layout), configFor(config));
   // The first chart on the page is the honest signal that the wait is over —
   // every other chart of that render pass draws in the same tick.
   loadingFinish();
