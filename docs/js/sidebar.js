@@ -60,6 +60,52 @@ const NAV = [
   },
 ];
 
+/**
+ * Off-canvas navigation for phones.
+ *
+ * The sidebar is a column of the page grid on a desktop; on a phone that
+ * column becomes a full screen of menu the reader has to scroll past before
+ * reaching a single number. Below the CSS breakpoint it slides in over the
+ * page instead, opened from a button that stays put while the page scrolls.
+ * Everything visual lives in the stylesheet — this only wires the state, so a
+ * wide window never sees any of it.
+ */
+function _mountNavToggle(sidebar) {
+  if (document.getElementById("nav-toggle")) return;   // already wired
+
+  const btn = document.createElement("button");
+  btn.id = "nav-toggle";
+  btn.className = "nav-toggle";
+  btn.type = "button";
+  btn.setAttribute("aria-label", "메뉴");
+  btn.setAttribute("aria-expanded", "false");
+  btn.innerHTML = `<span></span><span></span><span></span>`;
+
+  const scrim = document.createElement("div");
+  scrim.className = "nav-scrim";
+  scrim.id = "nav-scrim";
+
+  const setOpen = (open) => {
+    document.body.classList.toggle("nav-open", open);
+    btn.setAttribute("aria-expanded", String(open));
+  };
+
+  btn.addEventListener("click", () =>
+    setOpen(!document.body.classList.contains("nav-open")));
+  scrim.addEventListener("click", () => setOpen(false));
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") setOpen(false);
+  });
+  // Tapping a destination should feel like arriving, not like being left with
+  // the menu still over the page while it loads.
+  sidebar.addEventListener("click", (e) => {
+    if (e.target.closest("a")) setOpen(false);
+  });
+
+  document.body.appendChild(scrim);
+  document.body.appendChild(btn);
+}
+
 export function renderSidebar(activeHref = null) {
   const root = document.documentElement.dataset.siteRoot || ".";
   const sidebar = document.querySelector("aside.sidebar");
@@ -151,4 +197,5 @@ export function renderSidebar(activeHref = null) {
 
   renderUserChip(sidebar);
   applyT(sidebar);
+  _mountNavToggle(sidebar);
 }

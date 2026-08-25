@@ -114,10 +114,40 @@ export const SEGMENT_TILE_COLORS = {
 // the caller has not specified its own margins.
 const TITLE_MARGIN_TOP = 48;
 
+/**
+ * A phone-sized window. Charts here are authored for a desktop card — heights
+ * around 300–400px, 17px labels, margins wide enough for those labels — and
+ * all of that has to come down on a 360px screen or the panel is a strip of
+ * text with a plot behind it.
+ */
+function isNarrow() {
+  return typeof window !== "undefined" && window.innerWidth <= 720;
+}
+
+/** Month names on a 360px screen do not fit twelve across, and Plotly's answer
+ *  is to stand them on end. Show every other one instead, level. */
+function narrowCategoryAxis(x) {
+  if (!isNarrow() || !x || x.length <= 8) return {};
+  return { tickangle: 0, dtick: 2 };
+}
+
 function mergeLayout(extra = {}) {
   const layout = { ...BASE_LAYOUT, ...extra };
   if (layout.title && !extra.margin) {
     layout.margin = { ...BASE_LAYOUT.margin, t: TITLE_MARGIN_TOP };
+  }
+  if (isNarrow()) {
+    // Shorter, tighter, smaller — in that order of importance. The height cap
+    // is what actually gets a second panel onto the screen.
+    layout.height = Math.min(layout.height || 300, 260);
+    layout.font = { ...BASE_LAYOUT.font, size: 13 };
+    layout.margin = {
+      ...(layout.margin || BASE_LAYOUT.margin),
+      l: Math.min((layout.margin || BASE_LAYOUT.margin).l ?? 58, 44),
+      r: Math.min((layout.margin || BASE_LAYOUT.margin).r ?? 24, 16),
+      b: Math.min((layout.margin || BASE_LAYOUT.margin).b ?? 42, 36),
+    };
+    layout.legend = { ...(layout.legend || BASE_LAYOUT.legend), font: { size: 11 } };
   }
   return layout;
 }
@@ -127,7 +157,16 @@ function mergeLayout(extra = {}) {
 // labels are sized to be read at arm's length rather than to fit the densest
 // chart.
 const LABEL_SIZE = 17;
-const LABEL_FONT = { size: LABEL_SIZE };
+
+/** On-chart label size for the window in hand — the authored size on a
+ *  desktop, something a phone can fit between two bars otherwise. */
+function labelSizeFor(requested) {
+  const size = requested || LABEL_SIZE;
+  return isNarrow() ? Math.min(size, 11) : size;
+}
+function labelFontFor(requested) {
+  return { size: labelSizeFor(requested) };
+}
 
 /** Format a value for an on-chart label. kind: "int" | "pct" | "pct1" */
 export function labelText(v, kind = "int") {
@@ -167,7 +206,7 @@ export function verticalBar(el, { categories, values, color, title, valueFormat 
     marker: { color: color || categories.map(colorFor) },
     text: values.map(v => v.toLocaleString()),
     textposition: "outside",
-    textfont: LABEL_FONT,
+    textfont: labelFontFor(),
     cliponaxis: false,
   };
   plot(el, [trace], mergeLayout({
@@ -188,7 +227,7 @@ export function groupedBar(el, {
     marker: { color: s.color || colorFor(s.name) },
     text: labelsFor(s.values, s.valueKind || valueKind),
     textposition: inside ? "inside" : "outside",
-    textfont: labelSize ? { size: labelSize } : LABEL_FONT,
+    textfont: labelFontFor(labelSize),
     insidetextanchor: inside ? "middle" : undefined,
     cliponaxis: false,
   }));
@@ -218,7 +257,7 @@ export function groupedBarH(el, {
     marker: { color: s.color || colorFor(s.name) },
     text: labelsFor(s.values, s.valueKind || valueKind, false),
     textposition: "outside",
-    textfont: LABEL_FONT,
+    textfont: labelFontFor(),
     cliponaxis: false,
   }));
   const max = Math.max(1, ...series.flatMap(s => s.values.map(v => v || 0)));
@@ -244,16 +283,20 @@ export function stackedBar(el, {
 export function lineChart(el, {
   x, series, title, yLabel, valueKind = "int", height, labelSize,
 }) {
-  const font = labelSize ? { size: labelSize } : LABEL_FONT;
+  const font = labelFontFor(labelSize);
+  // Twelve labelled points inside a phone-width card is one smear of digits —
+  // the axis already carries the scale, so on a narrow screen the line drops
+  // its point labels rather than printing them on top of each other.
+  const withText = !isNarrow() || !x || x.length <= 8;
   const traces = series.map(s => ({
     type: "scatter",
-    mode: "lines+markers+text",
+    mode: withText ? "lines+markers+text" : "lines+markers",
     name: s.name,
     x,
     y: s.values,
     line: { color: s.color || colorFor(s.name), width: 2 },
     marker: { size: 6 },
-    text: labelsFor(s.values, s.valueKind || valueKind),
+    text: withText ? labelsFor(s.values, s.valueKind || valueKind) : undefined,
     textposition: "top center",
     textfont: { ...font, color: s.color || colorFor(s.name) },
     cliponaxis: false,
@@ -263,6 +306,7 @@ export function lineChart(el, {
   plot(el, traces, mergeLayout({
     title,
     height,
+    xaxis: narrowCategoryAxis(x),
     // A percentage axis reads as a share, not as a count: no thousands comma,
     // and no tick suffix either — every point already carries its own % label.
     yaxis: pct ? { title: yLabel } : { title: yLabel, tickformat: "," },
@@ -324,7 +368,7 @@ export function shareBandH(el, {
 export function comboBarLine(el, {
   x, bars, lines, height, yLabel, y2Label = "%", title, labelSize,
 }) {
-  const font = labelSize ? { size: labelSize } : LABEL_FONT;
+  const font = labelFontFor(labelSize);
   const barTraces = bars.map(b => ({
     type: "bar",
     name: b.name,
@@ -349,7 +393,7 @@ export function comboBarLine(el, {
     marker: { size: l.markerSize || 6, symbol: l.symbol },
     text: labelsFor(l.values, l.valueKind || "pct1"),
     textposition: l.textposition || "top center",
-    textfont: { size: labelSize || LABEL_SIZE, color: l.color || "#231F20" },
+    textfont: { size: labelSizeFor(labelSize), color: l.color || "#231F20" },
     cliponaxis: false,
   }));
   const useY2 = lines.some(l => l.axis !== "y");
@@ -357,6 +401,7 @@ export function comboBarLine(el, {
     title,
     height,
     barmode: "group",
+    xaxis: narrowCategoryAxis(x),
     yaxis: { title: yLabel, tickformat: "," },
     ...(useY2 ? {
       yaxis2: { title: y2Label, overlaying: "y", side: "right", ticksuffix: "%", showgrid: false, rangemode: "tozero" },
