@@ -253,6 +253,31 @@ export function isSignedIn() {
 }
 
 /**
+ * Take this window out of the "I am an MSAL popup" state it can get stuck in.
+ *
+ * MSAL decides a window is one of its popups from three things: it has an
+ * opener, the opener is not itself, and `window.name` starts with "msal". On a
+ * phone that is a trap. Mobile browsers turn a popup into an ordinary tab, so
+ * the tab MSAL named `msal.<…>` stays open, Entra sends the response back into
+ * it, and from then on every MSAL call made from that tab is refused with
+ * `block_nested_popups` — the redirect flow included, because the same guard
+ * runs in front of both. The user is left on a page whose sign-in button
+ * cannot work, and reloading changes nothing: `window.name` survives
+ * navigation for the life of the tab.
+ *
+ * Clearing the name is enough to fail that test, and it is only ever done from
+ * an explicit sign-in click. A window that really is mid-handshake never gets
+ * here: it is showing Microsoft's page, not our login screen.
+ */
+function _defuseNestedPopup() {
+  try {
+    if (typeof window.name === "string" && window.name.indexOf("msal") === 0) {
+      window.name = "";
+    }
+  } catch (_) { /* nothing we can do, and nothing lost by trying */ }
+}
+
+/**
  * Drop the "an interaction is already running" marker MSAL leaves behind when
  * a login is abandoned — a blocked popup, a phone that backed out of the
  * redirect, a refresh mid-flow. It is the reason a second attempt can fail
@@ -288,6 +313,10 @@ async function _startLogin(pca, { forceRedirect = false } = {}) {
 }
 
 export async function signIn() {
+  // Before anything else: a phone can be sitting in a window MSAL still counts
+  // as one of its popups, and every call below would be refused.
+  _defuseNestedPopup();
+
   let pca;
   try {
     pca = _client();
@@ -326,6 +355,7 @@ export async function signOut() {
   const account = _account || pca.getAllAccounts()[0];
   if (_preferRedirect()) {
     try {
+      _defuseNestedPopup();
       await pca.logoutRedirect({ account });
       return;
     } catch (_) { /* fall through to the local clear below */ }
@@ -354,7 +384,11 @@ export async function getAccessToken(scopes = GRAPH_SCOPES) {
     return result.accessToken;
   } catch (e) {
     if (e instanceof msal.InteractionRequiredAuthError) {
-      // Same story as sign-in: a phone cannot be asked to consent in a popup.
+      // Same story as sign-in: a phone cannot be asked to consent in a popup,
+      // and the tab it is in may still be wearing an MSAL popup's name. A
+      // window in the middle of a real handshake never reaches here — it is
+      // showing Microsoft's page, not calling Graph.
+      _defuseNestedPopup();
       if (_preferRedirect()) {
         await pca.acquireTokenRedirect({ scopes, account });
         // The page is on its way out; nothing downstream should keep running.
