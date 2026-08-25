@@ -180,7 +180,7 @@ python -m http.server -d docs 8000
 
 ## 인증 (브라우저 MSAL 게이트)
 
-[docs/js/auth.js](docs/js/auth.js) — Entra SPA + PKCE, 팝업 로그인, `localStorage` 캐시
+[docs/js/auth.js](docs/js/auth.js) — Entra SPA + PKCE, `localStorage` 캐시. PC 는 팝업 로그인, 모바일(터치 기기·앱 내 브라우저)은 전체 화면 리디렉션 로그인 — 휴대폰 브라우저는 페이지 자체를 팝업 창으로 여는 경우가 많고, MSAL 은 팝업 안에서 팝업을 열지 않습니다(`block_nested_popups`). 팝업이 막히면 PC 에서도 리디렉션으로 넘어갑니다
 (멀티페이지 사이트라 페이지 이동마다 재로그인하지 않도록).
 
 - 허용 도메인: `hyosung.com`, `startruckkorea.com` (`ALLOWED_DOMAINS`)

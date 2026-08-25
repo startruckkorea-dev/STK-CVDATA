@@ -58,9 +58,48 @@ const msalConfig = {
     // multi-page (index.html + pages/*.html each boot MSAL independently), and
     // sessionStorage would force a fresh login on every navigation.
     cacheLocation: "localStorage",
-    storeAuthStateInCookie: false,
+    // The redirect flow below leaves and re-enters the page, and mobile
+    // browsers are the ones that use it. A cookie copy of the interaction
+    // state is what MSAL recommends there — Safari's storage partitioning can
+    // otherwise drop it mid-login and the return lands with nothing to match.
+    storeAuthStateInCookie: true,
   },
 };
+
+/**
+ * Whether to sign in by redirecting the whole page instead of opening a popup.
+ *
+ * Mobile browsers routinely run a page inside a popup-like window (a tab
+ * opened from another app, an in-app webview), and MSAL refuses to open a
+ * popup from inside one — `block_nested_popups`, which is what a phone hit
+ * instead of a login screen. Popups are also blocked or awkward on phones even
+ * when they do work, so anything touch-driven takes the redirect.
+ */
+function _preferRedirect() {
+  try {
+    if (window.opener && window.opener !== window) return true;
+  } catch (_) {
+    // cross-origin opener — still a nested window
+    return true;
+  }
+  try {
+    if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) return true;
+  } catch (_) { /* older browser */ }
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || "");
+}
+
+// Popup errors that a full-page redirect gets past: MSAL refusing to nest a
+// popup, and the browser blocking or closing the one it did open.
+const POPUP_FAILURES = new Set([
+  "block_nested_popups",
+  "popup_window_error",
+  "empty_window_error",
+  "user_cancelled",
+]);
+function _isPopupFailure(e) {
+  return !!e && (POPUP_FAILURES.has(e.errorCode) ||
+                 /popup/i.test((e && e.message) || ""));
+}
 
 // A stale/aborted interaction (popup closed, refresh mid-login, tab race) can
 // leave `msal.interaction.status` in storage; the next login then throws one of
@@ -208,10 +247,25 @@ export function isSignedIn() {
 export async function signIn() {
   const pca = _client();
   await pca.initialize?.();
+
+  // MSAL remembers the page the redirect started from and comes back to it,
+  // so a drill-down page still returns to itself even though the registered
+  // redirect URI is the bare origin.
+  if (_preferRedirect()) {
+    await pca.loginRedirect(LOGIN_REQUEST);
+    return;   // the page navigates away
+  }
+
   try {
     const result = await pca.loginPopup(LOGIN_REQUEST);
     pca.setActiveAccount(result.account);
   } catch (e) {
+    if (_isPopupFailure(e)) {
+      // The browser would not give us a popup after all — go the long way
+      // round rather than leaving the user at a dead end.
+      await pca.loginRedirect(LOGIN_REQUEST);
+      return;
+    }
     if (!_isStaleAuthError(e)) {
       _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e),
                    _redirectUriHint(e));
@@ -219,8 +273,13 @@ export async function signIn() {
     }
     // stale interaction state left in storage → clear and retry once
     try { await pca.clearCache(); } catch { /* ignore */ }
-    const result = await pca.loginPopup(LOGIN_REQUEST);
-    pca.setActiveAccount(result.account);
+    try {
+      const result = await pca.loginPopup(LOGIN_REQUEST);
+      pca.setActiveAccount(result.account);
+    } catch (e2) {
+      await pca.loginRedirect(LOGIN_REQUEST);
+      return;
+    }
   }
   // Re-run the page's auth gate now that an account exists in localStorage.
   window.location.reload();
@@ -229,6 +288,12 @@ export async function signIn() {
 export async function signOut() {
   const pca = _client();
   const account = _account || pca.getAllAccounts()[0];
+  if (_preferRedirect()) {
+    try {
+      await pca.logoutRedirect({ account });
+      return;
+    } catch (_) { /* fall through to the local clear below */ }
+  }
   try {
     await pca.logoutPopup({ account });
   } catch {
@@ -253,8 +318,20 @@ export async function getAccessToken(scopes = GRAPH_SCOPES) {
     return result.accessToken;
   } catch (e) {
     if (e instanceof msal.InteractionRequiredAuthError) {
-      const result = await pca.acquireTokenPopup({ scopes, account });
-      return result.accessToken;
+      // Same story as sign-in: a phone cannot be asked to consent in a popup.
+      if (_preferRedirect()) {
+        await pca.acquireTokenRedirect({ scopes, account });
+        // The page is on its way out; nothing downstream should keep running.
+        return new Promise(() => {});
+      }
+      try {
+        const result = await pca.acquireTokenPopup({ scopes, account });
+        return result.accessToken;
+      } catch (e2) {
+        if (!_isPopupFailure(e2)) throw e2;
+        await pca.acquireTokenRedirect({ scopes, account });
+        return new Promise(() => {});
+      }
     }
     throw e;
   }
