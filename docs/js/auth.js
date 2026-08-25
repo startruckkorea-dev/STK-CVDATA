@@ -179,6 +179,14 @@ export async function requireLogin() {
     }
   } catch (e) {
     console.error("handleRedirectPromise failed", e);
+    // An abandoned redirect leaves state that makes this throw on the next
+    // load. Clearing it and showing the login screen is a better answer than
+    // an error page the user can only reload into the same error.
+    if (_isStaleAuthError(e)) {
+      _clearStaleInteraction();
+      _renderLoginScreen();
+      return null;
+    }
     _renderError("로그인 처리 중 오류가 발생했습니다: " + e.message);
     return null;
   }
@@ -244,45 +252,73 @@ export function isSignedIn() {
   return !!(_account && _account.username);
 }
 
-export async function signIn() {
-  const pca = _client();
-  await pca.initialize?.();
+/**
+ * Drop the "an interaction is already running" marker MSAL leaves behind when
+ * a login is abandoned — a blocked popup, a phone that backed out of the
+ * redirect, a refresh mid-flow. It is the reason a second attempt can fail
+ * before anything is even shown, and MSAL exposes no API for it, so the key is
+ * removed by hand. The account cache is left alone: clearing that would sign
+ * out every other tab to fix a flag.
+ */
+function _clearStaleInteraction() {
+  for (const store of [localStorage, sessionStorage]) {
+    try {
+      const doomed = [];
+      for (let i = 0; i < store.length; i++) {
+        const k = store.key(i);
+        if (k && k.includes("interaction.status")) doomed.push(k);
+      }
+      doomed.forEach(k => store.removeItem(k));
+    } catch (_) { /* storage blocked — nothing to clear either */ }
+  }
+}
 
-  // MSAL remembers the page the redirect started from and comes back to it,
-  // so a drill-down page still returns to itself even though the registered
-  // redirect URI is the bare origin.
-  if (_preferRedirect()) {
+// MSAL remembers the page the redirect started from and comes back to it, so a
+// drill-down page still returns to itself even though the registered redirect
+// URI is the bare origin.
+async function _startLogin(pca, { forceRedirect = false } = {}) {
+  if (forceRedirect || _preferRedirect()) {
+    _clearStaleInteraction();
     await pca.loginRedirect(LOGIN_REQUEST);
-    return;   // the page navigates away
+    return false;   // the page is navigating away; nothing else should run
+  }
+  const result = await pca.loginPopup(LOGIN_REQUEST);
+  pca.setActiveAccount(result.account);
+  return true;
+}
+
+export async function signIn() {
+  let pca;
+  try {
+    pca = _client();
+    await pca.initialize?.();
+  } catch (e) {
+    _renderError("로그인을 시작하지 못했습니다: " + (e.message || e.errorCode || e));
+    return;
   }
 
   try {
-    const result = await pca.loginPopup(LOGIN_REQUEST);
-    pca.setActiveAccount(result.account);
+    if (await _startLogin(pca)) window.location.reload();
+    return;
   } catch (e) {
-    if (_isPopupFailure(e)) {
-      // The browser would not give us a popup after all — go the long way
-      // round rather than leaving the user at a dead end.
-      await pca.loginRedirect(LOGIN_REQUEST);
-      return;
-    }
-    if (!_isStaleAuthError(e)) {
+    // A blocked popup, or state left over from an attempt that never
+    // finished: both are fixed by the same thing — clear what is stale and
+    // take the redirect, which no browser can refuse.
+    if (!_isPopupFailure(e) && !_isStaleAuthError(e)) {
       _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e),
                    _redirectUriHint(e));
       return;
     }
-    // stale interaction state left in storage → clear and retry once
-    try { await pca.clearCache(); } catch { /* ignore */ }
-    try {
-      const result = await pca.loginPopup(LOGIN_REQUEST);
-      pca.setActiveAccount(result.account);
-    } catch (e2) {
-      await pca.loginRedirect(LOGIN_REQUEST);
-      return;
-    }
+    console.warn("login retry as redirect", e.errorCode || e.message);
   }
-  // Re-run the page's auth gate now that an account exists in localStorage.
-  window.location.reload();
+
+  try {
+    _clearStaleInteraction();
+    await _startLogin(pca, { forceRedirect: true });
+  } catch (e) {
+    _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e),
+                 _redirectUriHint(e));
+  }
 }
 
 export async function signOut() {
@@ -375,7 +411,17 @@ function _renderLoginScreen() {
         <button id="signin-btn" type="button">Microsoft 계정으로 로그인</button>
       </div>
     </div>`;
-  document.getElementById("signin-btn").addEventListener("click", () => signIn());
+  const btn = document.getElementById("signin-btn");
+  btn.addEventListener("click", () => {
+    // The redirect flow leaves the page; say so rather than looking dead.
+    btn.disabled = true;
+    btn.textContent = "로그인 창으로 이동 중…";
+    signIn().catch(e => {
+      console.error("signIn failed", e);
+      _renderError("로그인에 실패했습니다: " + (e.message || e.errorCode || e),
+                   _redirectUriHint(e));
+    });
+  });
 }
 
 function _renderForbidden(account) {
