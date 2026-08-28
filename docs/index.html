@@ -44,6 +44,16 @@
       <div id="kpi-row" class="exec-kpis"></div>
     </div>
 
+    <!-- THIS MONTH — the one KPI tile that is not YTD, opened up. Everything
+         else on the page reads the year to date; this is the month itself:
+         how it split across the three segments, and who took each of them. -->
+    <div class="exec-grid">
+      <div class="exec-card w12">
+        <h3 id="title-month-now"></h3>
+        <div id="month-now"></div>
+      </div>
+    </div>
+
     <!-- WHAT'S HAPPENING — the market's shape, who holds it, who moved. -->
     <div class="exec-grid">
       <div class="exec-card w4">
@@ -294,6 +304,7 @@
     const facts = readFacts(cur, prev, monthIdx);
 
     renderKpis(cur, prev, facts, monthIdx);
+    renderMonthNow(cur, prev, monthIdx);
     renderTrend(cur, prev, monthIdx);
     renderRanking(facts);
     renderShareChange(facts);
@@ -445,6 +456,94 @@
           text: f.marketYoY >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline") }, "",
         sparkLine(momentumPath, { color: "#1A3A82" })),
     ].join("");
+  }
+
+  // ---- this month -----------------------------------------------------------
+  // The chosen month on its own: a split bar for the three segments, and one
+  // row per brand under it. Its own palette rather than the segment tokens the
+  // charts use — this table was designed against these three colours, and the
+  // bar is read as a legend for the columns below it.
+
+  const MONTH_SEG_COLOR = { Tractor: "#4285F4", Rigid: "#F9AB00", Tipper: "#80868B" };
+
+  function renderMonthNow(cur, prev, monthIdx) {
+    const key = MONTHS[monthIdx - 1];
+    const period = `${cur.year}.${String(monthIdx).padStart(2, "0")}`;
+    const total = totalRow(cur)[key] || 0;
+
+    // The month before, which in January is last year's December.
+    const prevTotal = monthIdx > 1
+      ? totalRow(cur)[MONTHS[monthIdx - 2]] || 0
+      : (prev ? totalRow(prev).Dec || 0 : 0);
+    const mom = calcYoY(total, prevTotal);
+
+    document.getElementById("title-month-now").innerHTML =
+      `${t("exec_month_now")} <span>${period} · ${t("exec_month_units", { n: fmtNum(total) })}` +
+      `${mom === null ? "" : ` (${signed(mom)}% MoM)`}</span>`;
+
+    const segs = SEGMENT_ORDER.map(seg => ({ seg, v: segRow(cur, seg)[key] || 0 }));
+
+    const split = segs.filter(r => r.v > 0).map(r => `
+      <div class="mn-seg" style="flex:${r.v} 1 0;background:${MONTH_SEG_COLOR[r.seg]}">
+        <span class="mn-name">${tdata(r.seg, "segment")} ${fmtNum(r.v)}</span>
+        <span class="mn-pct">${fmtPct(pct(r.v, total))}</span>
+      </div>`).join("");
+
+    // A brand's bar is measured against the segment's own leader, so each
+    // column ranks its own market instead of being flattened by Rigid volume.
+    const rows = BRAND_ORDER.map(b => ({
+      brand: b,
+      label: BRAND_LABEL[b] || b,
+      total: brandRow(cur, b)[key] || 0,
+      seg: Object.fromEntries(SEGMENT_ORDER.map(sg =>
+        [sg, brandSegRow(cur, b, sg)[key] || 0])),
+    })).sort((a, b) => b.total - a.total);
+
+    const segMax = {}, segRank = {};
+    for (const sg of SEGMENT_ORDER) {
+      const vals = rows.map(r => r.seg[sg]);
+      segMax[sg] = Math.max(...vals, 1);
+      // Ties share the better place, the way a league table reads.
+      const sorted = [...vals].sort((a, b) => b - a);
+      segRank[sg] = Object.fromEntries(rows.map(r =>
+        [r.brand, sorted.indexOf(r.seg[sg]) + 1]));
+    }
+
+    const cell = (r, sg) => {
+      const v = r.seg[sg];
+      const rank = segRank[sg][r.brand];
+      return `<td style="--seg:${MONTH_SEG_COLOR[sg]}">
+        <div class="mn-cell">
+          <span class="mn-v">${fmtNum(v)}</span>
+          <span class="mn-track"><i style="width:${(v / segMax[sg] * 100).toFixed(1)}%"></i></span>
+          <span class="mn-rank">${v > 0 && rank <= 3 ? t("exec_month_rank", { n: rank }) : ""}</span>
+        </div>
+      </td>`;
+    };
+
+    document.getElementById("month-now").innerHTML = `
+      <div class="mn-split">${split}</div>
+      <div class="mn-fit">
+        <table class="mnow">
+          <thead>
+            <tr>
+              <th data-t="filter_brand">Brand</th>
+              <th class="num" data-t="col_total">Total</th>
+              ${SEGMENT_ORDER.map(sg =>
+                `<th class="seg" style="--seg:${MONTH_SEG_COLOR[sg]}">${tdata(sg, "segment")}</th>`).join("")}
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r, i) => `
+              <tr class="${r.brand === "MB" ? "mb" : ""}">
+                <td class="brand"><span class="rk">${i + 1}</span> ${r.label}</td>
+                <td class="num">${fmtNum(r.total)}</td>
+                ${SEGMENT_ORDER.map(sg => cell(r, sg)).join("")}
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>`;
+    applyT(document.getElementById("month-now"));
   }
 
   // ---- charts ---------------------------------------------------------------

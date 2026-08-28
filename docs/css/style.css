@@ -1091,6 +1091,14 @@ table.data .down { color: var(--danger); font-weight: 600; }
   .table-fit { overflow-x: auto; }
   .table-fit table.data { min-width: 560px; }
   .table-scroll table.data { min-width: 620px; }
+
+  /* Five columns, three of them a number + bar + rank: below ~560px the bars
+     collapse to a sliver, so the table scrolls sideways inside its card. */
+  .mn-fit { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .mn-fit table.mnow { min-width: 560px; }
+  .mn-split { height: 48px; }
+  .mn-seg .mn-name { font-size: 0.85rem; }
+  .mn-seg .mn-pct { font-size: 0.72rem; }
 }
 
 /* Loading overlay ---------------------------------------------------------
@@ -1306,6 +1314,89 @@ table.rank .pp { font-weight: 600; white-space: nowrap; }
 table.rank .pp.up { color: var(--success); }
 table.rank .pp.down { color: var(--danger); }
 table.rank .pp.flat { color: var(--muted); }
+
+/* This month — the split bar and the brand table under it (index.html).
+   The three segment colours are set inline as --seg from the script, so a
+   header, a bar and its column always carry the same ink. */
+.mn-split {
+  display: flex;
+  gap: 2px;
+  height: 56px;
+  margin: 2px 0 14px;
+}
+.mn-seg {
+  min-width: 0;
+  padding: 0 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: #fff;
+  border-radius: 2px;
+}
+.mn-split .mn-seg:first-child { border-radius: 8px 2px 2px 8px; }
+.mn-split .mn-seg:last-child  { border-radius: 2px 8px 8px 2px; }
+.mn-seg .mn-name { font-weight: 700; font-size: 0.95rem; white-space: nowrap; }
+.mn-seg .mn-pct { font-size: 0.8rem; font-weight: 600; opacity: 0.92; }
+
+table.mnow {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+table.mnow th {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: left;
+  padding: 0 6px 5px;
+  border-bottom: 1px solid var(--border);
+}
+table.mnow th.num { text-align: right; }
+table.mnow th.seg { color: var(--seg); font-weight: 700; }
+/* The three segment columns split the width evenly; brand and total take only
+   what their text needs. */
+table.mnow th.seg { width: 22%; }
+table.mnow td {
+  padding: 7px 6px;
+  border-bottom: 1px solid #eef1f5;
+  vertical-align: middle;
+}
+table.mnow tr:last-child td { border-bottom: none; }
+table.mnow td.brand { white-space: nowrap; }
+table.mnow td.num {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+table.mnow .rk { color: var(--muted); width: 1.2em; display: inline-block; }
+table.mnow tr.mb { background: var(--accent-soft); }
+table.mnow tr.mb td.brand { font-weight: 700; }
+table.mnow .mn-cell { display: flex; align-items: center; gap: 8px; }
+table.mnow .mn-v {
+  min-width: 2.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+table.mnow .mn-track {
+  flex: 1 1 auto;
+  min-width: 24px;
+  height: 10px;
+  border-radius: 5px;
+  background: #eef1f5;
+  overflow: hidden;
+}
+/* The highlighted row already carries a tint — a grey track on top of it
+   reads as a third colour, so the empty part of the bar goes white there. */
+table.mnow tr.mb .mn-track { background: #fff; }
+table.mnow .mn-track i { display: block; height: 100%; border-radius: 5px; background: var(--seg); }
+table.mnow .mn-rank {
+  min-width: 2.4em;
+  color: var(--muted);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
 
 /* Segment pulse — one row per segment, ending in a traffic light. */
 table.pulse {

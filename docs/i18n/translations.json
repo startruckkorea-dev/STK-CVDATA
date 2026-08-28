@@ -374,6 +374,22 @@
       "ko": "YoY 성장",
       "en": "YoY Growth"
     },
+    "exec_month_now": {
+      "ko": "당월 현황",
+      "en": "This Month"
+    },
+    "exec_month_units": {
+      "ko": "{n}대",
+      "en": "{n} units"
+    },
+    "exec_month_rank": {
+      "ko": "{n}위",
+      "en": "#{n}"
+    },
+    "col_total": {
+      "ko": "합계",
+      "en": "Total"
+    },
     "exec_trend": {
       "ko": "시장 추이 (월별 등록)",
       "en": "Market Trend (Monthly Registration)"
