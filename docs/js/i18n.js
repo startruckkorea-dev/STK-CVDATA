@@ -58,14 +58,6 @@ export function applyT(root = document) {
     const val = el.dataset.tdataValue || el.value || el.textContent;
     el.textContent = tdata(val, kind);
   });
-  // <title data-t="page_overview"></title> — keep the site name in the tab,
-  // which the plain t() replacement would otherwise drop.
-  const titleEl = document.querySelector("title[data-t]");
-  if (titleEl) {
-    const page = t(titleEl.dataset.t);
-    const app = t("app_title");
-    document.title = page === app ? page : `${page} · ${app}`;
-  }
 }
 
 document.addEventListener("langchange", () => applyT());
