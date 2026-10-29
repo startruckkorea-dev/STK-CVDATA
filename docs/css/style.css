@@ -1167,11 +1167,15 @@ table.data .down { color: var(--danger); font-weight: 600; }
 /* KPI tiles — value, delta and a 12-month sparkline on one line. */
 .exec-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 12px;
   margin: 0;
 }
-@media (max-width: 1100px) { .exec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Two across leaves the fifth tile alone; let it take the whole row. */
+@media (max-width: 1100px) {
+  .exec-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exec-kpi:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
 .exec-kpi {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1185,9 +1189,9 @@ table.data .down { color: var(--danger); font-weight: 600; }
   letter-spacing: 0.6px;
   text-transform: uppercase;
   color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Wraps rather than truncates: at five across, an ellipsis would cut the
+     (YTD) / (당월) suffix that tells the two SoM tiles apart. */
+  overflow-wrap: anywhere;
 }
 .exec-kpi .k-body {
   display: flex;

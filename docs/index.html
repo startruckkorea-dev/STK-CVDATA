@@ -436,6 +436,13 @@
     const monthYoY = calcYoY(monthCur, monthPrev);
     const monthLabel = `${t("kpi_month")} (${cur.year}.${String(monthIdx).padStart(2, "0")})`;
 
+    // The month's own SoM, each point standing alone rather than accumulated,
+    // against the same month last year.
+    const mbPrevMonths = prev ? months(brandRow(prev, "MB")) : null;
+    const somMonthPath = totMonths.map((v, i) => (v === null ? null : pct(mbMonths[i] || 0, v)));
+    const somMonth = somMonthPath[monthIdx - 1] || 0;
+    const somMonthPp = monthPrev ? somMonth - pct(mbPrevMonths[monthIdx - 1] || 0, monthPrev) : null;
+
     document.getElementById("kpi-row").innerHTML = [
       kpiCard(
         t("exec_kpi_total"), fmtNum(f.total), t("exec_units"),
@@ -450,6 +457,11 @@
         t("exec_kpi_som"), fmtPct(f.mb.share), "",
         { cls: dir(f.mb.pp), text: `${signed(f.mb.pp)}pp` }, "YoY",
         sparkLine(somPath, { color: "#231F20" })),
+      kpiCard(
+        t("exec_kpi_som_month"), fmtPct(somMonth), "",
+        { cls: dir(somMonthPp), text: somMonthPp === null ? "-" : `${signed(somMonthPp)}pp` },
+        somMonthPp === null ? "" : "YoY",
+        sparkBars(somMonthPath, { color: "#231F20" })),
       kpiCard(
         t("exec_kpi_momentum"), `${signed(f.marketYoY)}%`, "",
         { cls: dir(f.marketYoY),

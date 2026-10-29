@@ -355,8 +355,12 @@
       "en": "Total Market (YTD)"
     },
     "exec_kpi_som": {
-      "ko": "메르세데스-벤츠 점유율",
-      "en": "Mercedes-Benz SoM"
+      "ko": "메르세데스-벤츠 점유율 (YTD)",
+      "en": "Mercedes-Benz SoM (YTD)"
+    },
+    "exec_kpi_som_month": {
+      "ko": "메르세데스-벤츠 점유율 (당월)",
+      "en": "Mercedes-Benz SoM (Month)"
     },
     "exec_kpi_momentum": {
       "ko": "시장 모멘텀",
