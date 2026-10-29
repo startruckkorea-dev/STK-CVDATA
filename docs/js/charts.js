@@ -602,10 +602,15 @@ const EXEC_AXIS = { size: 12, color: "#6e7781" };
 export function trendLine(el, { x, series, height = 210 }) {
   const traces = series.map(s => ({
     type: "scatter",
-    mode: "lines+markers",
+    // `labels`: print each point's value over its marker.
+    mode: s.labels ? "lines+markers+text" : "lines+markers",
     name: s.name,
     x,
     y: s.values,
+    ...(s.labels ? {
+      texttemplate: "%{y:,}", textposition: "top center", cliponaxis: false,
+      textfont: { size: 10, color: s.color },
+    } : {}),
     line: { color: s.color, width: s.width || 2, dash: s.dash, shape: "spline", smoothing: 0.5 },
     marker: { size: s.markerSize === 0 ? 0 : s.markerSize || 5 },
     ...(s.fill ? { fill: "tozeroy", fillcolor: s.fill } : {}),

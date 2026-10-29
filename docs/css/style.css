@@ -1277,6 +1277,27 @@ table.data .down { color: var(--danger); font-weight: 600; }
 /* The plots draw their own frame-less canvas inside the card. */
 .exec-card .chart { border: none; border-radius: 0; min-height: 0; }
 
+/* MB units by month under the market trend. Scrolls rather than squeezes
+   when twelve columns will not fit the card. */
+.trend-mb { overflow-x: auto; margin-top: 4px; }
+.trend-mb table {
+  width: 100%;
+  min-width: 420px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+.trend-mb th, .trend-mb td { padding: 4px 2px; text-align: center; }
+.trend-mb th {
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.trend-mb th:first-child { width: 34px; }
+.trend-mb td { background: var(--accent-soft); }
+.trend-mb td.lbl { font-weight: 700; text-align: left; padding-left: 6px; }
+
 /* Share ranking — brand, units, share bar, pp move. */
 table.rank {
   width: 100%;

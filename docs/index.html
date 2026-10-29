@@ -59,6 +59,7 @@
       <div class="exec-card w4">
         <h3 id="title-trend"></h3>
         <div id="chart-trend" class="chart"></div>
+        <div id="trend-mb" class="trend-mb"></div>
       </div>
       <div class="exec-card w5">
         <h3 id="title-ranking"></h3>
@@ -577,12 +578,23 @@
       series: [
         ...(prevMonths ? [{ name: String(prev.year), values: prevMonths, color: "#b1b8c0", width: 2 }] : []),
         { name: String(cur.year), values: curMonths, color: "#1A3A82", width: 3,
-          fill: "rgba(26,58,130,0.10)" },
+          fill: "rgba(26,58,130,0.10)", labels: true },
         { name: `${t("exec_ma3")} (${cur.year})`, values: ma, color: "#1A3A82",
           width: 1.6, dash: "dot", markerSize: 0 },
       ],
       height: 240,
     });
+
+    // MB's own months under the market line, one column per month so they
+    // read against the labels above them.
+    const mb = trim(months(brandRow(cur, "MB")), monthIdx);
+    document.getElementById("trend-mb").innerHTML = `
+      <table>
+        <thead><tr><th></th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}</tr></thead>
+        <tbody><tr>
+          <td class="lbl">MB</td>${mb.map(v => `<td>${v === null ? "" : fmtNum(v)}</td>`).join("")}
+        </tr></tbody>
+      </table>`;
   }
 
   function renderRanking(f) {
