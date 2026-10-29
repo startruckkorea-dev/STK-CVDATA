@@ -318,6 +318,9 @@ CV_ROWS_COLUMNS = {
 }
 _CV_ROWS_TEXT = ("brand", "model", "axle", "cat", "sub", "bb")
 
+# Read only to fill in 특장업체 below; not written to the file.
+CV_ROWS_RULE_COLUMNS = {"maker": "제작사", "class": "대표모델명(국문)"}
+
 
 def _cv_rows(df: pd.DataFrame) -> dict:
     """Columnar, dictionary-encoded rows: each text column becomes a list of
@@ -327,9 +330,21 @@ def _cv_rows(df: pd.DataFrame) -> dict:
         s = df[col].astype("string").str.strip()
         return s.where(s.notna() & (s != "") & (s != "nan"))
 
+    series = {key: text(CV_ROWS_COLUMNS[key]) for key in _CV_ROWS_TEXT}
+
+    # A domestic 트럭 with no 특장업체명 was finished by its maker — 현대 or
+    # 타타대우모빌리티 shipping its own cargo body — so 제작사 stands in as the
+    # bodybuilder. Wherever 특장업체명 is filled in, 제작사 already equals it;
+    # this only extends that to the rows the workbook left blank. Imported
+    # trucks and tractors stay blank.
+    own = (series["bb"].isna()
+           & (text(CV_ROWS_COLUMNS["origin"]) == "국산").fillna(False)
+           & (text(CV_ROWS_RULE_COLUMNS["class"]) == "트럭").fillna(False))
+    series["bb"] = series["bb"].where(~own, text(CV_ROWS_RULE_COLUMNS["maker"]))
+
     out_dict, cols = {}, {}
     for key in _CV_ROWS_TEXT:
-        s = text(CV_ROWS_COLUMNS[key])
+        s = series[key]
         values = sorted(s.dropna().unique().tolist())
         index = {v: i for i, v in enumerate(values)}
         out_dict[key] = values
@@ -361,7 +376,7 @@ def build_cv_rows(raw_root: Path, out_dir: Path) -> list[int]:
             print(f"  {year}: no 상용 sheet, skip")
             continue
         df = pd.read_excel(path, sheet_name=sheet, engine="openpyxl")
-        missing = [c for c in CV_ROWS_COLUMNS.values() if c not in df.columns]
+        missing = [c for c in [*CV_ROWS_COLUMNS.values(), *CV_ROWS_RULE_COLUMNS.values()] if c not in df.columns]
         if missing:
             print(f"  {year}: missing {missing}, skip")
             continue
