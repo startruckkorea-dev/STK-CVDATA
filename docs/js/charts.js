@@ -593,37 +593,49 @@ export const colors = { BRAND_COLORS, SEGMENT_COLORS, colorFor };
 
 const EXEC_AXIS = { size: 12, color: "#6e7781" };
 
+/** Text for the last non-empty point only, one decimal. */
+function lastOnly(values) {
+  let last = -1;
+  values.forEach((v, i) => { if (v !== null && v !== undefined) last = i; });
+  return values.map((v, i) => (i === last ? (Math.round(v * 10) / 10).toFixed(1) : ""));
+}
+
 /**
  * Monthly trend — current year against prior year, plus an optional average.
  * `series`: { name, values, color, dash, width, markerSize, fill }. A series
  * with `fill` gets the ground under it shaded, which is what separates the
  * line being read from the ones it is measured against.
  */
-export function trendLine(el, { x, series, height = 210 }) {
+export function trendLine(el, { x, series, height = 210, xType }) {
   const traces = series.map(s => ({
     type: "scatter",
-    // `labels`: print each point's value over its marker.
+    // `labels`: print each point's value over its marker; "last" prints the
+    // final point only, beside it. `yFormat` is the d3 format for both.
     mode: s.labels ? "lines+markers+text" : "lines+markers",
     name: s.name,
     x,
     y: s.values,
-    ...(s.labels ? {
-      texttemplate: "%{y:,}", textposition: "top center", cliponaxis: false,
+    ...(s.labels === "last" ? {
+      text: lastOnly(s.values), textposition: "middle right", cliponaxis: false,
+      textfont: { size: 11, color: s.color },
+    } : s.labels ? {
+      texttemplate: `%{y:${s.yFormat || ","}}`, textposition: "top center", cliponaxis: false,
       textfont: { size: 10, color: s.color },
     } : {}),
     line: { color: s.color, width: s.width || 2, dash: s.dash, shape: "spline", smoothing: 0.5 },
     marker: { size: s.markerSize === 0 ? 0 : s.markerSize || 5 },
     ...(s.fill ? { fill: "tozeroy", fillcolor: s.fill } : {}),
     connectgaps: false,
-    hovertemplate: `${s.name} %{x}: %{y:,}<extra></extra>`,
+    hovertemplate: `${s.name} %{x}: %{y:${s.yFormat || ","}}<extra></extra>`,
   }));
   plot(el, traces, mergeLayout({
     height,
-    margin: { l: 44, r: 12, t: 30, b: 28 },
+    margin: { l: 44, r: series.some(s => s.labels === "last") ? 48 : 12, t: 30, b: 28 },
     legend: { orientation: "h", y: 1.2, x: 0, xanchor: "left", font: { size: 12 } },
     // tickangle 0: let the labels drop out rather than tip on their side and
     // run past the bottom of the card.
-    xaxis: { tickfont: EXEC_AXIS, tickangle: 0, showgrid: false, automargin: false },
+    // xType "category" keeps labels like "2024" from being read as numbers.
+    xaxis: { tickfont: EXEC_AXIS, tickangle: 0, showgrid: false, automargin: false, ...(xType ? { type: xType } : {}) },
     yaxis: { tickfont: EXEC_AXIS, tickformat: ",", rangemode: "tozero", gridcolor: "#eef1f5" },
   }), CONFIG);
 }

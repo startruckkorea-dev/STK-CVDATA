@@ -62,7 +62,9 @@ CV_data_git/
 ├─ docs/                       # GH Pages가 publish하는 디렉토리
 │   ├─ index.html              # 메인 (시장 인사이트)
 │   ├─ pages/                  # segment · kama · overview · bestselling
-│   │                          #  · cargo · price · body
+│   │                          #  · cargo
+│   │                          #  · bb-rank · bb-detail · axle · price-range
+│   │                          #    (특장·가격 — js/cvx/, cvrows_*.json)
 │   │                          #  · access (접속 권한) · publish (데이터 발행)
 │   │                          #  · translate
 │   │                          #  · refresh (월간 갱신)
@@ -79,12 +81,15 @@ CV_data_git/
 │   ├─ kama-build.js       # KAMA xlsx 집계 (kama_processor.py 이식)
 │   ├─ loading.js          # 첫 방문 로딩 오버레이
 │   │   ├─ sidebar.js          # 공용 사이드바
-│   │   └─ format.js           # 숫자/퍼센트 포매터
+│   │   ├─ format.js           # 숫자/퍼센트 포매터
+│   │   └─ cvx/                # 특장·가격 4개 화면: schema(분류·색) · agg(집계, 순수 함수)
+│   │                          #   · ui(컴포넌트) · page(공통) · page-*.js
 │   ├─ vendor/                 # plotly · msal-browser · xlsx (self-host)
 │   ├─ assets/                 # MB 로고 · favicon
 │   ├─ i18n/translations.json  # ko/en 번역
 │   ├─ CNAME                   # mbtruck-cvdata.startruckkorea.com
 │   └─ ENTRA_SETUP.md          # 로그인·SharePoint 설정 문서
+├─ tests/                      # node --test tests/cvx-agg.test.mjs (집계 단위 테스트)
 ├─ requirements.txt
 └─ README.md
 ```

@@ -96,7 +96,7 @@
 
       <label class="drop" id="drop">
         <strong>클릭해서 선택 · 또는 여기에 드래그</strong>
-        <span class="hint">manifest.json · kaida_*.json · kama_*.json · cvdata_*.json</span>
+        <span class="hint">manifest.json · kaida_*.json · kama_*.json · cvdata_*.json · cvrows_*.json</span>
         <input type="file" id="picker" multiple accept=".json,application/json" />
       </label>
 
@@ -127,7 +127,7 @@
   // The dashboard only ever reads these; anything else in the folder would be
   // dead weight the pages never fetch, so refuse it up front rather than
   // littering SharePoint.
-  const EXPECTED = /^(manifest|kaida_\d{4}|kama_\d{4}|cvdata_\d{4})\.json$/;
+  const EXPECTED = /^(manifest|kaida_\d{4}|kama_\d{4}|cvdata_\d{4}|cvrows_\d{4})\.json$/;
 
   let _files = [];
 

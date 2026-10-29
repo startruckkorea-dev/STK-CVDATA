@@ -649,6 +649,494 @@
     "month_suffix": {
       "ko": "월",
       "en": "M"
+    },
+    "nav_cvx_bb_rank": {
+      "ko": "특장업체 순위",
+      "en": "Bodybuilder Ranking"
+    },
+    "nav_cvx_bb_detail": {
+      "ko": "특장업체 상세",
+      "en": "Bodybuilder Detail"
+    },
+    "nav_cvx_axle": {
+      "ko": "Axle 기준 분석",
+      "en": "Axle Analysis"
+    },
+    "nav_cvx_price_range": {
+      "ko": "용도별 가격 레인지",
+      "en": "Price Range by Use"
+    },
+    "cvx_no_rows": {
+      "ko": "특장·가격 분석용 행 데이터(cvrows_*.json)가 없습니다. build_site.py 실행 후 [관리 → 데이터 발행]에서 발행해 주세요.",
+      "en": "Row data for the bodybuilder / price pages (cvrows_*.json) is missing. Run build_site.py and publish from Admin → Publish data."
+    },
+    "cvx_bb_analysis": {
+      "ko": "특장업체 분석",
+      "en": "Bodybuilder Analysis"
+    },
+    "cvx_price_analysis": {
+      "ko": "가격 분석",
+      "en": "Price Analysis"
+    },
+    "cvx_bb_rank_sub": {
+      "ko": "특장업체별 등록 순위 · 주력 차종 · 수입/벤츠 비중",
+      "en": "Registrations by bodybuilder · main body type · import / Mercedes-Benz share"
+    },
+    "cvx_bb_detail_sub": {
+      "ko": "업체의 차종 · 브랜드 · Axle 구성",
+      "en": "A bodybuilder's mix of body types, brands and axles"
+    },
+    "cvx_axle_sub": {
+      "ko": "Axle별 용도 구성과 브랜드 우세",
+      "en": "What each axle is bodied as, and which brand leads"
+    },
+    "cvx_price_sub": {
+      "ko": "용도별 최소 · 중간값 · 평균 · 최대 가격과 인상률",
+      "en": "Min / median / mean / max price by use, and the change"
+    },
+    "cvx_month_suffix": {
+      "ko": "월",
+      "en": "M"
+    },
+    "cvx_units": {
+      "ko": "대",
+      "en": " units"
+    },
+    "cvx_rank_fmt": {
+      "ko": "{n}위",
+      "en": "#{n}"
+    },
+    "cvx_oem": {
+      "ko": "원제작사",
+      "en": "Chassis maker"
+    },
+    "cvx_import_brands": {
+      "ko": "수입 브랜드",
+      "en": "Import brands"
+    },
+    "cvx_domestic": {
+      "ko": "국산",
+      "en": "Domestic"
+    },
+    "cvx_import": {
+      "ko": "수입",
+      "en": "Import"
+    },
+    "cvx_all_imports": {
+      "ko": "수입 전체",
+      "en": "All imports"
+    },
+    "cvx_axle_mode": {
+      "ko": "축 구분",
+      "en": "Axle view"
+    },
+    "cvx_detail": {
+      "ko": "세부",
+      "en": "Detail"
+    },
+    "cvx_group": {
+      "ko": "그룹",
+      "en": "Group"
+    },
+    "cvx_cat": {
+      "ko": "차종(대분류)",
+      "en": "Body type"
+    },
+    "cvx_use": {
+      "ko": "용도 (차종 대분류)",
+      "en": "Use (body type)"
+    },
+    "cvx_bb": {
+      "ko": "특장업체",
+      "en": "Bodybuilder"
+    },
+    "cvx_brand": {
+      "ko": "브랜드",
+      "en": "Brand"
+    },
+    "cvx_model": {
+      "ko": "모델",
+      "en": "Model"
+    },
+    "cvx_mb": {
+      "ko": "벤츠",
+      "en": "MB"
+    },
+    "cvx_vs_ly": {
+      "ko": "전년比",
+      "en": "vs LY"
+    },
+    "cvx_no_prev": {
+      "ko": "전년 데이터 없음",
+      "en": "No previous-year data"
+    },
+    "cvx_empty": {
+      "ko": "해당 조건 등록 없음",
+      "en": "No registrations for these filters"
+    },
+    "cvx_no_change": {
+      "ko": "변화 없음",
+      "en": "No change"
+    },
+    "cvx_total": {
+      "ko": "합계",
+      "en": "Total"
+    },
+    "cvx_all": {
+      "ko": "전체",
+      "en": "All"
+    },
+    "cvx_total_units": {
+      "ko": "합계",
+      "en": "Units"
+    },
+    "cvx_share": {
+      "ko": "점유율",
+      "en": "Share"
+    },
+    "cvx_ratio": {
+      "ko": "비중",
+      "en": "Share"
+    },
+    "cvx_reg": {
+      "ko": "등록",
+      "en": "registrations"
+    },
+    "cvx_within": {
+      "ko": "내",
+      "en": "share"
+    },
+    "cvx_in_import": {
+      "ko": "수입 내",
+      "en": "of imports"
+    },
+    "cvx_kpi_bb_reg": {
+      "ko": "특장 등록",
+      "en": "Bodied registrations"
+    },
+    "cvx_kpi_import_share": {
+      "ko": "수입브랜드 비중",
+      "en": "Import brand share"
+    },
+    "cvx_kpi_mb_bb_share": {
+      "ko": "메르세데스-벤츠 특장 점유율",
+      "en": "Mercedes-Benz bodied share"
+    },
+    "cvx_kpi_reg_total": {
+      "ko": "등록 합계",
+      "en": "Registrations"
+    },
+    "cvx_kpi_import_mb": {
+      "ko": "수입브랜드 · 메르세데스-벤츠",
+      "en": "Imports · Mercedes-Benz"
+    },
+    "cvx_market_avg": {
+      "ko": "시장 평균",
+      "en": "market avg"
+    },
+    "cvx_market": {
+      "ko": "시장 전체",
+      "en": "Market"
+    },
+    "cvx_bb_rank_title": {
+      "ko": "특장업체 순위",
+      "en": "Bodybuilder ranking"
+    },
+    "cvx_active_bb": {
+      "ko": "활동 특장업체 {n}개",
+      "en": "{n} active bodybuilders"
+    },
+    "cvx_note_mb_shade": {
+      "ko": "음영 행: 메르세데스-벤츠 {n}대 이상 취급 업체",
+      "en": "Shaded: {n}+ Mercedes-Benz units"
+    },
+    "cvx_other_bb": {
+      "ko": "기타 ({n}개 업체)",
+      "en": "Others ({n} bodybuilders)"
+    },
+    "cvx_main_cat": {
+      "ko": "주력 차종",
+      "en": "Main body type"
+    },
+    "cvx_main_axle": {
+      "ko": "주력 Axle",
+      "en": "Main axle"
+    },
+    "cvx_import_brand": {
+      "ko": "수입브랜드",
+      "en": "Import brands"
+    },
+    "cvx_mb_ratio": {
+      "ko": "벤츠 비중",
+      "en": "MB share"
+    },
+    "cvx_other_imports": {
+      "ko": "기타 수입",
+      "en": "Other imports"
+    },
+    "cvx_panel_monthly_bb": {
+      "ko": "월별 특장 등록 추이",
+      "en": "Monthly bodied registrations"
+    },
+    "cvx_panel_top_brand_mix": {
+      "ko": "상위 특장업체 브랜드 구성",
+      "en": "Brand mix of the top bodybuilders"
+    },
+    "cvx_panel_top_brand_mix_sub": {
+      "ko": "수입 vs 국산 · 우측 = 수입 비중",
+      "en": "Import vs domestic · right = import share"
+    },
+    "cvx_panel_share_change": {
+      "ko": "점유율 변화 vs 전년 (pp)",
+      "en": "Share change vs LY (pp)"
+    },
+    "cvx_top_n": {
+      "ko": "상위 {n}",
+      "en": "Top {n}"
+    },
+    "cvx_up5_down4": {
+      "ko": "상승 5 · 하락 4",
+      "en": "5 up · 4 down"
+    },
+    "cvx_cat_mix": {
+      "ko": "차종(대분류) 구성",
+      "en": "Body type mix"
+    },
+    "cvx_note_heat": {
+      "ko": "셀 음영 = 등록 대수 · 벤츠 열 강조",
+      "en": "Shading = units · MB column highlighted"
+    },
+    "cvx_heat_brand": {
+      "ko": "차종(대분류) × 브랜드 (원제작사)",
+      "en": "Body type × brand (chassis maker)"
+    },
+    "cvx_heat_axle": {
+      "ko": "차종(대분류) × Axle (구동)",
+      "en": "Body type × axle"
+    },
+    "cvx_by_group": {
+      "ko": "그룹 기준",
+      "en": "By group"
+    },
+    "cvx_incl": {
+      "ko": "포함",
+      "en": "incl."
+    },
+    "cvx_panel_brand_cat": {
+      "ko": "브랜드별 차종 구성",
+      "en": "Body type mix by brand"
+    },
+    "cvx_panel_group_cat": {
+      "ko": "Axle 그룹별 차종 구성",
+      "en": "Body type mix by axle group"
+    },
+    "cvx_8x4_noncargo": {
+      "ko": "8X4군 카고 외 비중 {p}",
+      "en": "8X4 group non-cargo share {p}"
+    },
+    "cvx_panel_mb_vs_market": {
+      "ko": "벤츠 점유율 (수입 내) · 업체 vs 시장",
+      "en": "MB share of imports · bodybuilder vs market"
+    },
+    "cvx_gap_note": {
+      "ko": "우측 = 업체 / 시장 · 갭 = 업체 − 시장 (pp)",
+      "en": "Right = bodybuilder / market · gap = bodybuilder − market (pp)"
+    },
+    "cvx_top_use": {
+      "ko": "최다 용도",
+      "en": "Top use"
+    },
+    "cvx_lead_brand": {
+      "ko": "우세 브랜드",
+      "en": "Leading brand"
+    },
+    "cvx_mb_top_use": {
+      "ko": "벤츠 1위 용도: {cat} ({n}대)",
+      "en": "MB leads: {cat} ({n})"
+    },
+    "cvx_mb_top_use_none": {
+      "ko": "1위 용도 없음",
+      "en": "Leads no use"
+    },
+    "cvx_axle_main_title": {
+      "ko": "용도 구성 · 브랜드 우세",
+      "en": "uses · leading brands"
+    },
+    "cvx_note_mb_top_use": {
+      "ko": "음영 행: 벤츠 1위 용도",
+      "en": "Shaded: uses MB leads"
+    },
+    "cvx_brand_mix_prefix": {
+      "ko": "브랜드 구성:",
+      "en": "Brands:"
+    },
+    "cvx_brand_mix": {
+      "ko": "브랜드 구성",
+      "en": "Brand mix"
+    },
+    "cvx_mb_rank": {
+      "ko": "벤츠 순위",
+      "en": "MB rank"
+    },
+    "cvx_joint": {
+      "ko": "공동",
+      "en": "joint"
+    },
+    "cvx_panel_axle_cat": {
+      "ko": "Axle별 용도 구성 비교",
+      "en": "Uses by axle"
+    },
+    "cvx_axle_sentence": {
+      "ko": "{heavy}는 카고 집중, {low}는 카고 {p}%로 {spread} 등으로 분산",
+      "en": "{heavy} are mostly cargo; {low} is {p}% cargo and spreads into {spread}"
+    },
+    "cvx_panel_top_bb_by_use": {
+      "ko": "용도별 상위 특장업체",
+      "en": "top bodybuilders by use"
+    },
+    "cvx_bb_click": {
+      "ko": "업체명 클릭 → 특장업체 상세",
+      "en": "Click a bodybuilder → detail"
+    },
+    "cvx_panel_brand_change": {
+      "ko": "브랜드 점유율 변화",
+      "en": "Brand share change"
+    },
+    "cvx_mb_change_by_use": {
+      "ko": "벤츠 변화 용도별 분해",
+      "en": "MB change by use"
+    },
+    "cvx_base_year": {
+      "ko": "기준 연도",
+      "en": "Base year"
+    },
+    "cvx_cmp_year": {
+      "ko": "비교 연도",
+      "en": "Compare with"
+    },
+    "cvx_full_year": {
+      "ko": "연간",
+      "en": "full year"
+    },
+    "cvx_all_models": {
+      "ko": "전체 모델",
+      "en": "All models"
+    },
+    "cvx_all_bb": {
+      "ko": "전체 특장업체",
+      "en": "All bodybuilders"
+    },
+    "cvx_mkrw": {
+      "ko": "백만원",
+      "en": "KRW mn"
+    },
+    "cvx_small_sample": {
+      "ko": "표본 적음",
+      "en": "small sample"
+    },
+    "cvx_avg_price": {
+      "ko": "평균가",
+      "en": "Average price"
+    },
+    "cvx_median": {
+      "ko": "중간값",
+      "en": "Median"
+    },
+    "cvx_mean": {
+      "ko": "평균",
+      "en": "Mean"
+    },
+    "cvx_min": {
+      "ko": "최소",
+      "en": "Min"
+    },
+    "cvx_max": {
+      "ko": "최대",
+      "en": "Max"
+    },
+    "cvx_min_max": {
+      "ko": "최소~최대",
+      "en": "min–max"
+    },
+    "cvx_top_rise_use": {
+      "ko": "최대 인상 용도 (평균 기준)",
+      "en": "Largest rise by use (mean)"
+    },
+    "cvx_sample_spread": {
+      "ko": "표본 · 가격 분산",
+      "en": "Sample · price spread"
+    },
+    "cvx_max_min": {
+      "ko": "최대/최소",
+      "en": "max/min"
+    },
+    "cvx_times": {
+      "ko": "배",
+      "en": "×"
+    },
+    "cvx_price_range_title": {
+      "ko": "용도별 가격 레인지",
+      "en": "Price range by use"
+    },
+    "cvx_price_range_col": {
+      "ko": "가격 레인지 ({lo} ~ {hi} 백만원)",
+      "en": "Price range ({lo} – {hi} KRW mn)"
+    },
+    "cvx_cmp_mean": {
+      "ko": "비교 평균",
+      "en": "Compared mean"
+    },
+    "cvx_no_brand_reg": {
+      "ko": "해당 기간 {brand} 등록 없음 · 브랜드를 '수입 전체'로 변경 시 표시",
+      "en": "No {brand} registrations · switch brand to 'All imports' to see this use"
+    },
+    "cvx_price_foot": {
+      "ko": "레인지 축은 선택 범위 전체 최소·최대로 자동 산정 · 전년比 = (기준 − 비교) ÷ 비교 · N {n}대 미만은 표본 적음",
+      "en": "Axis spans the min–max of the selection · change = (base − compared) ÷ compared · N under {n} is a small sample"
+    },
+    "cvx_dispersion_title": {
+      "ko": "동일 모델 · 용도 · 특장업체 내 가격 분산",
+      "en": "Price spread within one model · use · bodybuilder"
+    },
+    "cvx_dispersion_sub": {
+      "ko": "분산폭(최대 − 최소) 큰 순",
+      "en": "Widest spread (max − min) first"
+    },
+    "cvx_dispersion_note": {
+      "ko": "동일 조건에서도 옵션·특장 사양에 따라 가격 차이 발생",
+      "en": "Options and body specs move the price even under one configuration"
+    },
+    "cvx_spread": {
+      "ko": "분산폭",
+      "en": "Spread"
+    },
+    "cvx_spread_pct": {
+      "ko": "분산폭 ÷ 평균",
+      "en": "Spread ÷ mean"
+    },
+    "cvx_panel_avg_trend": {
+      "ko": "평균가 추이 (연도별)",
+      "en": "Average price by year"
+    },
+    "cvx_panel_rise_by_use": {
+      "ko": "용도별 평균 인상률",
+      "en": "Average price change by use"
+    },
+    "cvx_no_sample": {
+      "ko": "표본 없음",
+      "en": "No sample"
+    },
+    "cvx_rise_foot": {
+      "ko": "인상률 = 기준연도 평균 ÷ 비교연도 평균 − 1 · 괄호 = 중간값 · 하락 시 좌측(적색)",
+      "en": "Change = base mean ÷ compared mean − 1 · (median) · falls to the left in red"
+    },
+    "cvx_panel_bb_range": {
+      "ko": "특장업체별 가격 레인지",
+      "en": "Price range by bodybuilder"
+    },
+    "cvx_bb_mean_gap": {
+      "ko": "업체별 평균 차이 최대 {v} 백만원",
+      "en": "Largest gap between bodybuilder means: {v} KRW mn"
     }
   },
   "enum": {

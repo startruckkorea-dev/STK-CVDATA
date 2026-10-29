@@ -41,8 +41,10 @@ from cv_data_loader import (
     COL_TRANSMISSION,
     COL_YEAR_TYPE,
     SIZE_ORDER,
+    find_cv_data_file,
     list_available_years as cv_list_years,
     load_data_combined,
+    pick_sheet,
 )
 from kaida_processor import (
     aggregate_kaida,
@@ -297,6 +299,79 @@ def build_cv_data(raw_root: Path, out_dir: Path) -> list[int]:
     return written
 
 
+# The 특장·가격 pages need cross-tabs the aggregates above cannot answer —
+# bodybuilder x category x brand x axle by month, medians, the spread inside
+# one model / body / bodybuilder — so they get the registration rows
+# themselves, cut to the nine columns they read. Nothing about the owner
+# (age, sex, address) leaves the workbook. Raw header -> key in the file; the
+# front end reads these keys only, so a renamed header is fixed here alone.
+CV_ROWS_COLUMNS = {
+    "ym": "최초등록연월",
+    "brand": "원제작사",
+    "origin": "국산/외산",
+    "model": "상세모델명(국문)",
+    "axle": "최종제작축",
+    "cat": "용도",
+    "sub": "상세용도",
+    "bb": "특장업체명",
+    "price": "취득가",
+}
+_CV_ROWS_TEXT = ("brand", "model", "axle", "cat", "sub", "bb")
+
+
+def _cv_rows(df: pd.DataFrame) -> dict:
+    """Columnar, dictionary-encoded rows: each text column becomes a list of
+    distinct values plus one index per row (-1 = blank), so ~20k rows stay a
+    few hundred KB."""
+    def text(col: str) -> pd.Series:
+        s = df[col].astype("string").str.strip()
+        return s.where(s.notna() & (s != "") & (s != "nan"))
+
+    out_dict, cols = {}, {}
+    for key in _CV_ROWS_TEXT:
+        s = text(CV_ROWS_COLUMNS[key])
+        values = sorted(s.dropna().unique().tolist())
+        index = {v: i for i, v in enumerate(values)}
+        out_dict[key] = values
+        cols[key] = [index[v] if v is not pd.NA else -1 for v in s.tolist()]
+
+    ym = pd.to_numeric(df[CV_ROWS_COLUMNS["ym"]], errors="coerce")
+    cols["m"] = (ym % 100).fillna(0).astype(int).tolist()
+    cols["imp"] = (text(CV_ROWS_COLUMNS["origin"]) == "외산").fillna(False).astype(int).tolist()
+    # 원, as the workbook has it; the pages convert to 백만원 and keep this for
+    # the tooltip. 0 = no price.
+    price = pd.to_numeric(df[CV_ROWS_COLUMNS["price"]], errors="coerce").fillna(0)
+    cols["price"] = price.clip(lower=0).round().astype("int64").tolist()
+
+    return {"n": int(len(df)), "dict": out_dict, "cols": cols}
+
+
+def build_cv_rows(raw_root: Path, out_dir: Path) -> list[int]:
+    """cvrows_{year}.json from the 상용 sheet — the only sheet that carries
+    용도 / 최종제작축 / 특장업체명 (건설기계 leaves them blank). Years whose
+    workbook lacks any of the columns are skipped, not half-written."""
+    print("[CV_DATA rows]")
+    written = []
+    for year in [y for y in cv_list_years(raw_root) if y >= CV_DATA_MIN_YEAR]:
+        path = find_cv_data_file(raw_root, year)
+        if not path:
+            continue
+        sheet = pick_sheet(pd.ExcelFile(path, engine="openpyxl").sheet_names, "상용")
+        if not sheet:
+            print(f"  {year}: no 상용 sheet, skip")
+            continue
+        df = pd.read_excel(path, sheet_name=sheet, engine="openpyxl")
+        missing = [c for c in CV_ROWS_COLUMNS.values() if c not in df.columns]
+        if missing:
+            print(f"  {year}: missing {missing}, skip")
+            continue
+        rows = _cv_rows(df)
+        rows["year"] = year
+        _write_json(out_dir / f"cvrows_{year}.json", rows)
+        written.append(year)
+    return written
+
+
 def main() -> None:
     # A Windows console defaults to cp949 here, which cannot encode the em-dash
     # and arrows used in the progress output — without this the build dies after
@@ -335,6 +410,7 @@ def main() -> None:
     kaida_years = build_kaida(raw_root, out_dir)
     kama_years = build_kama(raw_root, out_dir)
     cv_years = build_cv_data(raw_root, out_dir)
+    cv_rows_years = build_cv_rows(raw_root, out_dir)
     sync_translations(raw_root)
 
     manifest = {
@@ -342,6 +418,7 @@ def main() -> None:
         "kaida_years": kaida_years,
         "kama_years": kama_years,
         "cv_years": cv_years,
+        "cv_rows_years": cv_rows_years,
     }
     _write_json(out_dir / "manifest.json", manifest)
     print("\nDone.")

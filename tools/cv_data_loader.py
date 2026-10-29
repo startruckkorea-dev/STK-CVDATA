@@ -64,7 +64,7 @@ def _rename_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df.rename(columns={k: v for k, v in _COLUMN_RENAME.items() if k in df.columns})
 
 
-def _pick_sheet(sheet_names: list[str], keyword: str) -> str | None:
+def pick_sheet(sheet_names: list[str], keyword: str) -> str | None:
     """Match sheets like '상용' or the numbered '1. 상용' variant."""
     for name in sheet_names:
         if keyword in str(name):
@@ -98,7 +98,7 @@ def _add_price_만원(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _find_cv_data_file(root: Path, year: int) -> Path | None:
+def find_cv_data_file(root: Path, year: int) -> Path | None:
     # Match both "2024_CV_DATA.xlsx" and "2025_CV DATA_STK.xlsx" (space variant).
     # rglob so the files are found whether they sit at the raw_data root or in
     # the CV_Data/ subfolder. Sort for determinism so the plain
@@ -112,7 +112,7 @@ def _find_cv_data_file(root: Path, year: int) -> Path | None:
 
 def load_data(root: Path, year: int) -> pd.DataFrame:
     """Load only the 상용 sheet."""
-    path = _find_cv_data_file(root, year)
+    path = find_cv_data_file(root, year)
     if not path:
         return pd.DataFrame()
     df = pd.read_excel(path, sheet_name="상용", engine="openpyxl")
@@ -135,13 +135,13 @@ def _classify_segment_상용(category: str) -> str:
 
 def load_data_combined(root: Path, year: int) -> pd.DataFrame:
     """Load 상용 + 건설기계 sheets, add 세그먼트 column."""
-    path = _find_cv_data_file(root, year)
+    path = find_cv_data_file(root, year)
     if not path:
         return pd.DataFrame()
     xls = pd.ExcelFile(path, engine="openpyxl")
     frames = []
-    sheet_상용 = _pick_sheet(xls.sheet_names, "상용")
-    sheet_건설 = _pick_sheet(xls.sheet_names, "건설기계")
+    sheet_상용 = pick_sheet(xls.sheet_names, "상용")
+    sheet_건설 = pick_sheet(xls.sheet_names, "건설기계")
     if sheet_상용:
         df1 = pd.read_excel(path, sheet_name=sheet_상용, engine="openpyxl")
         df1 = _rename_columns(df1)

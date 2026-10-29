@@ -142,6 +142,11 @@ export async function loadCvData(year) {
   return fetchJson(`cvdata_${year}.json`);
 }
 
+/** Registration rows for the 특장·가격 pages (tools/build_site.py::build_cv_rows). */
+export async function loadCvRows(year) {
+  return fetchJson(`cvrows_${year}.json`);
+}
+
 export async function loadKaidaPair(curYear) {
   // Always try to load previous year alongside current for YoY comparison.
   const cur = await loadKaida(curYear);

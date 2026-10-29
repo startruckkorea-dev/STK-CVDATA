@@ -40,8 +40,11 @@ const NAV = [
       { href: "/pages/overview.html", key: "nav_overview" },
       { href: "/pages/bestselling.html", key: "nav_bestselling" },
       { href: "/pages/cargo.html", key: "nav_cargo" },
-      { href: "/pages/price.html", key: "nav_price" },
-      { href: "/pages/body.html", key: "nav_body" },
+      // 특장·가격: four pages off the registration rows (js/cvx/).
+      { href: "/pages/bb-rank.html", key: "nav_cvx_bb_rank" },
+      { href: "/pages/bb-detail.html", key: "nav_cvx_bb_detail" },
+      { href: "/pages/axle.html", key: "nav_cvx_axle" },
+      { href: "/pages/price-range.html", key: "nav_cvx_price_range" },
     ],
   },
   {
