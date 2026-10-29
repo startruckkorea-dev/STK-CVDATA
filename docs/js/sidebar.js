@@ -37,10 +37,9 @@ const NAV = [
     group: "cv_data",
     adminOnly: true,
     items: [
-      { href: "/pages/overview.html", key: "nav_overview" },
-      { href: "/pages/bestselling.html", key: "nav_bestselling" },
-      { href: "/pages/cargo.html", key: "nav_cargo" },
-      // 특장·가격: four pages off the registration rows (js/cvx/).
+      // 특장·가격: four pages off the registration rows (js/cvx/). The older
+      // overview / bestselling / cargo pages are off the menu but still
+      // reachable by URL.
       { href: "/pages/bb-rank.html", key: "nav_cvx_bb_rank" },
       { href: "/pages/bb-detail.html", key: "nav_cvx_bb_detail" },
       { href: "/pages/axle.html", key: "nav_cvx_axle" },
