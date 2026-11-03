@@ -550,9 +550,9 @@
       "ko": "브랜드 비교",
       "en": "Brand comparison"
     },
-    "kama_sec_monthly": {
-      "ko": "월별 데이터",
-      "en": "Monthly data"
+    "kama_sec_segment": {
+      "ko": "세그먼트별 시장 분석",
+      "en": "Market by segment"
     },
     "nav_seg_cargo": {
       "ko": "카고",

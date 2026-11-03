@@ -28,8 +28,14 @@
   <aside class="sidebar"></aside>
   <main class="main">
     <div class="page-head">
-      <h1 class="page-title" data-t="nav_kama">KAMA 국내 상용</h1>
-      <div class="page-sub" data-t="kama_sub">현대 · 타타대우 월별 등록 + SoM</div>
+      <div class="exec-title-row">
+        <h1 class="page-title" data-t="nav_kama">KAMA 국내 상용</h1>
+        <div class="page-sub" data-t="kama_sub">현대 · 타타대우 월별 등록 + SoM</div>
+        <div class="exec-period">
+          <div class="now" id="period-now"></div>
+          <div class="vs" id="period-vs"></div>
+        </div>
+      </div>
 
       <section class="filter-bar" id="filters"></section>
 
@@ -42,6 +48,11 @@
     </section>
 
     <section class="section">
+      <h2 data-t="kama_sec_segment">세그먼트별 시장 분석</h2>
+      <div id="segment-table" class="table-scroll"></div>
+    </section>
+
+    <section class="section">
       <h2 data-t="kama_sec_share">국내 브랜드 점유율</h2>
       <div id="chart-share" class="chart"></div>
     </section>
@@ -51,10 +62,6 @@
       <div id="chart-brand" class="chart"></div>
     </section>
 
-    <section class="section">
-      <h2 data-t="kama_sec_monthly">월별 데이터</h2>
-      <div id="monthly-table"></div>
-    </section>
   </main>
 </div>
 
@@ -72,6 +79,9 @@
 
   const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
   const MONTHS_KR = MONTHS.map((_, i) => `${i+1}월`);
+  // The three segments the sidebar splits the market into, with its labels.
+  const SEGMENTS = [["Tractor", "nav_seg_tractor"], ["Rigid", "nav_seg_cargo"],
+                    ["Tipper", "nav_seg_tipper"]];
 
   // Keys as the KAMA sheets spell them; what the reader sees comes from the
   // brand enum, so 현대 / 타타대우 turn into Hyundai / Tata Daewoo with the
@@ -154,6 +164,15 @@
     // part-year would report a collapse that never happened. Everything
     // aggregated here sums the same months on both sides.
     const monthIdx = !s.month || s.month === "YTD" ? lastMonth : parseInt(s.month, 10);
+
+    // Same stamp as 시장 개요. Taken from the unfiltered brand totals so a
+    // segment with no sales in the latest month doesn't make the data look older.
+    const dataLast = MONTHS.reduce((last, m, i) =>
+      (BRANDS.some(b => ((data.by_brand[b] || {})[m] ?? 0) > 0) ? i + 1 : last), 0);
+    const stampMonth = Math.min(monthIdx || dataLast, dataLast);
+    document.getElementById("period-now").textContent = dataLast
+      ? `${year}.${String(stampMonth).padStart(2, "0")} YTD` : `${year}`;
+    document.getElementById("period-vs").textContent = t("exec_vs_prev", { year: year - 1 });
     const through = (vals) => vals.slice(0, monthIdx).reduce((a, v) => a + v, 0);
     const cyOf = (b) => through(byBrand[b]);
     const pyOf = (b) => (py ? through(byBrandPy[b]) : 0);
@@ -163,6 +182,7 @@
 
     renderKpis({ total, totalPy, cyOf, pyOf, sel });
     renderSales(byBrand, totalMonthly, totalMonthlyPy, trim, sel, year, py);
+    renderSegments(data, py, stampMonth, sel);
     renderShare(byBrand, totalMonthly, lastMonth);
 
     const label = monthIdx === lastMonth ? "YTD" : `~${monthIdx}월`;
@@ -174,13 +194,53 @@
       ],
     });
 
-    const rows = BRANDS.map(b => {
-      const vals = byBrand[b];
-      return `<tr${b === sel ? ' class="highlight"' : ""}><td class="label">${name(b)}</td>${vals.map(v => `<td class="num">${fmtNum(v)}</td>`).join("")}<td class="num"><strong>${fmtNum(vals.reduce((a, c) => a + c, 0))}</strong></td></tr>`;
+  }
+
+  /**
+   * One row per segment through the same months on both sides: its market,
+   * its weight in the whole domestic market, YoY, and each brand's share with
+   * the move against last year. Ignores the segment filter — it is the split.
+   */
+  function renderSegments(data, py, upTo, sel) {
+    const sumUpTo = (row) => MONTHS.slice(0, upTo).reduce((a, m) => a + ((row || {})[m] ?? 0), 0);
+    const unitsOf = (d, b, seg) => (d ? sumUpTo(seg ? (d.by_brand_seg[b] || {})[seg] : d.by_brand[b]) : 0);
+    const pct = (a, b) => (b ? (a / b) * 100 : 0);
+    const signed = (v) => `${v > 0 ? "+" : ""}${(Math.round(v * 10) / 10).toFixed(1)}`;
+    const dir = (v) => (v === null || Math.abs(v) < 0.05 ? "" : v > 0 ? "up" : "down");
+    const hasPy = !!py && BRANDS.some(b => unitsOf(py, b) > 0);
+
+    const total = BRANDS.reduce((a, b) => a + unitsOf(data, b), 0);
+    const rows = SEGMENTS.map(([seg, label]) => {
+      const cy = Object.fromEntries(BRANDS.map(b => [b, unitsOf(data, b, seg)]));
+      const pv = Object.fromEntries(BRANDS.map(b => [b, unitsOf(py, b, seg)]));
+      const mkt = BRANDS.reduce((a, b) => a + cy[b], 0);
+      const mktPy = BRANDS.reduce((a, b) => a + pv[b], 0);
+      const yoy = hasPy ? calcYoY(mkt, mktPy) : null;
+      const brandCells = BRANDS.map(b => {
+        const som = pct(cy[b], mkt);
+        const pp = hasPy && mktPy ? som - pct(pv[b], mktPy) : null;
+        const hl = b === sel ? " highlight" : "";
+        return `<td class="${hl}">${fmtNum(cy[b])}
+                  <small class="of-market">${fmtPct(som)}</small></td>
+                <td class="${pp === null ? "" : dir(pp)}${hl}">${pp === null ? "-" : `${signed(pp)}pp`}</td>`;
+      }).join("");
+      return `<tr>
+        <td>${t(label)}</td>
+        <td>${fmtNum(mkt)} <small class="of-market">${fmtPct(pct(mkt, total))}</small></td>
+        <td class="${yoy === null ? "" : dir(yoy)}">${yoy === null ? "-" : `${signed(yoy)}%`}</td>
+        ${brandCells}
+      </tr>`;
     }).join("");
-    document.getElementById("monthly-table").innerHTML = `
-      <table class="data">
-        <thead><tr><th class="label">${t("filter_brand")}</th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr></thead>
+
+    const el = document.getElementById("segment-table");
+    el.innerHTML = `
+      <table class="pulse">
+        <thead><tr>
+          <th>${t("filter_segment")}</th>
+          <th>${t("col_market_units")}</th>
+          <th>YoY</th>
+          ${BRANDS.map(b => `<th>${name(b)} (${t("col_share")})</th><th>${t("col_share_delta")}</th>`).join("")}
+        </tr></thead>
         <tbody>${rows}</tbody>
       </table>`;
   }

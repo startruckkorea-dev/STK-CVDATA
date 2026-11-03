@@ -1457,6 +1457,8 @@ table.pulse .of-market {
 }
 table.pulse tr:last-child td { border-bottom: none; }
 table.pulse a { color: inherit; }
+/* KAMA: the brand picked in the tiles, as columns rather than a row. */
+table.pulse td.highlight { background: var(--accent-soft); }
 table.pulse .up { color: var(--success); font-weight: 600; }
 table.pulse .down { color: var(--danger); font-weight: 600; }
 .signal {
