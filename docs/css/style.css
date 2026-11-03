@@ -1459,6 +1459,9 @@ table.pulse tr:last-child td { border-bottom: none; }
 table.pulse a { color: inherit; }
 /* KAMA: the brand picked in the tiles, as columns rather than a row. */
 table.pulse td.highlight { background: var(--accent-soft); }
+/* KAMA reads the table at section width, a size up from the exec card. */
+table.pulse.pulse-lg { font-size: calc(0.86rem + 2pt); }
+table.pulse.pulse-lg th { font-size: calc(0.72rem + 2pt); }
 table.pulse .up { color: var(--success); font-weight: 600; }
 table.pulse .down { color: var(--danger); font-weight: 600; }
 .signal {

@@ -79,9 +79,11 @@
 
   const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
   const MONTHS_KR = MONTHS.map((_, i) => `${i+1}월`);
-  // The three segments the sidebar splits the market into, with its labels.
+  // Every KAMA segment: the sidebar's three first, under its labels, then the
+  // two it leaves out, under the segment names the filter tiles use.
   const SEGMENTS = [["Tractor", "nav_seg_tractor"], ["Rigid", "nav_seg_cargo"],
-                    ["Tipper", "nav_seg_tipper"]];
+                    ["Tipper", "nav_seg_tipper"], ["Mixer"], ["EV"]];
+  const segLabel = ([seg, key]) => (key ? t(key) : tdata(seg, "segment"));
 
   // Keys as the KAMA sheets spell them; what the reader sees comes from the
   // brand enum, so 현대 / 타타대우 turn into Hyundai / Tata Daewoo with the
@@ -198,7 +200,7 @@
 
   /**
    * One row per segment through the same months on both sides: its market,
-   * its weight in the whole domestic market, YoY, and each brand's share with
+   * its weight among all five segments (so the column adds up to 100%), YoY, and each brand's share with
    * the move against last year. Ignores the segment filter — it is the split.
    */
   function renderSegments(data, py, upTo, sel) {
@@ -209,8 +211,10 @@
     const dir = (v) => (v === null || Math.abs(v) < 0.05 ? "" : v > 0 ? "up" : "down");
     const hasPy = !!py && BRANDS.some(b => unitsOf(py, b) > 0);
 
-    const total = BRANDS.reduce((a, b) => a + unitsOf(data, b), 0);
-    const rows = SEGMENTS.map(([seg, label]) => {
+    const total = SEGMENTS.reduce((a, [seg]) =>
+      a + BRANDS.reduce((x, b) => x + unitsOf(data, b, seg), 0), 0);
+    const rows = SEGMENTS.map((entry) => {
+      const [seg] = entry;
       const cy = Object.fromEntries(BRANDS.map(b => [b, unitsOf(data, b, seg)]));
       const pv = Object.fromEntries(BRANDS.map(b => [b, unitsOf(py, b, seg)]));
       const mkt = BRANDS.reduce((a, b) => a + cy[b], 0);
@@ -225,7 +229,7 @@
                 <td class="${pp === null ? "" : dir(pp)}${hl}">${pp === null ? "-" : `${signed(pp)}pp`}</td>`;
       }).join("");
       return `<tr>
-        <td>${t(label)}</td>
+        <td>${segLabel(entry)}</td>
         <td>${fmtNum(mkt)} <small class="of-market">${fmtPct(pct(mkt, total))}</small></td>
         <td class="${yoy === null ? "" : dir(yoy)}">${yoy === null ? "-" : `${signed(yoy)}%`}</td>
         ${brandCells}
@@ -234,7 +238,7 @@
 
     const el = document.getElementById("segment-table");
     el.innerHTML = `
-      <table class="pulse">
+      <table class="pulse pulse-lg">
         <thead><tr>
           <th>${t("filter_segment")}</th>
           <th>${t("col_market_units")}</th>
