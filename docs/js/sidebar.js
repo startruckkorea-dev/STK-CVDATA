@@ -58,6 +58,8 @@ const NAV = [
       { href: "/pages/refresh.html", key: "nav_monthly" },
       { href: "/pages/publish.html", key: "nav_publish" },
       { href: "/pages/translate.html", key: "nav_translate" },
+      // Two A4 pages for PDF off the KAIDA aggregate; a standalone page.
+      { href: "/pages/kaida-report.html", key: "nav_kaida_report" },
     ],
   },
 ];

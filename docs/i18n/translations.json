@@ -66,6 +66,7 @@
       "en": "Monthly Update"
     },
     "nav_access": {"ko": "접속 권한", "en": "Access Control"},
+    "nav_kaida_report": {"ko": "KAIDA 월간 리포트", "en": "KAIDA Monthly Report"},
     "nav_publish": {
       "ko": "데이터 발행",
       "en": "Publish Data"

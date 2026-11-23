@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ko" data-site-root="..">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KAIDA Monthly Report</title>
+<link rel="icon" href="../assets/mb-star.svg" type="image/svg+xml" />
+<link rel="icon" href="../assets/favicon-32.png" sizes="32x32" type="image/png" />
+<script src="../vendor/msal-browser.min.js" defer></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<!--
+  KAIDA 월간 리포트 (관리 메뉴 전용).
+
+  Stands apart from the site shell on purpose: it is two A4 pages meant to be
+  printed to PDF, and the site stylesheet's global table / .page / .kpi rules
+  would fight the print layout. The data is the same SharePoint KAIDA
+  aggregate every other page reads (kaida_{year}.json via js/data.js), mapped
+  in toReportData() below into the shape the renderer takes:
+
+   period   : { year, month }
+   brands   : display order
+   segments : { Tractor|Rigid|Tipper : { [brand]: {ytd, ytdPrev, cur, prev} } }
+              ytd = Jan..month, ytdPrev = same span a year earlier,
+              cur = the month, prev = the month before (Dec of last year for Jan)
+   market   : { monthly: [Jan..month totals], monthlyPrev: [12 months of last year] }
+   mb       : { name, monthly, monthlyPrev }
+   meta     : { author, issued }
+
+  PMM edits to the key message / insights / comments are kept per report month
+  in this browser's localStorage only.
+-->
+<style>
+:root{
+  --ink:#1a1f24; --sub:#5b6670; --mute:#8a949c; --line:#e3e7ea; --bg:#eef1f3;
+  --teal:#0b5c66; --teal2:#0f9aa0; --teal-l:#9fd6c9; --grey-bar:#d5dade;
+  --pos:#1d8a3a; --neg:#d11a2a; --amber:#e8a300; --hl:#e3f4fb;
+  --tractor:#3b82f6; --rigid:#f5a800; --tipper:#7d8389;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter','Noto Sans KR',system-ui,sans-serif;color:var(--ink);background:var(--bg);font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+
+/* ---------- toolbar (screen only) ---------- */
+.toolbar{position:sticky;top:0;z-index:20;background:#11171c;color:#fff;display:flex;align-items:center;gap:10px;padding:10px 18px;flex-wrap:wrap}
+.toolbar .t{font-weight:700;font-size:13px;margin-right:auto}
+.toolbar .t small{font-weight:400;color:#9aa6af;margin-left:8px}
+.btn{border:1px solid #3a454e;background:#1f2932;color:#fff;border-radius:6px;padding:7px 12px;font:inherit;font-size:12px;cursor:pointer}
+.btn:hover{background:#2b3843}
+.btn.on{background:var(--teal2);border-color:var(--teal2)}
+.btn.primary{background:#fff;color:#11171c;font-weight:700;border-color:#fff}
+.hint{font-size:11px;color:#9aa6af}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#11171c;color:#fff;padding:10px 16px;border-radius:8px;font-size:12px;opacity:0;transition:.25s;pointer-events:none;z-index:30;max-width:90vw}
+.toast.show{opacity:1}
+
+.toolbar a.back{color:#9aa6af;text-decoration:none;font-size:12px;margin-right:4px}
+.toolbar a.back:hover{color:#fff}
+.toolbar select{background:#1f2932;color:#fff;border:1px solid #3a454e;border-radius:6px;padding:6px 8px;font:inherit;font-size:12px}
+.err{max-width:640px;margin:40px auto;padding:14px 16px;border-radius:8px;background:#fde7e9;color:#8a1020;font-size:13px;line-height:1.6}
+
+/* loading overlay (js/loading.js) - same look as the site's, inlined because
+   this page does not load css/style.css */
+.app-loading{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#fff;transition:opacity .25s ease}
+.app-loading.gone{opacity:0;pointer-events:none}
+.al-card{text-align:center;padding:0 24px;max-width:420px}
+.al-spin{width:34px;height:34px;margin:0 auto 18px;border:3px solid #d0d7de;border-top-color:#231F20;border-radius:50%;animation:al-spin .9s linear infinite}
+@keyframes al-spin{to{transform:rotate(360deg)}}
+.al-msg{font-size:15px;font-weight:600}
+.al-hint{margin-top:8px;font-size:13px;color:#6e7781;line-height:1.6}
+
+/* ---------- A4 page ---------- */
+.pages{padding:24px 0 60px;display:flex;flex-direction:column;align-items:center;gap:22px}
+.page{width:210mm;min-height:297mm;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.08);padding:12mm 13mm 10mm;position:relative;display:flex;flex-direction:column}
+.page-foot{margin-top:auto;padding-top:6px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:8.5px;color:var(--mute)}
+
+/* header */
+.rh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--ink);padding-bottom:7px;margin-bottom:10px}
+.rh .brand{font-size:9px;letter-spacing:.12em;color:var(--sub);text-transform:uppercase;font-weight:500}
+.rh h1{font-size:20px;font-weight:900;letter-spacing:-.02em;margin-top:2px}
+.rh .per{font-size:10.5px;color:var(--sub);margin-top:2px}
+.rh .right{text-align:right;font-size:9.5px;color:var(--sub);line-height:1.6}
+.rh .right b{color:var(--teal);font-size:15px;font-weight:900;display:block}
+.mini-h{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid var(--ink);padding-bottom:5px;margin-bottom:10px}
+.mini-h h2{font-size:14px;font-weight:900}
+.mini-h span{font-size:9.5px;color:var(--sub)}
+
+/* key message */
+.keymsg{background:var(--teal);color:#fff;border-radius:6px;padding:9px 12px;margin-bottom:10px;display:flex;gap:10px;align-items:flex-start}
+.keymsg .lab{font-size:8.5px;font-weight:700;letter-spacing:.1em;background:rgba(255,255,255,.18);padding:2px 6px;border-radius:3px;white-space:nowrap;margin-top:2px}
+.keymsg .txt{font-size:12.5px;font-weight:700;line-height:1.5;flex:1}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
+.kpi{border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+.kpi .l{font-size:8.5px;color:var(--sub);font-weight:500}
+.kpi .v{font-size:19px;font-weight:900;letter-spacing:-.02em;line-height:1.25}
+.kpi .v small{font-size:10px;font-weight:500;color:var(--sub);margin-left:1px}
+.kpi .d{font-size:9px;font-weight:700}
+.kpi.mb{border-color:var(--teal);background:#f3fafa}
+
+/* section title */
+.sec{display:flex;align-items:baseline;gap:8px;margin:2px 0 5px}
+.sec h3{font-size:11.5px;font-weight:900;color:var(--teal)}
+.sec span{font-size:9px;color:var(--mute)}
+
+/* tables */
+table{width:100%;border-collapse:collapse;font-size:9.5px}
+th{font-weight:700;color:var(--sub);font-size:8.5px;text-align:right;padding:4px 5px;border-bottom:1.5px solid var(--ink);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:3.6px 5px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.mb td{background:var(--hl);font-weight:700}
+tr.tot td{font-weight:700;border-top:1.5px solid var(--ink);border-bottom:none;background:#fafbfb}
+.rk{color:var(--mute);display:inline-block;width:12px}
+.pos{color:var(--pos)} .neg{color:var(--neg)} .zero{color:var(--mute)}
+th.seg-t{color:var(--tractor)} th.seg-r{color:#c98a00} th.seg-p{color:var(--tipper)}
+.bar{display:inline-block;height:6px;border-radius:2px;vertical-align:middle;margin-right:4px}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}
+
+.grid2{display:grid;grid-template-columns:1.05fr 1fr;gap:12px;margin:12px 0}
+
+/* insight box */
+.ins{border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:5px;padding:8px 10px 8px 10px;background:#fbfcfc}
+.ins .h{font-size:9px;font-weight:900;letter-spacing:.08em;color:var(--teal);margin-bottom:4px;display:flex;justify-content:space-between}
+.ins .h em{font-style:normal;font-weight:400;color:var(--mute);letter-spacing:0}
+.ins ul{list-style:none;font-size:9.8px;line-height:1.55}
+.ins li{position:relative;padding-left:11px;margin-bottom:3px}
+.ins li::before{content:'';position:absolute;left:0;top:6px;width:5px;height:5px;border-radius:50%;background:var(--teal2)}
+.tag{display:inline-block;font-size:8.5px;font-weight:700;padding:0 5px;border-radius:3px;margin-right:4px;line-height:15px}
+.tag.g{background:#e3f4e8;color:var(--pos)} .tag.r{background:#fde7e9;color:var(--neg)} .tag.a{background:#fff3d6;color:#a26f00} .tag.b{background:#e0f1f3;color:var(--teal)}
+
+/* segment block */
+.segblk{border-top:1px solid var(--line);padding-top:8px;margin-top:8px}
+.segblk:first-of-type{border-top:none;margin-top:0;padding-top:0}
+.seghead{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+.seghead .nm{font-size:13px;font-weight:900;padding-left:7px;border-left:4px solid}
+.seghead .st{display:flex;gap:6px;margin-left:auto}
+.stc{display:flex;align-items:baseline;gap:5px;border:1px solid var(--line);border-radius:5px;padding:3px 9px;background:#fafbfb}
+.stc .sl{font-size:8.5px;color:var(--sub);font-weight:500}
+.stc b{font-size:15px;font-weight:900;color:var(--ink);letter-spacing:-.01em}
+.stc .sd{font-size:9.5px;font-weight:700}
+.stc .sd i{font-style:normal;font-weight:500;color:var(--mute);font-size:8.5px}
+.stc.mbc{border-color:var(--teal);background:#f3fafa}
+.stc.mbc b{color:var(--teal)}
+.segbody{display:grid;grid-template-columns:1.55fr 1fr;gap:10px;align-items:start}
+
+.action{margin-top:12px;border:1.5px solid var(--ink);border-radius:6px;padding:8px 11px}
+.action .h{font-size:10px;font-weight:900;margin-bottom:4px}
+.action ul{font-size:9.8px;line-height:1.6;padding-left:15px}
+.note{font-size:8.3px;color:var(--mute);margin-top:6px;line-height:1.5}
+
+/* editable */
+body.editing [contenteditable="true"]{outline:1.5px dashed #9cc9cf;outline-offset:2px;border-radius:3px;cursor:text}
+body.editing [contenteditable="true"]:hover{outline-color:var(--teal2);background:rgba(15,154,160,.05)}
+body.editing [contenteditable="true"]:focus{outline:2px solid var(--teal2);background:#fff}
+body.editing .keymsg [contenteditable="true"]{outline-color:rgba(255,255,255,.6)}
+body.editing .keymsg [contenteditable="true"]:focus{background:transparent}
+.edited-flag{display:none;font-size:8px;color:var(--amber);font-weight:700;margin-left:6px}
+body.editing .edited .edited-flag{display:inline}
+
+@page{size:A4 portrait;margin:0}
+@media print{
+  body{background:#fff}
+  .toolbar,.toast{display:none!important}
+  .pages{padding:0;gap:0}
+  .page{box-shadow:none;width:210mm;height:297mm;min-height:0;page-break-after:always;break-after:page;overflow:hidden}
+  .page:last-child{page-break-after:auto;break-after:auto}
+  [contenteditable]{outline:none!important;background:none!important}
+  .edited-flag,.noprint{display:none!important}
+}
+@media screen and (max-width:820px){
+  .pages{align-items:flex-start;overflow-x:auto;padding-left:10px;padding-right:10px}
+}
+</style>
+</head>
+<body class="editing">
+
+<div id="app-loading" class="app-loading" role="status" aria-live="polite">
+  <div class="al-card">
+    <div class="al-spin"></div>
+    <div class="al-msg" id="app-loading-msg">불러오는 중…</div>
+    <div class="al-hint">처음 접속하시는 경우 자료를 내려받느라<br />20~30초 정도 걸릴 수 있습니다.</div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <a class="back" href="../index.html">← 사이트</a>
+  <div class="t">KAIDA 월간 리포트 <small id="tbPeriod"></small></div>
+  <select id="selYear" aria-label="연도"></select>
+  <select id="selMonth" aria-label="월"></select>
+  <span class="hint">점선 영역 = 편집 가능 · Enter 새 항목 · Ctrl+B 굵게</span>
+  <button class="btn on" id="btnEdit">편집 모드 ON</button>
+  <button class="btn" id="btnReset">자동 인사이트로 초기화</button>
+  <button class="btn primary" id="btnPdf">PDF 저장</button>
+</div>
+
+<div id="err"></div>
+<div class="pages" id="pages" hidden>
+
+  <!-- =========================== PAGE 1 : 시장 개요 =========================== -->
+  <section class="page" id="p1">
+    <header class="rh">
+      <div>
+        <div class="brand">Mercedes-Benz Trucks · Star Truck Korea · PMM</div>
+        <h1>Korea Imported Truck Market — Monthly Report</h1>
+        <div class="per" id="perText"></div>
+      </div>
+      <div class="right">
+        <b id="perBadge"></b>
+        Issued <span data-key="issued" contenteditable="true" id="issued"></span><br>
+        Prepared by <span data-key="author" contenteditable="true" id="author"></span>
+      </div>
+    </header>
+
+    <div class="keymsg">
+      <span class="lab">KEY MESSAGE</span>
+      <div class="txt" data-key="keymsg" contenteditable="true" id="keymsg"></div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="sec"><h3>① Market by Brand</h3><span id="brandSub"></span></div>
+    <table id="tblBrand"></table>
+
+    <div class="grid2">
+      <div>
+        <div class="sec"><h3>② Segment Summary (YTD)</h3></div>
+        <table id="tblSeg"></table>
+        <div class="sec" style="margin-top:10px"><h3>③ Share Change vs PY YTD</h3><span>pp</span></div>
+        <div id="shareDelta"></div>
+      </div>
+      <div>
+        <div class="sec"><h3>④ Monthly Volume & MB Share</h3><span id="chartSub"></span></div>
+        <div id="chart"></div>
+      </div>
+    </div>
+
+    <div class="ins">
+      <div class="h">Key Insights — Market Overview <em class="noprint">Editable<span class="edited-flag">● Edited</span></em></div>
+      <ul data-key="ins_overview" contenteditable="true" id="ins_overview"></ul>
+    </div>
+
+    <div class="page-foot"><span>Source: KAIDA (Korea Automobile Importers &amp; Distributors Association), new registrations · Internal use only</span><span>1 / 2</span></div>
+  </section>
+
+  <!-- =========================== PAGE 2 : 세그먼트 =========================== -->
+  <section class="page" id="p2">
+    <div class="mini-h"><h2>Segment Review — Tractor · Rigid · Tipper</h2><span id="perText2"></span></div>
+
+    <div id="segBlocks"></div>
+
+    <div class="action">
+      <div class="h">PMM Comment &amp; Next Steps<span class="edited-flag">● Edited</span></div>
+      <ul data-key="action" contenteditable="true" id="action"></ul>
+    </div>
+
+    <p class="note">* YoY: vs same period of previous year · MoM: vs previous month · pp: percentage points · Share: registration share within the segment (or total market) · PY: previous year.
+      Insights are data-driven drafts reviewed and edited by PMM.</p>
+
+    <div class="page-foot"><span>Source: KAIDA (Korea Automobile Importers &amp; Distributors Association), new registrations · Internal use only</span><span>2 / 2</span></div>
+  </section>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { requireAdmin } from "../js/auth.js";
+import { loadManifest, loadKaidaPair } from "../js/data.js";
+import { loadingFinish } from "../js/loading.js";
+
+/* ============================ helpers ============================ */
+const SEG = {Tractor:{ko:'',c:'#3b82f6'}, Rigid:{ko:'',c:'#f5a800'}, Tipper:{ko:'',c:'#7d8389'}};
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const ord = n => n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:(n%10<4?n%10:0)]||'th');
+const BCOL = {'Volvo':'#1b3a7a','Scania':'#d11a2a','MAN':'#f0b429','Mercedes-Benz':'#222','IVECO':'#1e90d6'};
+const fmt = n => n.toLocaleString('en-US');
+const pct = (a,b) => b ? (a/b-1)*100 : null;
+const share = (a,b) => b ? a/b*100 : 0;
+const sgn = (v,d=1,u='%') => v==null||!isFinite(v) ? '-' : (v>0?'+':'')+v.toFixed(d)+u;
+const cls = v => v==null||!isFinite(v)||Math.abs(v)<0.05 ? 'zero' : v>0?'pos':'neg';
+const arrow = v => v==null||Math.abs(v)<0.05 ? '·' : v>0?'▲':'▼';
+const pp = v => `<span class="${cls(v)}">${arrow(v)} ${Math.abs(v).toFixed(1)}pp</span>`;
+const yo = v => `<span class="${cls(v)}">${sgn(v)}</span>`;
+const sum = a => a.reduce((x,y)=>x+y,0);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ============================ model ============================ */
+function buildModel(d){
+  const M = d.period.month, segs = Object.keys(d.segments), mbN = d.mb.name;
+  const m = {d, M, segs, mbN, brand:{}, seg:{}};
+  // brand totals
+  d.brands.forEach(b=>{
+    const o={ytd:0,ytdPrev:0,cur:0,prev:0,bySegCur:{}};
+    segs.forEach(s=>{const x=d.segments[s][b]||{ytd:0,ytdPrev:0,cur:0,prev:0};
+      o.ytd+=x.ytd;o.ytdPrev+=x.ytdPrev;o.cur+=x.cur;o.prev+=x.prev;o.bySegCur[s]=x.cur;});
+    m.brand[b]=o;
+  });
+  // segment totals
+  segs.forEach(s=>{
+    const rows=d.brands.map(b=>({b,...(d.segments[s][b]||{ytd:0,ytdPrev:0,cur:0,prev:0})}));
+    const t={ytd:sum(rows.map(r=>r.ytd)),ytdPrev:sum(rows.map(r=>r.ytdPrev)),cur:sum(rows.map(r=>r.cur)),prev:sum(rows.map(r=>r.prev))};
+    rows.forEach(r=>{r.sh=share(r.ytd,t.ytd);r.shPrev=share(r.ytdPrev,t.ytdPrev);r.dsh=r.sh-r.shPrev;r.yoy=pct(r.ytd,r.ytdPrev);r.mom=pct(r.cur,r.prev);r.diff=r.ytd-r.ytdPrev;});
+    rows.sort((a,b)=>b.ytd-a.ytd); rows.forEach((r,i)=>r.rank=i+1);
+    m.seg[s]={rows,t,yoy:pct(t.ytd,t.ytdPrev),mom:pct(t.cur,t.prev),diff:t.ytd-t.ytdPrev};
+  });
+  const T={ytd:0,ytdPrev:0,cur:0,prev:0}; d.brands.forEach(b=>['ytd','ytdPrev','cur','prev'].forEach(k=>T[k]+=m.brand[b][k]));
+  m.T=T;
+  d.brands.forEach(b=>{const o=m.brand[b];o.sh=share(o.ytd,T.ytd);o.shPrev=share(o.ytdPrev,T.ytdPrev);o.dsh=o.sh-o.shPrev;o.yoy=pct(o.ytd,o.ytdPrev);o.mom=pct(o.cur,o.prev);o.diff=o.ytd-o.ytdPrev;});
+  m.order=[...d.brands].sort((a,b)=>m.brand[b].ytd-m.brand[a].ytd);
+  m.order.forEach((b,i)=>m.brand[b].rank=i+1);
+  m.curPrevYear = d.market.monthlyPrev[M-1];
+  m.mbCurPrevYear = d.mb.monthlyPrev[M-1];
+  m.curYoY = pct(T.cur,m.curPrevYear);
+  m.mbCurSh = share(m.brand[mbN].cur,T.cur);
+  m.mbCurShPrevY = share(m.mbCurPrevYear,m.curPrevYear);
+  return m;
+}
+
+/* ============================ auto insights (draft) ============================ */
+function autoInsights(m){
+  const mb=m.brand[m.mbN], T=m.T, Mn=MON[m.M-1];
+  const rivals=m.order.filter(b=>b!==m.mbN);
+  const gainer=[...rivals].sort((a,b)=>m.brand[b].dsh-m.brand[a].dsh)[0];
+  const totalDiff=T.ytd-T.ytdPrev, u=v=>`${v>0?'+':''}${fmt(v)} units`;
+  const drv=[...m.segs].sort((a,b)=>Math.abs(m.seg[b].diff)-Math.abs(m.seg[a].diff))[0];
+  const mkYoY=pct(T.ytd,T.ytdPrev);
+  const r=s=>m.seg[s].rows.find(x=>x.b===m.mbN);
+  const best=[...m.segs].sort((a,b)=>r(b).dsh-r(a).dsh)[0], worst=[...m.segs].sort((a,b)=>r(a).dsh-r(b).dsh)[0];
+
+  const key=`MB YTD share at ${mb.sh.toFixed(1)}% (${sgn(mb.dsh,1,'pp')}), ranked ${ord(mb.rank)} — volume ${sgn(mb.yoy)} vs market ${sgn(mkYoY)}. ${best} is recovering; defending ${worst} share is the top priority.`;
+
+  const ov=[
+    `<span class="tag b">Market</span>${Mn} registrations at ${fmt(T.cur)} units — ${sgn(pct(T.cur,T.prev))} MoM, ${sgn(m.curYoY)} YoY. YTD ${fmt(T.ytd)} units (${sgn(mkYoY)}, ${u(totalDiff)}).`,
+    `<span class="tag r">MB</span>YTD ${fmt(mb.ytd)} units (${sgn(mb.yoy)}), share ${mb.sh.toFixed(1)}% (${sgn(mb.dsh,1,'pp')}). ${Mn} share ${m.mbCurSh.toFixed(1)}% vs ${m.mbCurShPrevY.toFixed(1)}% in ${Mn} ${m.d.period.year-1} (${sgn(m.mbCurSh-m.mbCurShPrevY,1,'pp')}).`,
+    `<span class="tag a">Competition</span>${gainer} posted the largest share gain (${sgn(m.brand[gainer].dsh,1,'pp')}; YTD ${fmt(m.brand[gainer].ytd)} units, ${sgn(m.brand[gainer].yoy)}). Leader ${m.order[0]} holds ${m.brand[m.order[0]].sh.toFixed(1)}%.`,
+    `<span class="tag b">Segment</span>${drv} (${u(m.seg[drv].diff)}) drove the market change (total ${u(totalDiff)}). MB share change: ${m.segs.map(s=>`${s} ${sgn(r(s).dsh,1,'pp')}`).join(' / ')}.`
+  ];
+  const seg={};
+  m.segs.forEach(s=>{
+    const rows=m.seg[s].rows, up=[...rows].sort((a,b)=>b.diff-a.diff)[0], dn=[...rows].sort((a,b)=>a.diff-b.diff)[0], x=r(s);
+    seg[s]=[
+      `<span class="tag g">Growth</span>${up.b} ${sgn(up.yoy)} (${u(up.diff)}), share ${up.sh.toFixed(1)}% (${sgn(up.dsh,1,'pp')}).`,
+      `<span class="tag r">Watch</span>${dn.b} ${sgn(dn.yoy)} (${u(dn.diff)}), the largest decline.`,
+      `<span class="tag a">MB</span>Share ${x.sh.toFixed(1)}%, ${ord(x.rank)} (${sgn(x.dsh,1,'pp')}). ${Mn}: ${x.cur} units (MoM ${sgn(x.mom)}).`,
+      `<span class="tag b">Cause / Action</span>[PMM to complete: pricing, stock, bodybuilder factors and countermeasures]`
+    ];
+  });
+  const action=[
+    `[PMM to complete] Key drivers this month — e.g. stock/shipment timing, competitor promotions, bodybuilder demand`,
+    `[PMM to complete] Actions for next month — target models, pricing/conditions and sales support by segment`,
+    `[PMM to complete] Requests to DTAG / management`
+  ];
+  return {keymsg:key, ins_overview:ov, seg, action};
+}
+
+/* ============================ render ============================ */
+function li(arr){return arr.map(x=>`<li>${x}</li>`).join('');}
+
+function render(d){
+  const m=buildModel(d), Y=d.period.year, M=d.period.month, Mn=MON[M-1], mb=m.brand[m.mbN], T=m.T;
+  window.__model=m;
+  document.getElementById('perText').textContent=`KAIDA new registrations · ${Mn} ${Y} (YTD Jan–${Mn}) · vs ${Y-1} same period`;
+  document.getElementById('perText2').textContent=`${Mn} ${Y} YTD`;
+  document.getElementById('perBadge').textContent=`${Mn} ${Y}`;
+  document.getElementById('tbPeriod').textContent=`${Y}년 ${M}월`;
+
+  const k=(l,v,un,dl,c='')=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}<small>${un}</small></div><div class="d">${dl}</div></div>`;
+  document.getElementById('kpis').innerHTML=
+    k('Total Market (YTD)',fmt(T.ytd),' units',`${yo(pct(T.ytd,T.ytdPrev))} <span class="zero">YoY</span>`)+
+    k(`Registrations (${Mn})`,fmt(T.cur),' units',`${yo(m.curYoY)} <span class="zero">YoY</span> · ${yo(pct(T.cur,T.prev))} <span class="zero">MoM</span>`)+
+    k('MB Volume (YTD)',fmt(mb.ytd),' units',`${yo(mb.yoy)} <span class="zero">YoY · ${ord(mb.rank)}</span>`,'mb')+
+    k('MB Share (YTD)',mb.sh.toFixed(1),'%',`${pp(mb.dsh)} <span class="zero">YoY</span>`,'mb')+
+    k(`MB Share (${Mn})`,m.mbCurSh.toFixed(1),'%',`${pp(m.mbCurSh-m.mbCurShPrevY)} <span class="zero">YoY</span>`,'mb');
+
+  let h=`<thead><tr><th>Brand</th><th>${Mn}</th><th class="seg-t">Tractor</th><th class="seg-r">Rigid</th><th class="seg-p">Tipper</th><th>MoM</th><th>YTD ${Y}</th><th>YTD ${Y-1}</th><th>YoY</th><th>Share</th><th style="text-align:left;width:70px"></th><th>Δ Share</th></tr></thead><tbody>`;
+  const maxSh=Math.max(1e-9,...m.order.map(b=>m.brand[b].sh));
+  m.order.forEach(b=>{const o=m.brand[b];
+    h+=`<tr class="${b===m.mbN?'mb':''}"><td><span class="rk">${o.rank}</span>${esc(b)}</td><td><b>${o.cur}</b></td>`+
+       m.segs.map(s=>`<td>${o.bySegCur[s]}</td>`).join('')+
+       `<td>${yo(o.mom)}</td><td><b>${fmt(o.ytd)}</b></td><td>${fmt(o.ytdPrev)}</td><td>${yo(o.yoy)}</td><td>${o.sh.toFixed(1)}%</td>`+
+       `<td style="text-align:left"><span class="bar" style="width:${o.sh/maxSh*64}px;background:${BCOL[b]||'#888'}"></span></td><td>${pp(o.dsh)}</td></tr>`;});
+  h+=`<tr class="tot"><td>Total</td><td>${fmt(T.cur)}</td>`+m.segs.map(s=>`<td>${m.seg[s].t.cur}</td>`).join('')+
+     `<td>${yo(pct(T.cur,T.prev))}</td><td>${fmt(T.ytd)}</td><td>${fmt(T.ytdPrev)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>100%</td><td></td><td></td></tr></tbody>`;
+  document.getElementById('tblBrand').innerHTML=h;
+
+  let s=`<thead><tr><th>Segment</th><th>YTD</th><th>Mix</th><th>YoY</th><th>MB Share</th><th>Δ</th><th>MB Rank</th></tr></thead><tbody>`;
+  m.segs.forEach(g=>{const S=m.seg[g],x=S.rows.find(r=>r.b===m.mbN);
+    s+=`<tr><td><span class="dot" style="background:${x.dsh>=0?'var(--pos)':'var(--neg)'}"></span><b>${g}</b> <span class="zero">${SEG[g].ko}</span></td><td>${fmt(S.t.ytd)}</td><td>${share(S.t.ytd,T.ytd).toFixed(1)}%</td><td>${yo(S.yoy)}</td><td><b>${x.sh.toFixed(1)}%</b></td><td>${pp(x.dsh)}</td><td>${ord(x.rank)}</td></tr>`;});
+  document.getElementById('tblSeg').innerHTML=s+`</tbody>`;
+
+  const ds=[...m.order].sort((a,b)=>m.brand[b].dsh-m.brand[a].dsh);
+  const mx=Math.max(1,...ds.map(b=>Math.abs(m.brand[b].dsh)));
+  document.getElementById('shareDelta').innerHTML=`<div style="display:grid;grid-template-columns:78px 1fr 1fr 42px;row-gap:3px;align-items:center;font-size:9px">`+
+    ds.map(b=>{const v=m.brand[b].dsh,w=Math.abs(v)/mx*100;
+      return `<div style="${b===m.mbN?'font-weight:700':''}">${esc(b)}</div>
+        <div style="text-align:right;border-right:1px solid #bbb;height:11px">${v<0?`<span style="display:inline-block;height:9px;margin-top:1px;width:${w}%;background:var(--neg);opacity:.8;border-radius:2px 0 0 2px"></span>`:''}</div>
+        <div style="height:11px">${v>0?`<span style="display:inline-block;height:9px;margin-top:1px;width:${w}%;background:var(--pos);opacity:.8;border-radius:0 2px 2px 0"></span>`:''}</div>
+        <div style="text-align:right" class="${cls(v)}">${sgn(v,1,'pp')}</div>`;}).join('')+`</div>`;
+
+  document.getElementById('chart').innerHTML=chartSVG(d);
+
+  document.getElementById('segBlocks').innerHTML=m.segs.map(g=>{
+    const S=m.seg[g], mx=Math.max(0,...S.rows.map(r=>r.sh));
+    const xb=S.rows.find(r=>r.b===m.mbN), mbCur=share(xb.cur,S.t.cur), mbPrev=share(xb.prev,S.t.prev);
+    let t=`<table><thead><tr><th>Brand</th><th>YTD ${Y}</th><th>YTD ${Y-1}</th><th>YoY</th><th>Share</th><th style="width:52px"></th><th>PY</th><th>Δ</th><th>${Mn}</th><th>MoM</th></tr></thead><tbody>`;
+    S.rows.forEach(r=>{t+=`<tr class="${r.b===m.mbN?'mb':''}"><td><span class="rk">${r.rank}</span>${esc(r.b)}</td><td><b>${fmt(r.ytd)}</b></td><td>${fmt(r.ytdPrev)}</td><td>${yo(r.yoy)}</td><td>${r.sh.toFixed(1)}%</td><td style="text-align:left"><span class="bar" style="width:${mx?r.sh/mx*48:0}px;background:${SEG[g].c}"></span></td><td>${r.shPrev.toFixed(1)}%</td><td>${pp(r.dsh)}</td><td>${r.cur}</td><td>${r.prev?yo(r.mom):'<span class="zero">-</span>'}</td></tr>`;});
+    t+=`</tbody></table>`;
+    return `<div class="segblk">
+      <div class="seghead"><span class="nm" style="border-color:${SEG[g].c}">${g} <span style="font-weight:500;color:var(--sub);font-size:11px">${SEG[g].ko}</span></span>
+        <div class="st">
+          <div class="stc"><span class="sl">YTD</span><b>${fmt(S.t.ytd)}</b><span class="sd">${yo(S.yoy)} <i>YoY</i></span></div>
+          <div class="stc"><span class="sl">${Mn}</span><b>${S.t.cur}</b><span class="sd">${yo(S.mom)} <i>MoM</i></span></div>
+          <div class="stc mbc"><span class="sl">MB Share (${Mn})</span><b>${mbCur.toFixed(1)}%</b><span class="sd">${pp(mbCur-mbPrev)} <i>MoM</i></span></div>
+        </div></div>
+      <div class="segbody">${t}
+        <div class="ins"><div class="h">INSIGHT <em class="noprint">Editable<span class="edited-flag">● Edited</span></em></div>
+          <ul data-key="ins_${g}" contenteditable="true" id="ins_${g}"></ul></div>
+      </div></div>`;}).join('');
+
+  fillText(m);
+}
+
+function chartSVG(d){
+  const W=330,H=170,pl=28,pr=30,pt=14,pb=22,iw=W-pl-pr,ih=H-pt-pb;
+  const cur=d.market.monthly, prev=d.market.monthlyPrev, M=d.period.month;
+  const mx=Math.max(100,Math.ceil(Math.max(0,...cur,...prev)/100)*100), n=12, bw=iw/n;
+  const y=v=>pt+ih-v/mx*ih;
+  let cm=0,cmM=0; const shr=cur.map((v,i)=>{cm+=v;cmM+=d.mb.monthly[i];return cm?cmM/cm*100:0;});
+  const smax=Math.ceil(Math.max(0,...shr)/5)*5+5, ys=v=>pt+ih-v/smax*ih;
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="font-family:inherit;font-size:7.5px">`;
+  for(let i=0;i<=4;i++){const v=mx/4*i;g+=`<line x1="${pl}" x2="${W-pr}" y1="${y(v)}" y2="${y(v)}" stroke="#eef0f2"/><text x="${pl-4}" y="${y(v)+2.5}" text-anchor="end" fill="#8a949c">${v}</text>`;
+    const sv=smax/4*i;g+=`<text x="${W-pr+4}" y="${ys(sv)+2.5}" fill="#0b5c66">${sv.toFixed(0)}%</text>`;}
+  for(let i=0;i<n;i++){const x=pl+i*bw;
+    if(prev[i]!=null)g+=`<rect x="${x+bw*.12}" y="${y(prev[i])}" width="${bw*.36}" height="${pt+ih-y(prev[i])}" fill="#d5dade"/>`;
+    if(cur[i]!=null)g+=`<rect x="${x+bw*.5}" y="${y(cur[i])}" width="${bw*.36}" height="${pt+ih-y(cur[i])}" fill="${i===M-1?'#0b5c66':'#0f9aa0'}"/>`;
+    g+=`<text x="${x+bw/2}" y="${H-pb+10}" text-anchor="middle" fill="${i===M-1?'#1a1f24':'#8a949c'}" font-weight="${i===M-1?700:400}">${MON[i]}</text>`;}
+  const pts=shr.map((v,i)=>`${pl+i*bw+bw/2},${ys(v)}`).join(' ');
+  g+=`<polyline points="${pts}" fill="none" stroke="#0b5c66" stroke-width="1.6"/>`;
+  shr.forEach((v,i)=>{const cx=pl+i*bw+bw/2;g+=`<circle cx="${cx}" cy="${ys(v)}" r="2" fill="#0b5c66"/>`;
+    if(i===0||i===shr.length-1)g+=`<text x="${cx}" y="${ys(v)-5}" text-anchor="middle" fill="#0b5c66" font-weight="700">${v.toFixed(1)}%</text>`;});
+  g+=`<g transform="translate(${pl},${H-2})"><rect width="7" height="5" y="-5" fill="#d5dade"/><text x="10" y="0" fill="#5b6670">${d.period.year-1}</text><rect x="38" width="7" height="5" y="-5" fill="#0f9aa0"/><text x="48" y="0" fill="#5b6670">${d.period.year}</text><line x1="78" x2="92" y1="-2.5" y2="-2.5" stroke="#0b5c66" stroke-width="1.6"/><text x="95" y="0" fill="#5b6670">MB YTD share (R)</text></g>`;
+  return g+`</svg>`;
+}
+
+/* ============================ editable text & persistence ============================ */
+let STORE_KEY='', AUTO={};
+function storeGet(){try{return JSON.parse(localStorage.getItem(STORE_KEY)||'{}');}catch(e){return {};}}
+function storeSet(o){try{localStorage.setItem(STORE_KEY,JSON.stringify(o));}catch(e){}}
+
+function fillText(m){
+  const d=m.d; STORE_KEY=`kaida-report-en-${d.period.year}-${String(d.period.month).padStart(2,'0')}`;
+  const a=autoInsights(m);
+  AUTO={keymsg:a.keymsg, ins_overview:li(a.ins_overview), action:li(a.action), author:esc(d.meta.author), issued:esc(d.meta.issued)};
+  m.segs.forEach(s=>AUTO['ins_'+s]=li(a.seg[s]));
+  const saved=storeGet();
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    const k=el.dataset.key; el.innerHTML = saved[k]!=null ? saved[k] : (AUTO[k]||'');
+    markEdited(el, saved[k]!=null);
+  });
+  bindEditable();
+}
+function markEdited(el,on){const box=el.closest('.ins,.action'); if(box) box.classList.toggle('edited',!!on);}
+function bindEditable(){
+  document.querySelectorAll('[data-key]').forEach(el=>{
+    if(el.__bound) return; el.__bound=true;
+    el.addEventListener('input',()=>{
+      // 목록이 비면 빈 항목 하나 유지
+      if(el.tagName==='UL' && !el.querySelector('li')) el.innerHTML='<li><br></li>';
+      const s=storeGet(); s[el.dataset.key]=el.innerHTML; storeSet(s); markEdited(el,true);
+    });
+    el.addEventListener('paste',e=>{ // 서식 제거 후 텍스트만 붙여넣기
+      e.preventDefault(); const t=(e.clipboardData||window.clipboardData).getData('text/plain');
+      document.execCommand('insertText',false,t);
+    });
+    if(el.tagName!=='UL') el.addEventListener('keydown',e=>{if(e.key==='Enter'&&el.tagName==='SPAN'){e.preventDefault();el.blur();}});
+  });
+}
+function setEditing(on){
+  document.body.classList.toggle('editing',on);
+  document.querySelectorAll('[data-key]').forEach(el=>el.setAttribute('contenteditable',on?'true':'false'));
+  const b=document.getElementById('btnEdit'); b.classList.toggle('on',on); b.textContent=on?'편집 모드 ON':'편집 모드 OFF';
+}
+function cleanForPrint(){ // 빈 항목 제거
+  document.querySelectorAll('[data-key] li').forEach(l=>{if(!l.textContent.trim()) l.remove();});
+}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t.__t);t.__t=setTimeout(()=>t.classList.remove('show'),3800);}
+
+document.getElementById('btnEdit').onclick=()=>setEditing(!document.body.classList.contains('editing'));
+document.getElementById('btnReset').onclick=()=>{
+  storeSet({}); try{localStorage.removeItem(STORE_KEY);}catch(e){}
+  document.querySelectorAll('[data-key]').forEach(el=>{el.innerHTML=AUTO[el.dataset.key]||'';markEdited(el,false);});
+  toast('자동 생성 인사이트로 되돌렸습니다.');
+};
+document.getElementById('btnPdf').onclick=()=>{
+  const was=document.body.classList.contains('editing');
+  setEditing(false); cleanForPrint();
+  let ok=true; try{window.print();}catch(e){ok=false;}
+  if(!ok || window.self!==window.top) toast('미리보기 환경에서는 인쇄가 차단될 수 있습니다. 사이트에 적용하면 [PDF 저장] → "PDF로 저장"(A4·배경 그래픽 체크)으로 출력됩니다.');
+  setTimeout(()=>setEditing(was),500);
+};
+window.addEventListener('beforeprint',cleanForPrint);
+
+/* ============================ SharePoint KAIDA -> report data ============================ */
+const BRAND_MAP = [['Volvo','Volvo'],['Scania','Scania'],['MAN','MAN'],['MB','Mercedes-Benz'],['IVECO','IVECO']];
+const SEGS = ['Tractor','Rigid','Tipper'];
+const mvals = row => MON.map(k => (row && row[k]) || 0);   // kaida_{year}.json month keys
+const upto = (a,n) => sum(a.slice(0,n));
+
+function toReportData(cur, prev, year, month){
+  const segRow = (d,b,s) => mvals(d && d.by_brand_seg && d.by_brand_seg[b] && d.by_brand_seg[b][s]);
+  const segments = {};
+  SEGS.forEach(s => {
+    segments[s] = {};
+    BRAND_MAP.forEach(([key,name]) => {
+      const c = segRow(cur,key,s), p = segRow(prev,key,s);
+      segments[s][name] = {
+        ytd: upto(c,month), ytdPrev: upto(p,month), cur: c[month-1],
+        prev: month > 1 ? c[month-2] : p[11],
+      };
+    });
+  });
+  const mbRow = d => mvals(d && d.by_brand && d.by_brand.MB);
+  const issued = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  return {
+    period: {year, month},
+    brands: BRAND_MAP.map(x => x[1]),
+    segments,
+    market: { monthly: mvals(cur.monthly_totals).slice(0,month), monthlyPrev: mvals(prev && prev.monthly_totals) },
+    mb: { name:'Mercedes-Benz', monthly: mbRow(cur).slice(0,month), monthlyPrev: mbRow(prev) },
+    meta: { author:'PMM Product Team', issued },
+  };
+}
+
+function fail(msg){
+  loadingFinish();
+  document.getElementById('pages').hidden = true;
+  document.getElementById('err').innerHTML = `<div class="err">${esc(msg)}</div>`;
+}
+
+async function show(year, month){
+  let pair;
+  try { pair = await loadKaidaPair(year); }
+  catch(e){ return fail(e.message); }
+  const {cur, prev} = pair;
+  if (!cur) return fail(`KAIDA ${year} 데이터가 없습니다.`);
+  const last = cur.last_data_month || 12;
+  if (!month || month > last) month = last;
+
+  document.getElementById('selMonth').innerHTML = Array.from({length:last},
+    (_,i)=>`<option value="${i+1}"${i+1===month?' selected':''}>${i+1}월</option>`).join('');
+  document.getElementById('selYear').value = String(year);
+  history.replaceState({}, '', `${location.pathname}?${new URLSearchParams({year, month})}`);
+
+  document.getElementById('err').innerHTML = '';
+  document.getElementById('pages').hidden = false;
+  render(toReportData(cur, prev, year, month));
+  if (!prev) toast(`${year-1}년 KAIDA 데이터가 없어 전년 대비 수치는 0 기준입니다.`);
+  loadingFinish();
+}
+
+async function boot(){
+  if (!(await requireAdmin())) {
+    // The gate replaced <body> with a login / refusal screen styled by the
+    // site stylesheet, which this page does not otherwise load.
+    const l = document.createElement('link'); l.rel = 'stylesheet'; l.href = '../css/style.css';
+    document.head.appendChild(l);
+    return;
+  }
+  let manifest;
+  try { manifest = await loadManifest(); } catch(e){ return fail(e.message); }
+  const years = manifest.kaida_years || [];
+  if (!years.length) return fail('KAIDA 데이터가 없습니다.');
+
+  const sy = document.getElementById('selYear');
+  sy.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+  const qs = new URLSearchParams(location.search);
+  const y = years.includes(+qs.get('year')) ? +qs.get('year') : years[0];
+  sy.onchange = () => show(+sy.value, +document.getElementById('selMonth').value);
+  document.getElementById('selMonth').onchange = e => show(+sy.value, +e.target.value);
+  await show(y, parseInt(qs.get('month'),10) || 0);
+}
+
+window.KaidaReport={render, buildModel, autoInsights, setEditing};
+boot().catch(e => { console.error(e); fail(e.message || String(e)); });
+</script>
+</body>
+</html>
