@@ -69,7 +69,9 @@ body{font-family:'Inter','Noto Sans KR',system-ui,sans-serif;color:var(--ink);ba
 /* ---------- A4 page ---------- */
 .pages{padding:24px 0 60px;display:flex;flex-direction:column;align-items:center;gap:22px}
 .page{width:210mm;min-height:297mm;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.08);padding:12mm 13mm 10mm;position:relative;display:flex;flex-direction:column}
-.page-foot{margin-top:auto;padding-top:6px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:8.5px;color:var(--mute)}
+.page-foot{margin-top:auto;padding-top:6px;border-top:1px solid var(--line);display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:baseline;font-size:8.5px;color:var(--mute)}
+.page-foot .foot-mid{font-weight:700;letter-spacing:.12em;color:var(--sub)}
+.page-foot .foot-pg{text-align:right}
 
 /* header */
 .rh{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid var(--ink);padding-bottom:7px;margin-bottom:10px}
@@ -198,7 +200,7 @@ body.editing .edited .edited-flag{display:inline}
   <section class="page" id="p1">
     <header class="rh">
       <div>
-        <div class="brand">Mercedes-Benz Trucks · Star Truck Korea · PMM</div>
+        <div class="brand">Star Truck Korea</div>
         <h1>Korea Imported Truck Market — Monthly Report</h1>
         <div class="per" id="perText"></div>
       </div>
@@ -237,7 +239,7 @@ body.editing .edited .edited-flag{display:inline}
       <ul data-key="ins_overview" contenteditable="true" id="ins_overview"></ul>
     </div>
 
-    <div class="page-foot"><span>Source: KAIDA (Korea Automobile Importers &amp; Distributors Association), new registrations · Internal use only</span><span>1 / 2</span></div>
+    <div class="page-foot"><span>Source: KAIDA (Korea Automobile Importers &amp; Distributors Association), new registrations · Internal use only</span><span class="foot-mid">STAR TRUCK KOREA</span><span class="foot-pg">1 / 2</span></div>
   </section>
 
   <!-- =========================== PAGE 2 : 세그먼트 =========================== -->
@@ -254,7 +256,7 @@ body.editing .edited .edited-flag{display:inline}
     <p class="note">* YoY: vs same period of previous year · MoM: vs previous month · pp: percentage points · Share: registration share within the segment (or total market) · PY: previous year.
       Insights are data-driven drafts reviewed and edited by PMM.</p>
 
-    <div class="page-foot"><span>Source: KAIDA (Korea Automobile Importers &amp; Distributors Association), new registrations · Internal use only</span><span>2 / 2</span></div>
+    <div class="page-foot"><span>Source: KAIDA (Korea Automobile Importers &amp; Distributors Association), new registrations · Internal use only</span><span class="foot-mid">STAR TRUCK KOREA</span><span class="foot-pg">2 / 2</span></div>
   </section>
 </div>
 
