@@ -127,9 +127,14 @@ export function renderSidebar(activeHref = null) {
       <h1 data-t="app_title">한국 상용차 시장 리포트</h1>
       <div class="subtitle" data-t="app_subtitle">상용차 등록·시장 분석</div>
     </a>
-    <div class="lang-toggle">
-      <button data-lang="ko" class="${getLang() === "ko" ? "active" : ""}">한국어</button>
-      <button data-lang="en" class="${getLang() === "en" ? "active" : ""}">English</button>
+    <div class="lang-toggle" role="group" aria-label="Language">
+      <svg class="lang-globe" viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"
+           fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+        <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/>
+        <path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>
+      </svg>
+      <button data-lang="ko" title="한국어" aria-pressed="${getLang() === "ko"}" class="${getLang() === "ko" ? "active" : ""}">KO</button>
+      <button data-lang="en" title="English" aria-pressed="${getLang() === "en"}" class="${getLang() === "en" ? "active" : ""}">EN</button>
     </div>
     ${NAV.filter(grp => !grp.adminOnly || isAdmin()).map(grp => `
       <details class="nav-group" open>
@@ -193,7 +198,8 @@ export function renderSidebar(activeHref = null) {
     btn.addEventListener("click", () => {
       setLang(btn.dataset.lang);
       sidebar.querySelectorAll("button[data-lang]").forEach(b =>
-        b.classList.toggle("active", b.dataset.lang === btn.dataset.lang));
+        { const on = b.dataset.lang === btn.dataset.lang;
+          b.classList.toggle("active", on); b.setAttribute("aria-pressed", on); });
     });
   });
 

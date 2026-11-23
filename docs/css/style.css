@@ -139,24 +139,33 @@ a:hover { text-decoration: underline; }
    group to the foot of the rail. */
 .sidebar .lang-toggle {
   margin: 0 0 16px;
-  display: flex;
-  gap: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+}
+.sidebar .lang-toggle .lang-globe {
+  color: var(--muted);
+  margin-right: 4px;
+  flex: none;
 }
 .sidebar .lang-toggle button {
-  flex: 1;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+  padding: 3px 11px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
   cursor: pointer;
-  font-size: 0.82rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   color: var(--muted);
 }
 .sidebar .lang-toggle button.active {
-  background: var(--accent);
-  color: white;
-  border-color: var(--accent);
-  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
 }
 
 .main {
@@ -1563,16 +1572,16 @@ table.pulse .down { color: var(--danger); font-weight: 600; }
   background: rgba(127, 168, 255, 0.16);
   color: var(--sb-accent);
 }
-.sidebar .lang-toggle button {
+.sidebar .lang-toggle {
   background: transparent;
   border-color: var(--sb-border);
-  color: var(--sb-muted);
 }
-.sidebar .lang-toggle button:hover { background: var(--sb-hover); }
+.sidebar .lang-toggle .lang-globe,
+.sidebar .lang-toggle button { color: var(--sb-muted); }
+.sidebar .lang-toggle button:hover { background: var(--sb-hover); color: var(--sb-text); }
 .sidebar .lang-toggle button.active {
-  background: var(--sb-accent);
-  border-color: var(--sb-accent);
-  color: #111417;
+  background: rgba(127, 168, 255, 0.16);
+  color: var(--sb-accent);
 }
 .sidebar .user-chip { border-top-color: var(--sb-border); }
 .sidebar .user-chip .user-name { color: var(--sb-text); }
