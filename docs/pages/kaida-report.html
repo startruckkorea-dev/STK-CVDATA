@@ -19,9 +19,10 @@
 
    period   : { year, month }
    brands   : display order
-   segments : { Tractor|Rigid|Tipper : { [brand]: {ytd, ytdPrev, cur, prev} } }
+   segments : { Tractor|Rigid|Tipper : { [brand]: {ytd, ytdPrev, cur, prev, curPY} } }
               ytd = Jan..month, ytdPrev = same span a year earlier,
-              cur = the month, prev = the month before (Dec of last year for Jan)
+              cur = the month, prev = the month before (Dec of last year for Jan),
+              curPY = the same month last year
    market   : { monthly: [Jan..month totals], monthlyPrev: [12 months of last year] }
    mb       : { name, monthly, monthlyPrev }
    meta     : { author, issued }
@@ -89,9 +90,19 @@ body{font-family:'Inter','Noto Sans KR',system-ui,sans-serif;color:var(--ink);ba
 .keymsg .lab{font-size:8.5px;font-weight:700;letter-spacing:.1em;background:rgba(255,255,255,.18);padding:2px 6px;border-radius:3px;white-space:nowrap;margin-top:2px}
 .keymsg .txt{font-size:12.5px;font-weight:700;line-height:1.5;flex:1}
 
-/* KPI */
-.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:12px}
-.kpi{border:1px solid var(--line);border-radius:6px;padding:7px 9px}
+/* KPI dashboard: Monthly (left) | YTD (right) */
+.dash{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:12px;align-items:stretch}
+.dash .grp{border:1px solid var(--line);border-radius:7px;padding:6px;background:#fafbfb;display:flex;flex-direction:column}
+.dash .gh{text-align:center;font-size:11px;font-weight:900;padding:5px 8px;border-radius:5px;margin-bottom:6px}
+.dash .mon .gh{background:#2f4553;color:#fff}
+.dash .ytd .gh{background:#dfe9ee;color:var(--ink)}
+.dash .tiles{display:grid;gap:6px;flex:1}
+.dash .mon .tiles{grid-template-columns:repeat(3,1fr)}
+.dash .ytd .tiles{grid-template-columns:repeat(2,1fr)}
+.dash .gf{text-align:right;font-size:9.5px;color:var(--sub);margin-top:6px}
+.dash .gf b{color:var(--ink);font-size:11px;font-weight:900}
+.kpi{border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:#fff}
+.kpi .d + .d{margin-top:1px}
 .kpi .l{font-size:8.5px;color:var(--sub);font-weight:500}
 .kpi .v{font-size:19px;font-weight:900;letter-spacing:-.02em;line-height:1.25}
 .kpi .v small{font-size:10px;font-weight:500;color:var(--sub);margin-left:1px}
@@ -108,7 +119,17 @@ table{width:100%;border-collapse:collapse;font-size:9.5px}
 th{font-weight:700;color:var(--sub);font-size:8.5px;text-align:right;padding:4px 5px;border-bottom:1.5px solid var(--ink);white-space:nowrap}
 th:first-child,td:first-child{text-align:left}
 td{padding:3.6px 5px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;white-space:nowrap}
-tr.mb td{background:var(--hl);font-weight:700}
+tr.mb td,td.mbh{background:var(--hl);font-weight:700}
+th.grp{text-align:center;background:#e9eef1;color:var(--ink);border-bottom:2px solid #fff;font-size:9px;padding:4px 5px}
+th.grp.sub{background:#f2f5f7;color:var(--teal);font-size:8.5px}
+th.grp.mbg{background:#d8ecf0;color:var(--teal)}
+th.blank{border-bottom:none}
+th.sep,td.sep{border-left:1.5px solid #9aa6af}
+th.sep,td.sep{padding-left:8px}
+td.sep:not(:only-child),th.sep:not(.grp){text-align:left}
+#tblBrand{font-size:9px}
+#tblBrand th,#tblBrand td{padding-left:3px;padding-right:3px}
+#tblBrand th.sep,#tblBrand td.sep{padding-left:6px}
 tr.tot td{font-weight:700;border-top:1.5px solid var(--ink);border-bottom:none;background:#fafbfb}
 .rk{color:var(--mute);display:inline-block;width:12px}
 .pos{color:var(--pos)} .neg{color:var(--neg)} .zero{color:var(--mute)}
@@ -141,7 +162,7 @@ th.seg-t{color:var(--tractor)} th.seg-r{color:#c98a00} th.seg-p{color:var(--tipp
 .stc .sd i{font-style:normal;font-weight:500;color:var(--mute);font-size:8.5px}
 .stc.mbc{border-color:var(--teal);background:#f3fafa}
 .stc.mbc b{color:var(--teal)}
-.segbody{display:grid;grid-template-columns:1.55fr 1fr;gap:10px;align-items:start}
+.ins.segs{margin-top:12px}
 
 .action{margin-top:12px;border:1.5px solid var(--ink);border-radius:6px;padding:8px 11px}
 .action .h{font-size:10px;font-weight:900;margin-bottom:4px}
@@ -216,7 +237,7 @@ body.editing .edited .edited-flag{display:inline}
       <div class="txt" data-key="keymsg" contenteditable="true" id="keymsg"></div>
     </div>
 
-    <div class="kpis" id="kpis"></div>
+    <div class="dash" id="kpis"></div>
 
     <div class="sec"><h3>① Market by Brand</h3><span id="brandSub"></span></div>
     <table id="tblBrand"></table>
@@ -225,11 +246,9 @@ body.editing .edited .edited-flag{display:inline}
       <div>
         <div class="sec"><h3>② Segment Summary (YTD)</h3></div>
         <table id="tblSeg"></table>
-        <div class="sec" style="margin-top:10px"><h3>③ Share Change vs PY YTD</h3><span>pp</span></div>
-        <div id="shareDelta"></div>
       </div>
       <div>
-        <div class="sec"><h3>④ Monthly Volume & MB Share</h3><span id="chartSub"></span></div>
+        <div class="sec"><h3>③ Monthly Volume & MB Share</h3><span id="chartSub"></span></div>
         <div id="chart"></div>
       </div>
     </div>
@@ -247,6 +266,11 @@ body.editing .edited .edited-flag{display:inline}
     <div class="mini-h"><h2>Segment Review — Tractor · Rigid · Tipper</h2><span id="perText2"></span></div>
 
     <div id="segBlocks"></div>
+
+    <div class="ins segs">
+      <div class="h">Key Insights — Segment Review <em class="noprint">Editable<span class="edited-flag">● Edited</span></em></div>
+      <ul data-key="ins_segments" contenteditable="true" id="ins_segments"></ul>
+    </div>
 
     <div class="action">
       <div class="h">PMM Comment &amp; Next Steps<span class="edited-flag">● Edited</span></div>
@@ -270,6 +294,7 @@ import { loadingFinish } from "../js/loading.js";
 /* ============================ helpers ============================ */
 const SEG = {Tractor:{ko:'',c:'#3b82f6'}, Rigid:{ko:'',c:'#f5a800'}, Tipper:{ko:'',c:'#7d8389'}};
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const MONF = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const ord = n => n+(['th','st','nd','rd'][(n%100>10&&n%100<14)?0:(n%10<4?n%10:0)]||'th');
 const BCOL = {'Volvo':'#1b3a7a','Scania':'#d11a2a','MAN':'#f0b429','Mercedes-Benz':'#222','IVECO':'#1e90d6'};
 const fmt = n => n.toLocaleString('en-US');
@@ -289,29 +314,34 @@ function buildModel(d){
   const m = {d, M, segs, mbN, brand:{}, seg:{}};
   // brand totals
   d.brands.forEach(b=>{
-    const o={ytd:0,ytdPrev:0,cur:0,prev:0,bySegCur:{}};
-    segs.forEach(s=>{const x=d.segments[s][b]||{ytd:0,ytdPrev:0,cur:0,prev:0};
-      o.ytd+=x.ytd;o.ytdPrev+=x.ytdPrev;o.cur+=x.cur;o.prev+=x.prev;o.bySegCur[s]=x.cur;});
+    const o={ytd:0,ytdPrev:0,cur:0,prev:0,curPY:0,bySegCur:{}};
+    segs.forEach(s=>{const x={ytd:0,ytdPrev:0,cur:0,prev:0,curPY:0,...(d.segments[s][b]||{})};
+      o.ytd+=x.ytd;o.ytdPrev+=x.ytdPrev;o.cur+=x.cur;o.prev+=x.prev;o.curPY+=x.curPY;o.bySegCur[s]=x.cur;});
     m.brand[b]=o;
   });
   // segment totals
   segs.forEach(s=>{
-    const rows=d.brands.map(b=>({b,...(d.segments[s][b]||{ytd:0,ytdPrev:0,cur:0,prev:0})}));
-    const t={ytd:sum(rows.map(r=>r.ytd)),ytdPrev:sum(rows.map(r=>r.ytdPrev)),cur:sum(rows.map(r=>r.cur)),prev:sum(rows.map(r=>r.prev))};
-    rows.forEach(r=>{r.sh=share(r.ytd,t.ytd);r.shPrev=share(r.ytdPrev,t.ytdPrev);r.dsh=r.sh-r.shPrev;r.yoy=pct(r.ytd,r.ytdPrev);r.mom=pct(r.cur,r.prev);r.diff=r.ytd-r.ytdPrev;});
+    const rows=d.brands.map(b=>({b,ytd:0,ytdPrev:0,cur:0,prev:0,curPY:0,...(d.segments[s][b]||{})}));
+    const t={}; ['ytd','ytdPrev','cur','prev','curPY'].forEach(k=>t[k]=sum(rows.map(r=>r[k])));
+    rows.forEach(r=>{r.sh=share(r.ytd,t.ytd);r.shPrev=share(r.ytdPrev,t.ytdPrev);r.dsh=r.sh-r.shPrev;r.yoy=pct(r.ytd,r.ytdPrev);r.mom=pct(r.cur,r.prev);r.diff=r.ytd-r.ytdPrev;r.shCur=share(r.cur,t.cur);});
+    // The month and the year-to-date rank brands differently, so each keeps its own order.
+    const byCur=[...rows].sort((a,b)=>b.cur-a.cur||b.ytd-a.ytd); byCur.forEach((r,i)=>r.rankCur=i+1);
     rows.sort((a,b)=>b.ytd-a.ytd); rows.forEach((r,i)=>r.rank=i+1);
-    m.seg[s]={rows,t,yoy:pct(t.ytd,t.ytdPrev),mom:pct(t.cur,t.prev),diff:t.ytd-t.ytdPrev};
+    m.seg[s]={rows,byCur,t,yoy:pct(t.ytd,t.ytdPrev),mom:pct(t.cur,t.prev),diff:t.ytd-t.ytdPrev};
   });
   const T={ytd:0,ytdPrev:0,cur:0,prev:0}; d.brands.forEach(b=>['ytd','ytdPrev','cur','prev'].forEach(k=>T[k]+=m.brand[b][k]));
   m.T=T;
   d.brands.forEach(b=>{const o=m.brand[b];o.sh=share(o.ytd,T.ytd);o.shPrev=share(o.ytdPrev,T.ytdPrev);o.dsh=o.sh-o.shPrev;o.yoy=pct(o.ytd,o.ytdPrev);o.mom=pct(o.cur,o.prev);o.diff=o.ytd-o.ytdPrev;});
   m.order=[...d.brands].sort((a,b)=>m.brand[b].ytd-m.brand[a].ytd);
   m.order.forEach((b,i)=>m.brand[b].rank=i+1);
+  m.orderCur=[...d.brands].sort((a,b)=>m.brand[b].cur-m.brand[a].cur||m.brand[b].ytd-m.brand[a].ytd);
+  m.orderCur.forEach((b,i)=>{const o=m.brand[b];o.rankCur=i+1;o.yoyCur=pct(o.cur,o.curPY);o.shCur=share(o.cur,T.cur);});
   m.curPrevYear = d.market.monthlyPrev[M-1];
   m.mbCurPrevYear = d.mb.monthlyPrev[M-1];
   m.curYoY = pct(T.cur,m.curPrevYear);
   m.mbCurSh = share(m.brand[mbN].cur,T.cur);
   m.mbCurShPrevY = share(m.mbCurPrevYear,m.curPrevYear);
+  m.mbPrevSh = share(m.brand[mbN].prev,T.prev);
   return m;
 }
 
@@ -334,22 +364,20 @@ function autoInsights(m){
     `<span class="tag a">Competition</span>${gainer} posted the largest share gain (${sgn(m.brand[gainer].dsh,1,'pp')}; YTD ${fmt(m.brand[gainer].ytd)} units, ${sgn(m.brand[gainer].yoy)}). Leader ${m.order[0]} holds ${m.brand[m.order[0]].sh.toFixed(1)}%.`,
     `<span class="tag b">Segment</span>${drv} (${u(m.seg[drv].diff)}) drove the market change (total ${u(totalDiff)}). MB share change: ${m.segs.map(s=>`${s} ${sgn(r(s).dsh,1,'pp')}`).join(' / ')}.`
   ];
-  const seg={};
-  m.segs.forEach(s=>{
-    const rows=m.seg[s].rows, up=[...rows].sort((a,b)=>b.diff-a.diff)[0], dn=[...rows].sort((a,b)=>a.diff-b.diff)[0], x=r(s);
-    seg[s]=[
-      `<span class="tag g">Growth</span>${up.b} ${sgn(up.yoy)} (${u(up.diff)}), share ${up.sh.toFixed(1)}% (${sgn(up.dsh,1,'pp')}).`,
-      `<span class="tag r">Watch</span>${dn.b} ${sgn(dn.yoy)} (${u(dn.diff)}), the largest decline.`,
-      `<span class="tag a">MB</span>Share ${x.sh.toFixed(1)}%, ${ord(x.rank)} (${sgn(x.dsh,1,'pp')}). ${Mn}: ${x.cur} units (MoM ${sgn(x.mom)}).`,
-      `<span class="tag b">Cause / Action</span>[PMM to complete: pricing, stock, bodybuilder factors and countermeasures]`
-    ];
+  // One line per segment for the single insight box at the foot of page 2.
+  const segs=m.segs.map(s=>{
+    const S=m.seg[s], rows=S.rows, x=r(s);
+    const up=[...rows].sort((a,b)=>b.diff-a.diff)[0], dn=[...rows].sort((a,b)=>a.diff-b.diff)[0];
+    const moves=[up.diff>0?`${up.b} led growth (${u(up.diff)})`:'',dn.diff<0?`${dn.b} fell most (${u(dn.diff)})`:''].filter(Boolean).join('; ');
+    return `<span class="tag b">${s}</span>Market YTD ${fmt(S.t.ytd)} units (${sgn(S.yoy)})${moves?'. '+moves:''}. `+
+      `MB share ${x.sh.toFixed(1)}% (${sgn(x.dsh,1,'pp')}), ${ord(x.rank)} YTD / ${ord(x.rankCur)} in ${Mn} (${x.cur} units).`;
   });
   const action=[
     `[PMM to complete] Key drivers this month — e.g. stock/shipment timing, competitor promotions, bodybuilder demand`,
     `[PMM to complete] Actions for next month — target models, pricing/conditions and sales support by segment`,
     `[PMM to complete] Requests to DTAG / management`
   ];
-  return {keymsg:key, ins_overview:ov, seg, action};
+  return {keymsg:key, ins_overview:ov, segs, action};
 }
 
 /* ============================ render ============================ */
@@ -363,46 +391,54 @@ function render(d){
   document.getElementById('perBadge').textContent=`${Mn} ${Y}`;
   document.getElementById('tbPeriod').textContent=`${Y}년 ${M}월`;
 
-  const k=(l,v,un,dl,c='')=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}<small>${un}</small></div><div class="d">${dl}</div></div>`;
+  const k=(l,v,un,lines,c='')=>`<div class="kpi ${c}"><div class="l">${l}</div><div class="v">${v}<small>${un}</small></div>${lines.map(x=>`<div class="d">${x}</div>`).join('')}</div>`;
+  const tagz=t=>` <span class="zero">${t}</span>`;
   document.getElementById('kpis').innerHTML=
-    k('Total Market (YTD)',fmt(T.ytd),' units',`${yo(pct(T.ytd,T.ytdPrev))} <span class="zero">YoY</span>`)+
-    k(`Registrations (${Mn})`,fmt(T.cur),' units',`${yo(m.curYoY)} <span class="zero">YoY</span> · ${yo(pct(T.cur,T.prev))} <span class="zero">MoM</span>`)+
-    k('MB Volume (YTD)',fmt(mb.ytd),' units',`${yo(mb.yoy)} <span class="zero">YoY · ${ord(mb.rank)}</span>`,'mb')+
-    k('MB Share (YTD)',mb.sh.toFixed(1),'%',`${pp(mb.dsh)} <span class="zero">YoY</span>`,'mb')+
-    k(`MB Share (${Mn})`,m.mbCurSh.toFixed(1),'%',`${pp(m.mbCurSh-m.mbCurShPrevY)} <span class="zero">YoY</span>`,'mb');
+    `<div class="grp mon"><div class="gh">Monthly Performance | ${Mn} ${Y}</div><div class="tiles">`+
+      k('Total Market',fmt(T.cur),' units',[yo(m.curYoY)+tagz('YoY'),yo(pct(T.cur,T.prev))+tagz('MoM')])+
+      k('MB Volume',fmt(mb.cur),' units',[yo(pct(mb.cur,m.mbCurPrevYear))+tagz('YoY'),yo(mb.mom)+tagz('MoM')],'mb')+
+      k('MB Share',m.mbCurSh.toFixed(1),'%',[pp(m.mbCurSh-m.mbCurShPrevY)+tagz('YoY'),pp(m.mbCurSh-m.mbPrevSh)+tagz('MoM'),`<span class="zero">${ord(mb.rankCur)} in Market</span>`],'mb')+
+    `</div></div>`+
+    `<div class="grp ytd"><div class="gh">YTD Performance | Jan–${Mn} ${Y}</div><div class="tiles">`+
+      k('MB Volume',fmt(mb.ytd),' units',[yo(mb.yoy)+tagz('YoY')],'mb')+
+      k('MB Share',mb.sh.toFixed(1),'%',[pp(mb.dsh)+tagz('YoY'),`<span class="zero">${ord(mb.rank)} in Market</span>`],'mb')+
+    `</div><div class="gf">Total Market YTD: <b>${fmt(T.ytd)} units</b> ${yo(pct(T.ytd,T.ytdPrev))}${tagz('YoY')}</div></div>`;
 
-  let h=`<thead><tr><th>Brand</th><th>${Mn}</th><th class="seg-t">Tractor</th><th class="seg-r">Rigid</th><th class="seg-p">Tipper</th><th>MoM</th><th>YTD ${Y}</th><th>YTD ${Y-1}</th><th>YoY</th><th>Share</th><th style="text-align:left;width:70px"></th><th>Δ Share</th></tr></thead><tbody>`;
+  // Left half ranks by the month, right half by YTD — a brand can sit on different rows.
+  let h=`<thead><tr><th colspan="7" class="grp">Monthly | ${MONF[M-1]}</th><th colspan="7" class="grp sep">YTD | Jan–${Mn}</th></tr>`+
+    `<tr><th>Brand</th><th>${Mn}</th><th class="seg-t">Tractor</th><th class="seg-r">Rigid</th><th class="seg-p">Tipper</th><th>YoY</th><th>MoM</th>`+
+    `<th class="sep">Brand</th><th>YTD ${Y}</th><th>YTD ${Y-1}</th><th>YoY</th><th>Share</th><th style="text-align:left;width:44px"></th><th>Δ Share</th></tr></thead><tbody>`;
   const maxSh=Math.max(1e-9,...m.order.map(b=>m.brand[b].sh));
-  m.order.forEach(b=>{const o=m.brand[b];
-    h+=`<tr class="${b===m.mbN?'mb':''}"><td><span class="rk">${o.rank}</span>${esc(b)}</td><td><b>${o.cur}</b></td>`+
-       m.segs.map(s=>`<td>${o.bySegCur[s]}</td>`).join('')+
-       `<td>${yo(o.mom)}</td><td><b>${fmt(o.ytd)}</b></td><td>${fmt(o.ytdPrev)}</td><td>${yo(o.yoy)}</td><td>${o.sh.toFixed(1)}%</td>`+
-       `<td style="text-align:left"><span class="bar" style="width:${o.sh/maxSh*64}px;background:${BCOL[b]||'#888'}"></span></td><td>${pp(o.dsh)}</td></tr>`;});
+  m.order.forEach((yb,i)=>{const cb=m.orderCur[i], c=m.brand[cb], o=m.brand[yb];
+    const mc=cb===m.mbN?' class="mbh"':'', my=yb===m.mbN?'mbh':'';
+    h+=`<tr><td${mc}><span class="rk">${c.rankCur}</span>${esc(cb)}</td><td${mc}><b>${c.cur}</b></td>`+
+       m.segs.map(s=>`<td${mc}>${c.bySegCur[s]}</td>`).join('')+
+       `<td${mc}>${c.curPY?yo(c.yoyCur):'<span class="zero">-</span>'}</td><td${mc}>${c.prev?yo(c.mom):'<span class="zero">-</span>'}</td>`+
+       `<td class="sep ${my}"><span class="rk">${o.rank}</span>${esc(yb)}</td><td class="${my}"><b>${fmt(o.ytd)}</b></td><td class="${my}">${fmt(o.ytdPrev)}</td><td class="${my}">${yo(o.yoy)}</td><td class="${my}">${o.sh.toFixed(1)}%</td>`+
+       `<td class="${my}" style="text-align:left"><span class="bar" style="width:${o.sh/maxSh*40}px;background:${BCOL[yb]||'#888'}"></span></td><td class="${my}">${pp(o.dsh)}</td></tr>`;});
   h+=`<tr class="tot"><td>Total</td><td>${fmt(T.cur)}</td>`+m.segs.map(s=>`<td>${m.seg[s].t.cur}</td>`).join('')+
-     `<td>${yo(pct(T.cur,T.prev))}</td><td>${fmt(T.ytd)}</td><td>${fmt(T.ytdPrev)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>100%</td><td></td><td></td></tr></tbody>`;
+     `<td>${yo(m.curYoY)}</td><td>${yo(pct(T.cur,T.prev))}</td><td class="sep">Total</td><td>${fmt(T.ytd)}</td><td>${fmt(T.ytdPrev)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>100%</td><td></td><td></td></tr></tbody>`;
   document.getElementById('tblBrand').innerHTML=h;
 
-  let s=`<thead><tr><th>Segment</th><th>YTD</th><th>Mix</th><th>YoY</th><th>MB Share</th><th>Δ</th><th>MB Rank</th></tr></thead><tbody>`;
+  let s=`<thead><tr><th class="blank"></th><th colspan="2" class="grp">Market</th><th colspan="2" class="grp mbg">Mercedes-Benz</th></tr>`+
+    `<tr><th>Segment</th><th>Units</th><th>YoY</th><th>Share</th><th>Δ Share</th></tr></thead><tbody>`;
   m.segs.forEach(g=>{const S=m.seg[g],x=S.rows.find(r=>r.b===m.mbN);
-    s+=`<tr><td><span class="dot" style="background:${x.dsh>=0?'var(--pos)':'var(--neg)'}"></span><b>${g}</b> <span class="zero">${SEG[g].ko}</span></td><td>${fmt(S.t.ytd)}</td><td>${share(S.t.ytd,T.ytd).toFixed(1)}%</td><td>${yo(S.yoy)}</td><td><b>${x.sh.toFixed(1)}%</b></td><td>${pp(x.dsh)}</td><td>${ord(x.rank)}</td></tr>`;});
+    s+=`<tr><td><b>${g}</b></td><td>${fmt(S.t.ytd)}</td><td>${yo(S.yoy)}</td><td><b>${x.sh.toFixed(1)}%</b></td><td>${pp(x.dsh)}</td></tr>`;});
+  s+=`<tr class="tot"><td>Total</td><td>${fmt(T.ytd)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>${mb.sh.toFixed(1)}%</td><td>${pp(mb.dsh)}</td></tr>`;
   document.getElementById('tblSeg').innerHTML=s+`</tbody>`;
-
-  const ds=[...m.order].sort((a,b)=>m.brand[b].dsh-m.brand[a].dsh);
-  const mx=Math.max(1,...ds.map(b=>Math.abs(m.brand[b].dsh)));
-  document.getElementById('shareDelta').innerHTML=`<div style="display:grid;grid-template-columns:78px 1fr 1fr 42px;row-gap:3px;align-items:center;font-size:9px">`+
-    ds.map(b=>{const v=m.brand[b].dsh,w=Math.abs(v)/mx*100;
-      return `<div style="${b===m.mbN?'font-weight:700':''}">${esc(b)}</div>
-        <div style="text-align:right;border-right:1px solid #bbb;height:11px">${v<0?`<span style="display:inline-block;height:9px;margin-top:1px;width:${w}%;background:var(--neg);opacity:.8;border-radius:2px 0 0 2px"></span>`:''}</div>
-        <div style="height:11px">${v>0?`<span style="display:inline-block;height:9px;margin-top:1px;width:${w}%;background:var(--pos);opacity:.8;border-radius:0 2px 2px 0"></span>`:''}</div>
-        <div style="text-align:right" class="${cls(v)}">${sgn(v,1,'pp')}</div>`;}).join('')+`</div>`;
 
   document.getElementById('chart').innerHTML=chartSVG(d);
 
   document.getElementById('segBlocks').innerHTML=m.segs.map(g=>{
     const S=m.seg[g], mx=Math.max(0,...S.rows.map(r=>r.sh));
     const xb=S.rows.find(r=>r.b===m.mbN), mbCur=share(xb.cur,S.t.cur), mbPrev=share(xb.prev,S.t.prev);
-    let t=`<table><thead><tr><th>Brand</th><th>YTD ${Y}</th><th>YTD ${Y-1}</th><th>YoY</th><th>Share</th><th style="width:52px"></th><th>PY</th><th>Δ</th><th>${Mn}</th><th>MoM</th></tr></thead><tbody>`;
-    S.rows.forEach(r=>{t+=`<tr class="${r.b===m.mbN?'mb':''}"><td><span class="rk">${r.rank}</span>${esc(r.b)}</td><td><b>${fmt(r.ytd)}</b></td><td>${fmt(r.ytdPrev)}</td><td>${yo(r.yoy)}</td><td>${r.sh.toFixed(1)}%</td><td style="text-align:left"><span class="bar" style="width:${mx?r.sh/mx*48:0}px;background:${SEG[g].c}"></span></td><td>${r.shPrev.toFixed(1)}%</td><td>${pp(r.dsh)}</td><td>${r.cur}</td><td>${r.prev?yo(r.mom):'<span class="zero">-</span>'}</td></tr>`;});
+    let t=`<table><thead><tr><th colspan="3" class="grp">Monthly | ${Mn}</th><th colspan="6" class="grp sep">YTD | Jan–${Mn}</th></tr>`+
+      `<tr><th class="blank"></th><th colspan="2" class="grp sub">Volume</th><th class="blank sep"></th><th colspan="2" class="grp sub">Volume</th><th colspan="3" class="grp sub">Market Share</th></tr>`+
+      `<tr><th>Brand</th><th>Units</th><th>MoM</th><th class="sep">Brand</th><th>Units</th><th>YoY</th><th>Share</th><th style="width:52px"></th><th>Δ YoY</th></tr></thead><tbody>`;
+    S.rows.forEach((r,i)=>{const c=S.byCur[i], mc=c.b===m.mbN?' class="mbh"':'', my=r.b===m.mbN?'mbh':'';
+      t+=`<tr><td${mc}><span class="rk">${c.rankCur}</span>${esc(c.b)}</td><td${mc}><b>${c.cur}</b></td><td${mc}>${c.prev?yo(c.mom):'<span class="zero">-</span>'}</td>`+
+         `<td class="sep ${my}"><span class="rk">${r.rank}</span>${esc(r.b)}</td><td class="${my}"><b>${fmt(r.ytd)}</b></td><td class="${my}">${yo(r.yoy)}</td><td class="${my}">${r.sh.toFixed(1)}%</td>`+
+         `<td class="${my}" style="text-align:left"><span class="bar" style="width:${mx?r.sh/mx*48:0}px;background:${SEG[g].c}"></span></td><td class="${my}">${pp(r.dsh)}</td></tr>`;});
     t+=`</tbody></table>`;
     return `<div class="segblk">
       <div class="seghead"><span class="nm" style="border-color:${SEG[g].c}">${g} <span style="font-weight:500;color:var(--sub);font-size:11px">${SEG[g].ko}</span></span>
@@ -411,10 +447,7 @@ function render(d){
           <div class="stc"><span class="sl">${Mn}</span><b>${S.t.cur}</b><span class="sd">${yo(S.mom)} <i>MoM</i></span></div>
           <div class="stc mbc"><span class="sl">MB Share (${Mn})</span><b>${mbCur.toFixed(1)}%</b><span class="sd">${pp(mbCur-mbPrev)} <i>MoM</i></span></div>
         </div></div>
-      <div class="segbody">${t}
-        <div class="ins"><div class="h">INSIGHT <em class="noprint">Editable<span class="edited-flag">● Edited</span></em></div>
-          <ul data-key="ins_${g}" contenteditable="true" id="ins_${g}"></ul></div>
-      </div></div>`;}).join('');
+      ${t}</div>`;}).join('');
 
   fillText(m);
 }
@@ -450,7 +483,7 @@ function fillText(m){
   const d=m.d; STORE_KEY=`kaida-report-en-${d.period.year}-${String(d.period.month).padStart(2,'0')}`;
   const a=autoInsights(m);
   AUTO={keymsg:a.keymsg, ins_overview:li(a.ins_overview), action:li(a.action), author:esc(d.meta.author), issued:esc(d.meta.issued)};
-  m.segs.forEach(s=>AUTO['ins_'+s]=li(a.seg[s]));
+  AUTO.ins_segments=li(a.segs);
   const saved=storeGet();
   document.querySelectorAll('[data-key]').forEach(el=>{
     const k=el.dataset.key; el.innerHTML = saved[k]!=null ? saved[k] : (AUTO[k]||'');
@@ -513,7 +546,7 @@ function toReportData(cur, prev, year, month){
     BRAND_MAP.forEach(([key,name]) => {
       const c = segRow(cur,key,s), p = segRow(prev,key,s);
       segments[s][name] = {
-        ytd: upto(c,month), ytdPrev: upto(p,month), cur: c[month-1],
+        ytd: upto(c,month), ytdPrev: upto(p,month), cur: c[month-1], curPY: p[month-1],
         prev: month > 1 ? c[month-2] : p[11],
       };
     });
