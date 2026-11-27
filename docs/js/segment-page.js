@@ -189,6 +189,9 @@ function readFacts(cur, prev, monthIdx, brand) {
 
   const segTotal = segYtd;
   const segTotalPrev = hasPrev ? sumThrough(months(segRow(prev)), monthIdx) : 0;
+  const segMonths = months(segRow(cur));
+  const segMth = segMonths[monthIdx - 1] || 0;
+  const segPrevMth = monthIdx > 1 ? segMonths[monthIdx - 2] || 0 : 0;
   const brands = BRAND_ORDER.map(b => {
     const bm = months(brandSegRow(cur, b));
     const cy = sumThrough(bm, monthIdx);
@@ -197,10 +200,14 @@ function readFacts(cur, prev, monthIdx, brand) {
     const shPrev = segTotalPrev ? (py / segTotalPrev) * 100 : null;
     const mo = bm[monthIdx - 1] || 0;
     const moPrev = monthIdx > 1 ? bm[monthIdx - 2] || 0 : null;
+    // The month's own share of the segment, against the month before.
+    const mthSh = segMth ? (mo / segMth) * 100 : 0;
+    const mthShPrev = segPrevMth ? ((moPrev || 0) / segPrevMth) * 100 : null;
     return {
       brand: b, label: label(b), cy, py, yoy: hasPrev ? calcYoY(cy, py) : null,
       share: sh, sharePrev: shPrev, pp: shPrev === null ? null : sh - shPrev,
       delta: cy - py, month: mo, mom: moPrev === null ? null : calcYoY(mo, moPrev),
+      mthShare: mthSh, mthSharePp: mthShPrev === null ? null : mthSh - mthShPrev,
     };
   }).sort((a, b) => b.cy - a.cy);
 
@@ -246,19 +253,34 @@ function ring(pct) {
     </svg>`;
 }
 
+/** The segment's YTD against the same months last year — the whole segment,
+ *  whichever brand is picked, as 시장 모멘텀 is on the overview. */
+function momentumTile(f) {
+  const v = f.hasPrev ? calcYoY(f.segTotal, f.segTotalPrev) : null;
+  if (v === null) return kpiTile(t("exec_kpi_momentum"), "-", "", "-", "");
+  const cls = v > 0 ? "up" : v < 0 ? "down" : "";
+  const mark = v > 0 ? "▲ " : v < 0 ? "▼ " : "";
+  const text = v >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline");
+  return kpiTile(t("exec_kpi_momentum"), `${signed(v)}%`, "",
+                 `<span class="${cls}">${mark}${text}</span>`, "");
+}
+
 function renderKpis(f, monthIdx) {
   const el = document.getElementById("kpi-row");
   if (!el) return;
   const mo = `${monthIdx}${t("month_suffix")}`;
-  // With no brand picked the scope is the whole segment, so its YTD share is
-  // the segment's weight in the market — the number the last tile already
-  // carries. The tile only says something once a brand narrows the scope.
   const byBrand = f.brand !== "ALL";
+  const mb = f.brands.find(r => r.brand === "MB");
   const ytd = [
     kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), " units",
             f.hasPrev ? deltaSpan(f.yoy) : "-", "YoY"),
-    kpiTile(t("seg_kpi_ytd_share"), byBrand ? fmtPct(f.share) : "-", "",
-            byBrand && f.pp !== null ? ppSpan(f.pp) : "-", byBrand ? "YoY" : ""),
+    // A picked brand shows its own share of the segment; with no brand picked
+    // the tile reads Mercedes-Benz's YTD share of the segment.
+    byBrand
+      ? kpiTile(t("seg_kpi_ytd_share"), fmtPct(f.share), "",
+                f.pp !== null ? ppSpan(f.pp) : "-", "YoY")
+      : kpiTile(t("exec_kpi_som"), mb ? fmtPct(mb.share) : "-", "",
+                mb && mb.pp !== null ? ppSpan(mb.pp) : "-", mb && mb.pp !== null ? "YoY" : ""),
     // The segment's weight is a YTD figure (segment YTD / market YTD).
     `<div class="kpi-card weight">
        <div class="title">${t("seg_kpi_market_weight")}</div>
@@ -266,12 +288,19 @@ function renderKpis(f, monthIdx) {
        <div class="delta"><small>${t("seg_kpi_market_weight_sub")}</small></div>
        ${ring(f.segWeight)}
      </div>`,
+    momentumTile(f),
   ];
   const month = [
     kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), " units",
             f.mom === null ? "-" : deltaSpan(f.mom), "MoM"),
-    kpiTile(`${t("seg_kpi_month_share")} (${mo})`, fmtPct(f.mthShare), "",
-            f.mthSharePp === null ? "-" : ppSpan(f.mthSharePp), "MoM"),
+    // Same rule as the YTD share tile: a picked brand's own share, otherwise
+    // Mercedes-Benz's share of the segment for the month.
+    byBrand
+      ? kpiTile(`${t("seg_kpi_month_share")} (${mo})`, fmtPct(f.mthShare), "",
+                f.mthSharePp === null ? "-" : ppSpan(f.mthSharePp), "MoM")
+      : kpiTile(`${t("exec_kpi_som_month")}`, mb ? fmtPct(mb.mthShare) : "-", "",
+                mb && mb.mthSharePp !== null ? ppSpan(mb.mthSharePp) : "-",
+                mb && mb.mthSharePp !== null ? "MoM" : ""),
   ];
   el.innerHTML = kpiGroups(ytd, month, "kpi-row");
 }
