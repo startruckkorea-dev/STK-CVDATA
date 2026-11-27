@@ -102,7 +102,7 @@
   import { groupedBar, stackedBar, lineChart, donutChart,
            shareBandH, comboBarLine,
            BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
-  import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
+  import { MONTHS, MONTHS_KR, MONTH_NUM, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
   import { getState, subscribe } from "../js/state.js";
 
   const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
@@ -333,7 +333,7 @@
     const last = cur.last_data_month || 12;
     const idx = [...Array(last).keys()];
     stackedBar(document.getElementById("hp-monthly-mix"), {
-      categories: idx.map(i => MONTHS_KR[i]),
+      categories: idx.map(i => MONTH_NUM[i]),
       series: bands.map(band => ({
         name: HP_LABEL[band],
         color: HP_COLOR[band],
@@ -350,7 +350,7 @@
   function renderHpBandTrend(cur, bands) {
     const last = cur.last_data_month || 12;
     lineChart(document.getElementById("hp-band-trend"), {
-      x: MONTHS_KR,
+      x: MONTH_NUM,
       series: bands.map(band => ({
         name: HP_LABEL[band],
         color: HP_COLOR[band],
@@ -452,7 +452,7 @@
     const mCur = monthVal(segRow(cur, seg), monthIdx);
     const mPrev = prev ? monthVal(segRow(prev, seg), monthIdx) : 0;
     groupedBar(document.getElementById("seg-yoy"), {
-      categories: [MONTHS_KR[monthIdx - 1]],
+      categories: [MONTH_NUM[monthIdx - 1]],
       series: [
         { name: `${cur.year}`, values: [mCur], color: TOKEN.teal },
         { name: prev ? `${prev.year}` : "PY", values: [mPrev], color: TOKEN.mint },
@@ -485,7 +485,7 @@
     });
 
     comboBarLine(document.getElementById("seg-glide"), {
-      x: MONTHS_KR,
+      x: MONTH_NUM,
       bars: [
         { name: `${brand} ${cur.year}`, values: trim(mbMonthly, last), color: TOKEN.teal },
         { name: prev ? `${brand} ${prev.year}` : "PY", values: mbMonthlyPy, color: TOKEN.mint },
@@ -601,7 +601,7 @@
     // Mix only makes sense for months that already have data.
     const last = cur.last_data_month || 12;
     const idx = [...Array(last).keys()];
-    const totals = idx.map(i => MONTHS_KR[i]);
+    const totals = idx.map(i => MONTH_NUM[i]);
     const series = SEGMENT_ORDER.map(seg => {
       const row = scopeSegRow(cur, scope, seg);
       return {

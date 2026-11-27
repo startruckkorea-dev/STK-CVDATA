@@ -367,6 +367,26 @@
       "ko": "시장 모멘텀",
       "en": "Market Momentum"
     },
+    "kpi_group_ytd": {
+      "ko": "YTD 성과",
+      "en": "YTD Performance"
+    },
+    "kpi_group_month": {
+      "ko": "당월 성과",
+      "en": "Monthly Performance"
+    },
+    "rank_head_month": {
+      "ko": "당월",
+      "en": "Monthly"
+    },
+    "rank_band_volume": {
+      "ko": "등록 대수",
+      "en": "Volume"
+    },
+    "rank_band_share": {
+      "ko": "시장 점유율",
+      "en": "Market Share"
+    },
     "exec_units": {
       "ko": "대",
       "en": "units"

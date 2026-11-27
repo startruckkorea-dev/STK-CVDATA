@@ -1,8 +1,12 @@
 // Number / percentage / delta formatters.
 // Ports utils/kaida_processor.py::fmt_num/fmt_pct/delta_html.
+import { t, getLang } from "./i18n.js";
 
 export const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 export const MONTHS_KR = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+// Month axis labels for every trend / bar chart and month-column header:
+// the same in Korean and English.
+export const MONTH_NUM = MONTHS.map((_, i) => String(i + 1).padStart(2, "0"));
 
 export function fmtNum(v) {
   if (v === null || v === undefined || Number.isNaN(v)) return "-";
@@ -70,7 +74,18 @@ export function kpiGroups(ytdTiles, monthTiles, rowClass = "kpi-row") {
       <div class="${rowClass}" style="--n:${tiles.length}">${tiles.join("")}</div>
     </div>`;
   return `<div class="kpi-groups" style="--kg-cols:${ytdTiles.length}fr ${monthTiles.length}fr">
-    ${group("ytd", "YTD Performance", ytdTiles)}
-    ${group("month", "Monthly Performance", monthTiles)}
+    ${group("ytd", t("kpi_group_ytd"), ytdTiles)}
+    ${group("month", t("kpi_group_month"), monthTiles)}
   </div>`;
+}
+
+/** Month name in the current language: "10월" / "Oct". */
+export function monthName(m) {
+  return getLang() === "en" ? MONTHS[m - 1] : `${m}월`;
+}
+
+/** Year-to-date span ending at month m: "1–10월" / "Jan–Oct". */
+export function ytdSpan(m) {
+  if (getLang() === "en") return m > 1 ? `${MONTHS[0]}–${MONTHS[m - 1]}` : MONTHS[0];
+  return m > 1 ? `1–${m}월` : "1월";
 }

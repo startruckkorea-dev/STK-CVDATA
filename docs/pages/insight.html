@@ -96,7 +96,7 @@
   import { loadManifest, loadKaidaPair, loadKama } from "../js/data.js";
   import { shareBandH, comboBarLine, groupedBar, pieChart, lineChart,
            BRAND_TILE_COLORS, SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
-  import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
+  import { MONTHS, MONTHS_KR, MONTH_NUM, fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
   import { getState, subscribe } from "../js/state.js";
 
   const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
@@ -388,7 +388,7 @@
     });
 
     comboBarLine(document.getElementById("chart-glide"), {
-      x: MONTHS_KR,
+      x: MONTH_NUM,
       bars: [
         { name: `MB ${year}`, values: trim(mbCur, last), color: TOKEN.teal },
         { name: prev ? `MB ${prev.year}` : "PY", values: mbPrev, color: TOKEN.mint },
@@ -431,7 +431,7 @@
     document.getElementById("glide-table").innerHTML = `
       <table class="data compact">
         <thead>
-          <tr><th class="label"></th>${MONTHS_KR.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr>
+          <tr><th class="label"></th>${MONTH_NUM.map(m => `<th>${m}</th>`).join("")}<th tabindex="0" class="hint-end" data-hint="${t("hint_ytd")}">YTD</th></tr>
         </thead>
         <tbody>
           ${row(`MB ${year}`, trim(mbCur, last), "highlight")}
@@ -487,7 +487,7 @@
   function renderBrandTrend(cur, s) {
     const last = cur.last_data_month || 12;
     lineChart(document.getElementById("chart-brand-trend"), {
-      x: MONTHS_KR,
+      x: MONTH_NUM,
       series: BRAND_ORDER.map(b => ({
         name: b,
         values: trim(MONTHS.map(m => brandSeg(cur, b, s.segment)[m] || 0), last),

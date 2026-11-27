@@ -74,11 +74,10 @@
   import { loadManifest, loadKama } from "../js/data.js";
   import { groupedBar, stackedBar, comboBarLine,
            SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
-  import { fmtNum, fmtPct, calcYoY, deltaSpan, kpiGroups } from "../js/format.js";
+  import { fmtNum, fmtPct, calcYoY, deltaSpan, kpiGroups, MONTH_NUM } from "../js/format.js";
   import { getState, subscribe } from "../js/state.js";
 
   const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
-  const MONTHS_KR = MONTHS.map((_, i) => `${i+1}월`);
   // Every KAMA segment: the sidebar's three first, under its labels, then the
   // two it leaves out, under the segment names the filter tiles use.
   const SEGMENTS = [["Tractor", "nav_seg_tractor"], ["Rigid", "nav_seg_cargo"],
@@ -261,7 +260,7 @@
   function renderKpis({ total, totalPy, cyOf, pyOf, mthOf, mthPyOf, monthIdx, sel }) {
     const tiles = (tot, totPy, of, pyOf, suffix) => {
       const cards = [`
-        <div class="kpi-card total${sel === null ? " active" : ""}">
+        <div class="kpi-card stack total${sel === null ? " active" : ""}">
           <div class="title">${t("filter_all")}${suffix}</div>
           <div class="value">${fmtNum(tot)}</div>
           <div class="delta">${deltaSpan(calcYoY(tot, totPy))} <small>YoY</small></div>
@@ -270,7 +269,7 @@
         const cy = of(b);
         const share = tot ? (cy / tot) * 100 : 0;
         cards.push(`
-          <div class="kpi-card${sel === b ? " active" : ""}">
+          <div class="kpi-card stack${sel === b ? " active" : ""}">
             <div class="title">${name(b)}${suffix}</div>
             <div class="value">${fmtNum(cy)}</div>
             <div class="delta">${deltaSpan(calcYoY(cy, pyOf(b)))} <small>YoY · ${fmtPct(share)}</small></div>
@@ -282,8 +281,21 @@
     const mthTotalPy = BRANDS.reduce((a, b) => a + mthPyOf(b), 0);
     const mo = monthIdx ? ` (${monthIdx}${t("month_suffix")})` : "";
 
+    // 시장 모멘텀: the year to date against the same months last year, as on
+    // the overview and segment pages.
+    const mv = calcYoY(total, totalPy);
+    const mcls = mv === null ? "" : mv > 0 ? "up" : mv < 0 ? "down" : "";
+    const mark = mcls === "up" ? "▲ " : mcls === "down" ? "▼ " : "";
+    const momentum = `
+      <div class="kpi-card stack">
+        <div class="title">${t("exec_kpi_momentum")}</div>
+        <div class="value">${mv === null ? "-" : `${mv > 0 ? "+" : ""}${fmtPct(mv)}`}</div>
+        <div class="delta"><span class="${mcls}">${mv === null ? "-" :
+          `${mark}${mv >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline")}`}</span></div>
+      </div>`;
+
     document.getElementById("kpi-row").innerHTML = kpiGroups(
-      tiles(total, totalPy, cyOf, pyOf, ""),
+      [...tiles(total, totalPy, cyOf, pyOf, ""), momentum],
       tiles(mthTotal, mthTotalPy, mthOf, mthPyOf, mo),
       "kpi-row");
   }
@@ -295,7 +307,7 @@
   function renderSales(byBrand, totalMonthly, totalMonthlyPy, trim, sel, year, py) {
     const shown = sel ? [sel] : BRANDS;
     comboBarLine(document.getElementById("chart-sales"), {
-      x: MONTHS_KR,
+      x: MONTH_NUM,
       bars: shown.map(b => ({
         name: short(b), values: trim(byBrand[b]), color: KAMA_COLOR[b],
       })),
@@ -314,7 +326,7 @@
 
   /** 100% share per month plus a highlighted YTD column on the right. */
   function renderShare(byBrand, totalMonthly, lastMonth) {
-    const cats = [...MONTHS_KR, "YTD"];
+    const cats = [...MONTH_NUM, "YTD"];
     const ytdTotal = totalMonthly.reduce((a, v) => a + v, 0);
     const series = BRANDS.map(b => {
       const vals = MONTHS.map((_, i) =>

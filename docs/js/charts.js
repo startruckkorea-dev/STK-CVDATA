@@ -73,10 +73,23 @@ function keepFitted(el) {
   }).observe(el);
 }
 
+/** Month axes are labelled "01"–"12" (format.js MONTH_NUM). Plotly would read
+ *  those as numbers and print 2, 4, 6…, so such an axis is pinned to category. */
+const isMonthAxis = (v) => Array.isArray(v) && v.length > 0 &&
+  v.every(s => typeof s === "string" && (/^\d{2}$/.test(s) || s === "YTD"));
+function pinMonthAxes(traces, layout) {
+  for (const [key, ax] of [["x", "xaxis"], ["y", "yaxis"]]) {
+    if (traces.some(tr => isMonthAxis(tr[key])) && !(layout[ax] && layout[ax].type)) {
+      layout = { ...layout, [ax]: { ...(layout[ax] || {}), type: "category" } };
+    }
+  }
+  return layout;
+}
+
 /** Render, then keep the plot matched to its container for as long as it lives. */
 function plot(el, traces, layout, config) {
   if (!el) return;
-  Plotly.newPlot(el, traces, mobileSafe(layout), configFor(config));
+  Plotly.newPlot(el, traces, mobileSafe(pinMonthAxes(traces, layout || {})), configFor(config));
   // The first chart on the page is the honest signal that the wait is over —
   // every other chart of that render pass draws in the same tick.
   loadingFinish();

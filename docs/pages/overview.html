@@ -152,7 +152,7 @@
       }),
     }));
     lineChart(document.getElementById("chart-monthly"), {
-      x: months.map(m => `${m}월`), series,
+      x: months.map(m => String(m).padStart(2, "0")), series,
     });
 
     // Size donut

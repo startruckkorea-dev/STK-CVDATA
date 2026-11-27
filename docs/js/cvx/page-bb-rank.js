@@ -193,8 +193,8 @@ bootPage(async ({ years, state, set, stale }) => {
   const curSeries = monthly(yearRows, cur.lastMonth);
   const prevSeries = prevYearRows ? monthly(prevYearRows, 12) : null;
   trendLine(document.getElementById("p-trend"), {
-    // Bare month numbers: twelve '1월' labels do not fit a third-width panel.
-    x: Array.from({ length: 12 }, (_, i) => String(i + 1)),
+    // Two-digit month numbers, as on every monthly chart.
+    x: Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, "0")),
     xType: "category",
     series: [
       ...(prevSeries ? [{ name: String(s.year - 1), values: prevSeries, color: "#9ca3af", width: 2 }] : []),

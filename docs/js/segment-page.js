@@ -9,7 +9,7 @@ import { renderSidebar } from "./sidebar.js";
 import { renderFilters, syncFilters, yearOptions, monthOptions } from "./filters.js";
 import { loadManifest, loadKaidaPair } from "./data.js";
 import { lineChart, stackedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
-import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan, kpiGroups } from "./format.js";
+import { MONTHS, MONTH_NUM, fmtNum, fmtPct, calcYoY, deltaSpan, kpiGroups, monthName, ytdSpan } from "./format.js";
 import { getState, subscribe } from "./state.js";
 
 const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
@@ -272,7 +272,7 @@ function renderKpis(f, monthIdx) {
   const byBrand = f.brand !== "ALL";
   const mb = f.brands.find(r => r.brand === "MB");
   const ytd = [
-    kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), " units",
+    kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), "units",
             f.hasPrev ? deltaSpan(f.yoy) : "-", "YoY"),
     // A picked brand shows its own share of the segment; with no brand picked
     // the tile reads Mercedes-Benz's YTD share of the segment.
@@ -291,7 +291,7 @@ function renderKpis(f, monthIdx) {
     momentumTile(f),
   ];
   const month = [
-    kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), " units",
+    kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), "units",
             f.mom === null ? "-" : deltaSpan(f.mom), "MoM"),
     // Same rule as the YTD share tile: a picked brand's own share, otherwise
     // Mercedes-Benz's share of the segment for the month.
@@ -313,7 +313,7 @@ function renderSom(f, year, prevYear) {
   const el = document.getElementById("chart-som");
   if (!el) return;
   lineChart(el, {
-    x: MONTHS_KR,
+    x: MONTH_NUM,
     valueKind: "pct1",
     yLabel: "%",
     height: 300,
@@ -331,7 +331,7 @@ function renderMonthly(f, year, prevYear) {
   const el = document.getElementById("chart-monthly");
   if (!el) return;
   comboBarLine(el, {
-    x: MONTHS_KR,
+    x: MONTH_NUM,
     bars: [
       { name: String(year), values: f.curScope, color: TOKEN.teal },
       ...(f.hasPrev ? [{ name: String(prevYear), values: f.prevScope, color: "#d8dee4" }] : []),
@@ -399,8 +399,8 @@ function renderHpPoints(cur, monthIdx) {
 function renderBrandTable(f, year, prevYear, monthIdx) {
   const el = document.getElementById("brand-table");
   if (!el) return;
-  const mon = MONTHS[monthIdx - 1];
-  const ytdSpan = monthIdx > 1 ? `${MONTHS[0]}–${mon}` : mon;
+  const mon = monthName(monthIdx);
+  const span = ytdSpan(monthIdx);
   const byMonth = [...f.brands].sort((a, b) => b.month - a.month);
   const byYtd = f.brands; // already sorted by YTD units
   const maxShare = Math.max(...byYtd.map(r => r.share), 1);
@@ -412,8 +412,8 @@ function renderBrandTable(f, year, prevYear, monthIdx) {
       <div class="rank-side month">
         <table class="data compact rank-tbl">
           <thead>
-            <tr class="rt-group"><th colspan="4">Monthly <span>|</span> ${mon}</th></tr>
-            <tr class="rt-sub"><th colspan="2"></th><th colspan="2" class="rt-band">Volume</th></tr>
+            <tr class="rt-group"><th colspan="4">${t("rank_head_month")} <span>|</span> ${mon}</th></tr>
+            <tr class="rt-sub"><th colspan="2"></th><th colspan="2" class="rt-band">${t("rank_band_volume")}</th></tr>
             <tr>${brandTh}<th>${t("col_units")}</th><th>MoM</th></tr>
           </thead>
           <tbody>
@@ -430,9 +430,9 @@ function renderBrandTable(f, year, prevYear, monthIdx) {
       <div class="rank-side ytd">
         <table class="data compact rank-tbl">
           <thead>
-            <tr class="rt-group"><th colspan="7">YTD <span>|</span> ${ytdSpan}</th></tr>
-            <tr class="rt-sub"><th colspan="2"></th><th colspan="2" class="rt-band">Volume</th>
-              <th colspan="3" class="rt-band">Market Share</th></tr>
+            <tr class="rt-group"><th colspan="7">YTD <span>|</span> ${span}</th></tr>
+            <tr class="rt-sub"><th colspan="2"></th><th colspan="2" class="rt-band">${t("rank_band_volume")}</th>
+              <th colspan="3" class="rt-band">${t("rank_band_share")}</th></tr>
             <tr>${brandTh}<th>${t("col_units")}</th><th>YoY</th>
               <th>${t("col_share")}</th><th class="bar"></th><th>Δ YoY</th></tr>
           </thead>

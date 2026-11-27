@@ -347,6 +347,25 @@ a:hover { text-decoration: underline; }
   white-space: nowrap;
 }
 .kpi-card .delta small { font-size: 0.86em; font-weight: 500; }
+/* Delta always on its own line, so tiles whose delta is short and tiles whose
+   delta is long (e.g. "YoY · 63.9%") lay out the same way: title, value,
+   delta, each on the same line in every tile of a row. */
+.kpi-card.stack .delta,
+.kpi-group .kpi-card .delta { flex-basis: 100%; }
+.kpi-group .kpi-card .delta .pp { font-size: inherit; }
+/* Six tiles share the row here, so the caption steps down a size to fit
+   whole ("메르세데스-벤츠 점유율 (YTD)") rather than ending in an ellipsis. */
+/* Sized off the whole row (six tiles across), so every caption in it is the
+   same size and still fits whole on a ~1366px laptop. */
+.kpi-groups { container-type: inline-size; }
+.kpi-group .kpi-card:not(.weight) { padding-left: 10px; padding-right: 10px; }
+.kpi-group .kpi-card .title { font-size: min(0.78rem, 1.05cqw); letter-spacing: -0.3px; }
+@media (max-width: 1100px) {
+  /* Groups stack here, so each tile has room for the full-size caption. */
+  .kpi-group .kpi-card .title { font-size: 0.78rem; }
+}
+/* Unit after the figure reads small and muted, as on the overview tiles. */
+.kpi-card .value small { font-size: 0.55em; font-weight: 600; color: var(--muted); margin-left: 4px; }
 .kpi-card .delta .up { color: var(--success); }
 .kpi-card .delta .down { color: var(--danger); }
 
@@ -1939,4 +1958,10 @@ table.rank-tbl .delta, table.rank-tbl .pp { white-space: nowrap; }
   .rank-split { flex-direction: column; }
   .rank-split .rank-side.ytd { min-width: 0; }
   .rank-split .rank-side.ytd { border-left: 0; border-top: 2px solid #c3cad2; margin-top: 10px; }
+}
+/* Six tiles on a narrow row: the market-weight ring steps down so it clears
+   the figure beside it. */
+@container (max-width: 1120px) {
+  .kpi-group .kpi-card.weight { padding-right: 52px; }
+  .kpi-group .kpi-card.weight .kpi-ring { width: 40px; height: 40px; right: 8px; }
 }
