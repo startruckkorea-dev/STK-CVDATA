@@ -410,19 +410,19 @@ function render(d){
     `</div></div>`;
 
   // Left half ranks by the month, right half by YTD — a brand can sit on different rows.
-  let h=`<thead><tr><th colspan="7" class="grp">Monthly | ${MONF[M-1]}</th><th colspan="7" class="grp sep">YTD | Jan–${Mn}</th></tr>`+
-    `<tr><th>Brand</th><th>${Mn}</th><th class="seg-t">Tractor</th><th class="seg-r">Rigid</th><th class="seg-p">Tipper</th><th>YoY</th><th>MoM</th>`+
+  let h=`<thead><tr><th colspan="6" class="grp">Monthly | ${MONF[M-1]}</th><th colspan="7" class="grp sep">YTD | Jan–${Mn}</th></tr>`+
+    `<tr><th>Brand</th><th>${Mn}</th><th class="seg-t">Tractor</th><th class="seg-r">Rigid</th><th class="seg-p">Tipper</th><th>MoM</th>`+
     `<th class="sep">Brand</th><th>YTD ${Y}</th><th>YTD ${Y-1}</th><th>YoY</th><th>Share</th><th style="text-align:left;width:44px"></th><th>Δ Share</th></tr></thead><tbody>`;
   const maxSh=Math.max(1e-9,...m.order.map(b=>m.brand[b].sh));
   m.order.forEach((yb,i)=>{const cb=m.orderCur[i], c=m.brand[cb], o=m.brand[yb];
     const mc=cb===m.mbN?' class="mbh"':'', my=yb===m.mbN?'mbh':'';
     h+=`<tr><td${mc}><span class="rk">${c.rankCur}</span>${esc(cb)}</td><td${mc}><b>${c.cur}</b></td>`+
        m.segs.map(s=>`<td${mc}>${c.bySegCur[s]}</td>`).join('')+
-       `<td${mc}>${c.curPY?yo(c.yoyCur):'<span class="zero">-</span>'}</td><td${mc}>${c.prev?yo(c.mom):'<span class="zero">-</span>'}</td>`+
+       `<td${mc}>${c.prev?yo(c.mom):'<span class="zero">-</span>'}</td>`+
        `<td class="sep ${my}"><span class="rk">${o.rank}</span>${esc(yb)}</td><td class="${my}"><b>${fmt(o.ytd)}</b></td><td class="${my}">${fmt(o.ytdPrev)}</td><td class="${my}">${yo(o.yoy)}</td><td class="${my}">${o.sh.toFixed(1)}%</td>`+
        `<td class="${my}" style="text-align:left"><span class="bar" style="width:${o.sh/maxSh*40}px;background:${BCOL[yb]||'#888'}"></span></td><td class="${my}">${pp(o.dsh)}</td></tr>`;});
   h+=`<tr class="tot"><td>Total</td><td>${fmt(T.cur)}</td>`+m.segs.map(s=>`<td>${m.seg[s].t.cur}</td>`).join('')+
-     `<td>${yo(m.curYoY)}</td><td>${yo(pct(T.cur,T.prev))}</td><td class="sep">Total</td><td>${fmt(T.ytd)}</td><td>${fmt(T.ytdPrev)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>100%</td><td></td><td></td></tr></tbody>`;
+     `<td>${yo(pct(T.cur,T.prev))}</td><td class="sep">Total</td><td>${fmt(T.ytd)}</td><td>${fmt(T.ytdPrev)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>100%</td><td></td><td></td></tr></tbody>`;
   document.getElementById('tblBrand').innerHTML=gapCol(h);
 
   let s=`<thead><tr><th class="blank"></th><th colspan="2" class="grp">Market</th><th colspan="2" class="grp mbg">Mercedes-Benz</th></tr>`+
