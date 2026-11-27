@@ -90,17 +90,16 @@ body{font-family:'Inter','Noto Sans KR',system-ui,sans-serif;color:var(--ink);ba
 .keymsg .lab{font-size:8.5px;font-weight:700;letter-spacing:.1em;background:rgba(255,255,255,.18);padding:2px 6px;border-radius:3px;white-space:nowrap;margin-top:2px}
 .keymsg .txt{font-size:12.5px;font-weight:700;line-height:1.5;flex:1}
 
-/* KPI dashboard: Monthly (left) | YTD (right) */
-.dash{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:12px;align-items:stretch}
+/* KPI dashboard: Monthly (left) | YTD (right) — three tiles a side, so every
+   tile is the same width, and the groups stretch so every tile is the same height. */
+.dash{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;align-items:stretch}
 .dash .grp{border:1px solid var(--line);border-radius:7px;padding:6px;background:#fafbfb;display:flex;flex-direction:column}
 .dash .gh{text-align:center;font-size:11px;font-weight:900;padding:5px 8px;border-radius:5px;margin-bottom:6px}
 .dash .mon .gh{background:#2f4553;color:#fff}
 .dash .ytd .gh{background:#dfe9ee;color:var(--ink)}
 .dash .tiles{display:grid;gap:6px;flex:1}
 .dash .mon .tiles{grid-template-columns:repeat(3,1fr)}
-.dash .ytd .tiles{grid-template-columns:repeat(2,1fr)}
-.dash .gf{text-align:right;font-size:9.5px;color:var(--sub);margin-top:6px}
-.dash .gf b{color:var(--ink);font-size:11px;font-weight:900}
+.dash .ytd .tiles{grid-template-columns:repeat(3,1fr)}
 .kpi{border:1px solid var(--line);border-radius:6px;padding:7px 9px;background:#fff}
 .kpi .d + .d{margin-top:1px}
 .kpi .l{font-size:8.5px;color:var(--sub);font-weight:500}
@@ -400,9 +399,10 @@ function render(d){
       k('MB Share',m.mbCurSh.toFixed(1),'%',[pp(m.mbCurSh-m.mbCurShPrevY)+tagz('YoY'),pp(m.mbCurSh-m.mbPrevSh)+tagz('MoM'),`<span class="zero">${ord(mb.rankCur)} in Market</span>`],'mb')+
     `</div></div>`+
     `<div class="grp ytd"><div class="gh">YTD Performance | Jan–${Mn} ${Y}</div><div class="tiles">`+
+      k('Total Market',fmt(T.ytd),' units',[yo(pct(T.ytd,T.ytdPrev))+tagz('YoY')])+
       k('MB Volume',fmt(mb.ytd),' units',[yo(mb.yoy)+tagz('YoY')],'mb')+
       k('MB Share',mb.sh.toFixed(1),'%',[pp(mb.dsh)+tagz('YoY'),`<span class="zero">${ord(mb.rank)} in Market</span>`],'mb')+
-    `</div><div class="gf">Total Market YTD: <b>${fmt(T.ytd)} units</b> ${yo(pct(T.ytd,T.ytdPrev))}${tagz('YoY')}</div></div>`;
+    `</div></div>`;
 
   // Left half ranks by the month, right half by YTD — a brand can sit on different rows.
   let h=`<thead><tr><th colspan="7" class="grp">Monthly | ${MONF[M-1]}</th><th colspan="7" class="grp sep">YTD | Jan–${Mn}</th></tr>`+
