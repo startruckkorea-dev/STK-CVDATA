@@ -1229,6 +1229,46 @@ table.data .down { color: var(--danger); font-weight: 600; }
 .exec-kpi .k-delta.down { color: var(--danger); }
 .exec-kpi .spark { flex: 0 0 auto; margin-bottom: 2px; }
 
+/* KPI tiles split into a YTD group and a Monthly group, each under its own
+   banner. The page sets --kg-cols to the two groups' tile counts (e.g. "2fr 3fr")
+   so every tile across the row comes out the same width. */
+.kpi-groups {
+  display: grid;
+  grid-template-columns: var(--kg-cols, 1fr 1fr);
+  gap: 12px 18px;
+  margin-bottom: 24px;
+}
+.page-head .kpi-groups { margin-bottom: 0; }
+.kpi-group { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.kpi-group-head {
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  line-height: 1.6;
+  border-radius: 3px;
+}
+.kpi-group.ytd .kpi-group-head { background: #2E4050; color: #fff; }
+.kpi-group.month .kpi-group-head { background: #E3E9EE; color: var(--text); }
+.kpi-group > .exec-kpis,
+.kpi-group > .kpi-row {
+  grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr));
+  margin: 0;
+  flex: 1;
+}
+@media (max-width: 1100px) {
+  .kpi-groups { grid-template-columns: 1fr; }
+  /* Each group keeps its own row here, so the lone-fifth-tile stretch above
+     does not apply. */
+  .kpi-group .exec-kpi:last-child:nth-child(odd) { grid-column: auto; }
+}
+@media (max-width: 880px) {
+  .kpi-group > .exec-kpis,
+  .kpi-group > .kpi-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-group .exec-kpi:last-child:nth-child(odd),
+  .kpi-group .kpi-card:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
 /* Card grid — three across, then two, then one. */
 .exec-grid {
   display: grid;
@@ -1853,4 +1893,50 @@ body.cvx-page { background: var(--cvx-page); }
   .cvx-kpi-value { font-size: 24px; }
   .cvx-rows { grid-template-columns: minmax(64px, 96px) 1fr auto; }
   .cvx-panels { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Segment pages: brand ranking split into the month (left) and the year to
+   date (right), each ranked on its own. Both tables carry the same three
+   header rows and row padding, so their body rows line up across the divider. */
+.rank-split {
+  display: flex;
+  overflow-x: auto;
+}
+/* The month side takes the width its four columns need; YTD takes the rest. */
+.rank-split .rank-side.month { flex: 0 0 auto; }
+.rank-split .rank-side.ytd { flex: 1 1 auto; min-width: 460px; border-left: 2px solid #c3cad2; }
+.rank-split table.rank-tbl { width: 100%; margin: 0; }
+table.rank-tbl th { text-transform: none; letter-spacing: 0; background: none; }
+table.rank-tbl tr.rt-group th {
+  text-align: center;
+  color: var(--text);
+  font-weight: 700;
+  background: var(--bg-soft);
+}
+table.rank-tbl tr.rt-group th span { color: var(--muted); font-weight: 400; margin: 0 2px; }
+table.rank-tbl tr.rt-sub th { border-bottom: 0; }
+table.rank-tbl tr.rt-sub th.rt-band {
+  text-align: center;
+  color: var(--deep-teal);
+  font-weight: 700;
+  background: #EAF2F4;
+  border-left: 2px solid var(--bg);
+}
+table.rank-tbl td.units, table.rank-tbl tr.highlight td.units { font-weight: 700; }
+table.rank-tbl td.label { white-space: nowrap; }
+table.rank-tbl th.bar, table.rank-tbl td.bar { width: 22%; min-width: 64px; text-align: left; }
+.rank-split table.data.compact th,
+.rank-split table.data.compact td { padding: 6px 6px; font-size: 1rem; }
+table.rank-tbl td.bar span {
+  display: block;
+  height: 8px;
+  border-radius: 4px;
+  background: #3B82F6;
+  min-width: 4px;
+}
+table.rank-tbl .delta, table.rank-tbl .pp { white-space: nowrap; }
+@media (max-width: 880px) {
+  .rank-split { flex-direction: column; }
+  .rank-split .rank-side.ytd { min-width: 0; }
+  .rank-split .rank-side.ytd { border-left: 0; border-top: 2px solid #c3cad2; margin-top: 10px; }
 }

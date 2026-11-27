@@ -41,7 +41,7 @@
 
       <section class="filter-bar" id="filters"></section>
 
-      <div id="kpi-row" class="exec-kpis"></div>
+      <div id="kpi-row"></div>
     </div>
 
     <!-- THIS MONTH — the one KPI tile that is not YTD, opened up. Everything
@@ -112,7 +112,7 @@
   import { renderFilters, syncFilters, yearOptions, monthOptions } from "./js/filters.js";
   import { loadManifest, loadKaidaPair } from "./js/data.js";
   import { trendLine, divergingBarH, waterfall, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./js/charts.js";
-  import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY } from "./js/format.js";
+  import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, kpiGroups } from "./js/format.js";
   import { getState, subscribe } from "./js/state.js";
 
   const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
@@ -444,31 +444,32 @@
     const somMonth = somMonthPath[monthIdx - 1] || 0;
     const somMonthPp = monthPrev ? somMonth - pct(mbPrevMonths[monthIdx - 1] || 0, monthPrev) : null;
 
-    document.getElementById("kpi-row").innerHTML = [
-      kpiCard(
-        t("exec_kpi_total"), fmtNum(f.total), t("exec_units"),
-        { cls: dir(f.marketYoY), text: `${signed(f.marketYoY)}%` }, "YoY",
-        sparkLine(totMonths, { color: "#1A3A82" })),
-      kpiCard(
-        monthLabel, fmtNum(monthCur), t("exec_units"),
-        { cls: dir(monthYoY), text: monthYoY === null ? "-" : `${signed(monthYoY)}%` },
-        monthYoY === null ? "" : "YoY",
-        sparkBars(totMonths, { color: "#1A3A82" })),
-      kpiCard(
-        t("exec_kpi_som"), fmtPct(f.mb.share), "",
-        { cls: dir(f.mb.pp), text: `${signed(f.mb.pp)}pp` }, "YoY",
-        sparkLine(somPath, { color: "#231F20" })),
-      kpiCard(
-        t("exec_kpi_som_month"), fmtPct(somMonth), "",
-        { cls: dir(somMonthPp), text: somMonthPp === null ? "-" : `${signed(somMonthPp)}pp` },
-        somMonthPp === null ? "" : "YoY",
-        sparkBars(somMonthPath, { color: "#231F20" })),
-      kpiCard(
-        t("exec_kpi_momentum"), `${signed(f.marketYoY)}%`, "",
-        { cls: dir(f.marketYoY),
-          text: f.marketYoY >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline") }, "",
-        sparkLine(momentumPath, { color: "#1A3A82" })),
-    ].join("");
+    const total = kpiCard(
+      t("exec_kpi_total"), fmtNum(f.total), t("exec_units"),
+      { cls: dir(f.marketYoY), text: `${signed(f.marketYoY)}%` }, "YoY",
+      sparkLine(totMonths, { color: "#1A3A82" }));
+    const month = kpiCard(
+      monthLabel, fmtNum(monthCur), t("exec_units"),
+      { cls: dir(monthYoY), text: monthYoY === null ? "-" : `${signed(monthYoY)}%` },
+      monthYoY === null ? "" : "YoY",
+      sparkBars(totMonths, { color: "#1A3A82" }));
+    const som = kpiCard(
+      t("exec_kpi_som"), fmtPct(f.mb.share), "",
+      { cls: dir(f.mb.pp), text: `${signed(f.mb.pp)}pp` }, "YoY",
+      sparkLine(somPath, { color: "#231F20" }));
+    const somMonthTile = kpiCard(
+      t("exec_kpi_som_month"), fmtPct(somMonth), "",
+      { cls: dir(somMonthPp), text: somMonthPp === null ? "-" : `${signed(somMonthPp)}pp` },
+      somMonthPp === null ? "" : "YoY",
+      sparkBars(somMonthPath, { color: "#231F20" }));
+    const momentum = kpiCard(
+      t("exec_kpi_momentum"), `${signed(f.marketYoY)}%`, "",
+      { cls: dir(f.marketYoY),
+        text: f.marketYoY >= 0 ? t("exec_yoy_growth") : t("exec_yoy_decline") }, "",
+      sparkLine(momentumPath, { color: "#1A3A82" }));
+
+    document.getElementById("kpi-row").innerHTML = kpiGroups(
+      [total, som], [month, somMonthTile, momentum], "exec-kpis");
   }
 
   // ---- this month -----------------------------------------------------------

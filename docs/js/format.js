@@ -56,3 +56,21 @@ export function rankDelta(cur, prev) {
   if (!cur || !prev) return null;
   return prev - cur; // positive = improved (lower rank number)
 }
+
+/**
+ * KPI tiles split into a "YTD Performance" and a "Monthly Performance" group,
+ * each under its own banner. `rowClass` is the tile grid the page already uses
+ * (exec-kpis or kpi-row). Columns are weighted by tile count so every tile
+ * across the row is the same width. Styles: .kpi-groups in style.css.
+ */
+export function kpiGroups(ytdTiles, monthTiles, rowClass = "kpi-row") {
+  const group = (cls, head, tiles) => `
+    <div class="kpi-group ${cls}">
+      <div class="kpi-group-head">${head}</div>
+      <div class="${rowClass}" style="--n:${tiles.length}">${tiles.join("")}</div>
+    </div>`;
+  return `<div class="kpi-groups" style="--kg-cols:${ytdTiles.length}fr ${monthTiles.length}fr">
+    ${group("ytd", "YTD Performance", ytdTiles)}
+    ${group("month", "Monthly Performance", monthTiles)}
+  </div>`;
+}

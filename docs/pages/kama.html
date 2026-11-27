@@ -39,7 +39,7 @@
 
       <section class="filter-bar" id="filters"></section>
 
-      <div id="kpi-row" class="kpi-row"></div>
+      <div id="kpi-row"></div>
     </div>
 
     <section class="section">
@@ -74,7 +74,7 @@
   import { loadManifest, loadKama } from "../js/data.js";
   import { groupedBar, stackedBar, comboBarLine,
            SEGMENT_TILE_COLORS, TOKEN } from "../js/charts.js";
-  import { fmtNum, fmtPct, calcYoY, deltaSpan } from "../js/format.js";
+  import { fmtNum, fmtPct, calcYoY, deltaSpan, kpiGroups } from "../js/format.js";
   import { getState, subscribe } from "../js/state.js";
 
   const MONTHS = [...Array(12).keys()].map(i => `M${String(i+1).padStart(2,"0")}`);
@@ -182,7 +182,12 @@
     const total = BRANDS.reduce((a, b) => a + cyOf(b), 0);
     const totalPy = BRANDS.reduce((a, b) => a + pyOf(b), 0);
 
-    renderKpis({ total, totalPy, cyOf, pyOf, sel });
+    // The single month the filter points at (the latest month under YTD),
+    // against the same month last year.
+    const mthOf = (b) => byBrand[b][monthIdx - 1] || 0;
+    const mthPyOf = (b) => (py ? byBrandPy[b][monthIdx - 1] || 0 : 0);
+
+    renderKpis({ total, totalPy, cyOf, pyOf, mthOf, mthPyOf, monthIdx, sel });
     renderSales(byBrand, totalMonthly, totalMonthlyPy, trim, sel, year, py);
     renderSegments(data, py, stampMonth, sel);
     renderShare(byBrand, totalMonthly, lastMonth);
@@ -249,29 +254,38 @@
       </table>`;
   }
 
-  /** 전체 tile leads, then one tile per brand — same shape as the KAIDA tiles. */
-  function renderKpis({ total, totalPy, cyOf, pyOf, sel }) {
-    const cards = [`
-      <div class="kpi-card total${sel === null ? " active" : ""}">
-        <div class="title" data-t="filter_all">전체</div>
-        <div class="value">${fmtNum(total)}</div>
-        <div class="delta">${deltaSpan(calcYoY(total, totalPy))} <small>YoY</small></div>
-      </div>`];
+  /**
+   * Two groups of the same shape — 전체 then one tile per brand — the first
+   * through the selected month (YTD), the second for that month alone.
+   */
+  function renderKpis({ total, totalPy, cyOf, pyOf, mthOf, mthPyOf, monthIdx, sel }) {
+    const tiles = (tot, totPy, of, pyOf, suffix) => {
+      const cards = [`
+        <div class="kpi-card total${sel === null ? " active" : ""}">
+          <div class="title">${t("filter_all")}${suffix}</div>
+          <div class="value">${fmtNum(tot)}</div>
+          <div class="delta">${deltaSpan(calcYoY(tot, totPy))} <small>YoY</small></div>
+        </div>`];
+      for (const b of BRANDS) {
+        const cy = of(b);
+        const share = tot ? (cy / tot) * 100 : 0;
+        cards.push(`
+          <div class="kpi-card${sel === b ? " active" : ""}">
+            <div class="title">${name(b)}${suffix}</div>
+            <div class="value">${fmtNum(cy)}</div>
+            <div class="delta">${deltaSpan(calcYoY(cy, pyOf(b)))} <small>YoY · ${fmtPct(share)}</small></div>
+          </div>`);
+      }
+      return cards;
+    };
+    const mthTotal = BRANDS.reduce((a, b) => a + mthOf(b), 0);
+    const mthTotalPy = BRANDS.reduce((a, b) => a + mthPyOf(b), 0);
+    const mo = monthIdx ? ` (${monthIdx}${t("month_suffix")})` : "";
 
-    for (const b of BRANDS) {
-      const cy = cyOf(b);
-      const prev = pyOf(b);
-      const share = total ? (cy / total) * 100 : 0;
-      cards.push(`
-        <div class="kpi-card${sel === b ? " active" : ""}">
-          <div class="title">${name(b)}</div>
-          <div class="value">${fmtNum(cy)}</div>
-          <div class="delta">${deltaSpan(calcYoY(cy, prev))} <small>YoY · ${fmtPct(share)}</small></div>
-        </div>`);
-    }
-    const row = document.getElementById("kpi-row");
-    row.innerHTML = cards.join("");
-    applyT(row);
+    document.getElementById("kpi-row").innerHTML = kpiGroups(
+      tiles(total, totalPy, cyOf, pyOf, ""),
+      tiles(mthTotal, mthTotalPy, mthOf, mthPyOf, mo),
+      "kpi-row");
   }
 
   /**

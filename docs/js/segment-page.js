@@ -9,7 +9,7 @@ import { renderSidebar } from "./sidebar.js";
 import { renderFilters, syncFilters, yearOptions, monthOptions } from "./filters.js";
 import { loadManifest, loadKaidaPair } from "./data.js";
 import { lineChart, stackedBar, comboBarLine, BRAND_TILE_COLORS, TOKEN } from "./charts.js";
-import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan } from "./format.js";
+import { MONTHS, MONTHS_KR, fmtNum, fmtPct, calcYoY, deltaSpan, kpiGroups } from "./format.js";
 import { getState, subscribe } from "./state.js";
 
 const BRAND_ORDER = ["MB", "Volvo", "Scania", "MAN", "IVECO"];
@@ -254,22 +254,26 @@ function renderKpis(f, monthIdx) {
   // the segment's weight in the market — the number the last tile already
   // carries. The tile only says something once a brand narrows the scope.
   const byBrand = f.brand !== "ALL";
-  el.innerHTML = [
+  const ytd = [
     kpiTile(t("seg_kpi_ytd"), fmtNum(f.ytd), " units",
             f.hasPrev ? deltaSpan(f.yoy) : "-", "YoY"),
     kpiTile(t("seg_kpi_ytd_share"), byBrand ? fmtPct(f.share) : "-", "",
             byBrand && f.pp !== null ? ppSpan(f.pp) : "-", byBrand ? "YoY" : ""),
-    kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), " units",
-            f.mom === null ? "-" : deltaSpan(f.mom), "MoM"),
-    kpiTile(`${t("seg_kpi_month_share")} (${mo})`, fmtPct(f.mthShare), "",
-            f.mthSharePp === null ? "-" : ppSpan(f.mthSharePp), "MoM"),
+    // The segment's weight is a YTD figure (segment YTD / market YTD).
     `<div class="kpi-card weight">
        <div class="title">${t("seg_kpi_market_weight")}</div>
        <div class="value">${fmtPct(f.segWeight)}</div>
        <div class="delta"><small>${t("seg_kpi_market_weight_sub")}</small></div>
        ${ring(f.segWeight)}
      </div>`,
-  ].join("");
+  ];
+  const month = [
+    kpiTile(`${t("seg_kpi_month")} (${mo})`, fmtNum(f.mth), " units",
+            f.mom === null ? "-" : deltaSpan(f.mom), "MoM"),
+    kpiTile(`${t("seg_kpi_month_share")} (${mo})`, fmtPct(f.mthShare), "",
+            f.mthSharePp === null ? "-" : ppSpan(f.mthSharePp), "MoM"),
+  ];
+  el.innerHTML = kpiGroups(ytd, month, "kpi-row");
 }
 
 // ---- charts -----------------------------------------------------------------
@@ -357,43 +361,66 @@ function renderHpPoints(cur, monthIdx) {
 
 // ---- brand table ------------------------------------------------------------
 
+/**
+ * Two rankings side by side: the selected month on the left (ranked by that
+ * month's units, MoM), the year to date on the right (ranked by YTD units,
+ * YoY, share of the segment and its move against last year). Each side keeps
+ * its own rank, so a brand can sit at a different place in each.
+ */
 function renderBrandTable(f, year, prevYear, monthIdx) {
   const el = document.getElementById("brand-table");
   if (!el) return;
-  const py = f.hasPrev ? prevYear : "-";
+  const mon = MONTHS[monthIdx - 1];
+  const ytdSpan = monthIdx > 1 ? `${MONTHS[0]}–${mon}` : mon;
+  const byMonth = [...f.brands].sort((a, b) => b.month - a.month);
+  const byYtd = f.brands; // already sorted by YTD units
+  const maxShare = Math.max(...byYtd.map(r => r.share), 1);
+  const rowCls = (r) => (r.brand === "MB" ? "highlight" : "");
+  const brandTh = `<th class="rank"></th><th class="label">${t("filter_brand")}</th>`;
+
   el.innerHTML = `
-    <div class="table-scroll table-fit">
-      <table class="data compact">
-        <thead>
-          <tr>
-            <th class="rank"></th>
-            <th class="label" data-t="filter_brand">브랜드</th>
-            <th>YTD ${year}</th>
-            <th>YTD ${py}</th>
-            <th>YoY</th>
-            <th>SHARE ${year}</th>
-            <th>SHARE ${py}</th>
-            <th>Δ SHARE</th>
-            <th>${monthIdx}${t("month_suffix")}</th>
-            <th>MoM</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${f.brands.map((r, i) => `
-            <tr class="${r.brand === "MB" ? "highlight" : ""}">
-              <td class="rank">${i + 1}</td>
-              <td class="label">${r.label}</td>
-              <td class="num">${fmtNum(r.cy)}</td>
-              <td class="num">${f.hasPrev ? fmtNum(r.py) : "-"}</td>
-              <td class="num">${r.yoy === null ? "-" : deltaSpan(r.yoy)}</td>
-              <td class="num">${fmtPct(r.share)}</td>
-              <td class="num">${r.sharePrev === null ? "-" : fmtPct(r.sharePrev)}</td>
-              <td class="num">${r.pp === null ? "-" : ppSpan(r.pp)}</td>
-              <td class="num">${fmtNum(r.month)}</td>
-              <td class="num">${r.mom === null ? "-" : deltaSpan(r.mom)}</td>
-            </tr>`).join("")}
-        </tbody>
-      </table>
+    <div class="rank-split">
+      <div class="rank-side month">
+        <table class="data compact rank-tbl">
+          <thead>
+            <tr class="rt-group"><th colspan="4">Monthly <span>|</span> ${mon}</th></tr>
+            <tr class="rt-sub"><th colspan="2"></th><th colspan="2" class="rt-band">Volume</th></tr>
+            <tr>${brandTh}<th>${t("col_units")}</th><th>MoM</th></tr>
+          </thead>
+          <tbody>
+            ${byMonth.map((r, i) => `
+              <tr class="${rowCls(r)}">
+                <td class="rank">${i + 1}</td>
+                <td class="label">${r.label}</td>
+                <td class="num units">${fmtNum(r.month)}</td>
+                <td class="num">${r.mom === null ? "-" : deltaSpan(r.mom)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
+      <div class="rank-side ytd">
+        <table class="data compact rank-tbl">
+          <thead>
+            <tr class="rt-group"><th colspan="7">YTD <span>|</span> ${ytdSpan}</th></tr>
+            <tr class="rt-sub"><th colspan="2"></th><th colspan="2" class="rt-band">Volume</th>
+              <th colspan="3" class="rt-band">Market Share</th></tr>
+            <tr>${brandTh}<th>${t("col_units")}</th><th>YoY</th>
+              <th>${t("col_share")}</th><th class="bar"></th><th>Δ YoY</th></tr>
+          </thead>
+          <tbody>
+            ${byYtd.map((r, i) => `
+              <tr class="${rowCls(r)}">
+                <td class="rank">${i + 1}</td>
+                <td class="label">${r.label}</td>
+                <td class="num units">${fmtNum(r.cy)}</td>
+                <td class="num">${r.yoy === null ? "-" : deltaSpan(r.yoy)}</td>
+                <td class="num">${fmtPct(r.share)}</td>
+                <td class="bar"><span style="width:${((r.share / maxShare) * 100).toFixed(1)}%"></span></td>
+                <td class="num">${r.pp === null ? "-" : ppSpan(r.pp)}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </div>
     </div>`;
 }
 
