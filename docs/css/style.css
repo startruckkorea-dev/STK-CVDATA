@@ -1915,15 +1915,17 @@ body.cvx-page { background: var(--cvx-page); }
 }
 
 /* Segment pages: brand ranking split into the month (left) and the year to
-   date (right), each ranked on its own. Both tables carry the same three
-   header rows and row padding, so their body rows line up across the divider. */
+   date (right), each ranked on its own. A gap, not a rule, sets the two
+   tables apart; both carry the same three header rows and row padding, so
+   their body rows still line up across it. */
 .rank-split {
   display: flex;
+  gap: 18px;
   overflow-x: auto;
 }
 /* The month side takes the width its four columns need; YTD takes the rest. */
 .rank-split .rank-side.month { flex: 0 0 auto; }
-.rank-split .rank-side.ytd { flex: 1 1 auto; min-width: 460px; border-left: 2px solid #c3cad2; }
+.rank-split .rank-side.ytd { flex: 1 1 auto; min-width: 460px; }
 .rank-split table.rank-tbl { width: 100%; margin: 0; }
 table.rank-tbl th { text-transform: none; letter-spacing: 0; background: none; }
 table.rank-tbl tr.rt-group th {
@@ -1957,7 +1959,6 @@ table.rank-tbl .delta, table.rank-tbl .pp { white-space: nowrap; }
 @media (max-width: 880px) {
   .rank-split { flex-direction: column; }
   .rank-split .rank-side.ytd { min-width: 0; }
-  .rank-split .rank-side.ytd { border-left: 0; border-top: 2px solid #c3cad2; margin-top: 10px; }
 }
 /* Six tiles on a narrow row: the market-weight ring steps down so it clears
    the figure beside it. */

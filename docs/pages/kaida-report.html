@@ -123,8 +123,9 @@ th.grp{text-align:center;background:#e9eef1;color:var(--ink);border-bottom:2px s
 th.grp.sub{background:#f2f5f7;color:var(--teal);font-size:8.5px}
 th.grp.mbg{background:#d8ecf0;color:var(--teal)}
 th.blank{border-bottom:none}
-th.sep,td.sep{border-left:1.5px solid #9aa6af}
-th.sep,td.sep{padding-left:8px}
+/* Monthly and YTD halves are set apart by an empty gap column (gapCol), not a rule. */
+th.gap,td.gap{width:12px;min-width:12px;padding:0!important;border:none!important;background:#fff!important}
+th.sep,td.sep{padding-left:5px}
 td.sep:not(:only-child),th.sep:not(.grp){text-align:left}
 #tblBrand{font-size:9px}
 #tblBrand th,#tblBrand td{padding-left:3px;padding-right:3px}
@@ -382,6 +383,10 @@ function autoInsights(m){
 /* ============================ render ============================ */
 function li(arr){return arr.map(x=>`<li>${x}</li>`).join('');}
 
+/** Put an empty gap column ahead of every cell that opens the YTD half (class
+ *  "sep"), so the two halves read as two tables side by side. */
+const gapCol=html=>html.replace(/<(t[hd])((?: [a-z]+="[^"]*")*?) class="((?:grp |blank )?sep)(?=[ "])/g,'<$1 class="gap"></$1><$1$2 class="$3');
+
 function render(d){
   const m=buildModel(d), Y=d.period.year, M=d.period.month, Mn=MON[M-1], mb=m.brand[m.mbN], T=m.T;
   window.__model=m;
@@ -418,7 +423,7 @@ function render(d){
        `<td class="${my}" style="text-align:left"><span class="bar" style="width:${o.sh/maxSh*40}px;background:${BCOL[yb]||'#888'}"></span></td><td class="${my}">${pp(o.dsh)}</td></tr>`;});
   h+=`<tr class="tot"><td>Total</td><td>${fmt(T.cur)}</td>`+m.segs.map(s=>`<td>${m.seg[s].t.cur}</td>`).join('')+
      `<td>${yo(m.curYoY)}</td><td>${yo(pct(T.cur,T.prev))}</td><td class="sep">Total</td><td>${fmt(T.ytd)}</td><td>${fmt(T.ytdPrev)}</td><td>${yo(pct(T.ytd,T.ytdPrev))}</td><td>100%</td><td></td><td></td></tr></tbody>`;
-  document.getElementById('tblBrand').innerHTML=h;
+  document.getElementById('tblBrand').innerHTML=gapCol(h);
 
   let s=`<thead><tr><th class="blank"></th><th colspan="2" class="grp">Market</th><th colspan="2" class="grp mbg">Mercedes-Benz</th></tr>`+
     `<tr><th>Segment</th><th>Units</th><th>YoY</th><th>Share</th><th>Δ Share</th></tr></thead><tbody>`;
@@ -439,7 +444,7 @@ function render(d){
       t+=`<tr><td${mc}><span class="rk">${c.rankCur}</span>${esc(c.b)}</td><td${mc}><b>${c.cur}</b></td><td${mc}>${c.prev?yo(c.mom):'<span class="zero">-</span>'}</td>`+
          `<td class="sep ${my}"><span class="rk">${r.rank}</span>${esc(r.b)}</td><td class="${my}"><b>${fmt(r.ytd)}</b></td><td class="${my}">${yo(r.yoy)}</td><td class="${my}">${r.sh.toFixed(1)}%</td>`+
          `<td class="${my}" style="text-align:left"><span class="bar" style="width:${mx?r.sh/mx*48:0}px;background:${SEG[g].c}"></span></td><td class="${my}">${pp(r.dsh)}</td></tr>`;});
-    t+=`</tbody></table>`;
+    t=gapCol(t+`</tbody></table>`);
     return `<div class="segblk">
       <div class="seghead"><span class="nm" style="border-color:${SEG[g].c}">${g} <span style="font-weight:500;color:var(--sub);font-size:11px">${SEG[g].ko}</span></span>
         <div class="st">
